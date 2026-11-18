@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="background">#FFF4F5F7</color>
+    <color name="surface">#FFFFFFFF</color>
+    <color name="surface_variant">#FFE6E7EB</color>
+    <color name="on_background">#FF111111</color>
+    <color name="muted">#FF6B6F7A</color>
+    <color name="outline">#FFD5D7DD</color>
+    <color name="danger">#FFDC2626</color>
+    <color name="positive">#FF15803D</color>
+    <color name="warning">#FFB45309</color>
+    <!-- The code panel stays white in dark mode: scanners need dark bars on light. -->
+    <color name="code_panel">#FFFFFFFF</color>
+    <color name="code_ink">#FF111111</color>
+    <color name="launcher_background">#FF111318</color>
+    <color name="launcher_card_back">#FF00A0E2</color>
+    <color name="launcher_card_front">#FFFFD200</color>
+</resources>

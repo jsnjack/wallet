@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Wallet</string>
+
+    <plurals name="card_count">
+        <item quantity="one">%d card</item>
+        <item quantity="other">%d cards</item>
+    </plurals>
+
+    <string name="shortcut_scan_short">Scan</string>
+    <string name="shortcut_scan_long">Scan a new card</string>
+
+    <string name="kind_loyalty">Loyalty card</string>
+    <string name="kind_membership">Membership</string>
+    <string name="kind_voucher">Voucher</string>
+    <string name="kind_gift_card">Gift card</string>
+    <string name="kind_ticket">Ticket</string>
+    <string name="kind_other">Other</string>
+
+    <string name="grid_empty_title">No cards yet</string>
+    <string name="grid_empty_body">Tap + to scan your first card.</string>
+    <string name="grid_no_match">No cards match your search.</string>
+    <string name="search_hint">Search</string>
+
+    <string name="menu_keep_at_top">Keep at top</string>
+    <string name="menu_unpin">Stop keeping at top</string>
+    <string name="menu_pin_home">Pin to home screen</string>
+    <string name="menu_edit">Edit</string>
+    <string name="menu_lock">Require unlock</string>
+    <string name="menu_unlock">Stop requiring unlock</string>
+    <string name="menu_delete">Delete</string>
+
+    <string name="delete_title">Delete %s?</string>
+    <string name="delete_body">The card is removed from this phone and from your other devices.</string>
+
+    <string name="action_delete">Delete</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_close">Close</string>
+    <string name="action_save">Save</string>
+    <string name="action_undo">Undo</string>
+    <string name="action_add_card">Add a card</string>
+    <string name="action_clear_search">Clear search</string>
+    <string name="action_copy_number">Copy number</string>
+    <string name="action_unlock">Unlock</string>
+    <string name="action_allow_camera">Allow camera</string>
+    <string name="action_torch">Torch</string>
+    <string name="action_continue">Continue</string>
+
+    <string name="code_brightness">☀ Full brightness</string>
+    <string name="code_hidden">Locked</string>
+    <string name="unlock_prompt_title">Show this card</string>
+
+    <string name="scan_hint">Point at a card or a screen</string>
+    <string name="scan_no_camera">The camera is needed to scan cards. You can also pick an image or type the number.</string>
+    <string name="scan_from_image">Image</string>
+    <string name="scan_type_number">Type number</string>
+
+    <string name="form_new_title">New card</string>
+    <string name="form_edit_title">Edit card</string>
+    <string name="form_name">Name</string>
+    <string name="form_name_placeholder">Card name</string>
+    <string name="form_number">Number · %s</string>
+    <string name="form_format">Code type</string>
+    <string name="form_kind">Kind</string>
+    <string name="form_color">Colour</string>
+    <string name="form_note">Note</string>
+    <string name="form_keep_at_top">Keep at top</string>
+    <string name="form_require_unlock">Require fingerprint or screen lock</string>
+    <string name="form_delete">Delete card</string>
+    <string name="form_check_digit_ok">Check digit is correct</string>
+    <string name="form_code_not_drawable">This number cannot be shown as %s. Pick another code type.</string>
+
+    <string name="settings_title">Settings</string>
+    <string name="settings_export">Export cards</string>
+    <string name="settings_export_detail">One file with all cards, encrypted with a password. It works without Google.</string>
+    <string name="settings_import">Import cards</string>
+    <string name="settings_import_detail">Cards newer than the ones on this phone are added or updated.</string>
+    <string name="settings_version">Version %s</string>
+    <string name="export_file_name">wallet-%s.wallet</string>
+
+    <string name="sync_title">Sync with Google Drive</string>
+    <string name="sync_off_body">Your cards are kept in a hidden folder in your Google Drive that only this app can see, so a new phone or a tablet gets them too.</string>
+    <string name="sync_turn_on">Turn on sync</string>
+    <string name="sync_running">Syncing…</string>
+    <string name="sync_done">Synced %s</string>
+    <string name="sync_waiting">Waiting to sync</string>
+    <string name="sync_failed">The last sync failed. It will try again.</string>
+    <string name="sync_needs_sign_in">Google needs you to approve access again.</string>
+    <string name="sync_sign_in_again">Approve access</string>
+    <string name="sync_account_unknown">Google account</string>
+    <string name="sync_now">Sync now</string>
+    <string name="sync_mobile_data">Use mobile data</string>
+    <string name="sync_mobile_data_detail">Otherwise sync waits for Wi-Fi.</string>
+    <string name="sync_turn_off">Turn off sync</string>
+    <string name="sync_turn_off_detail">Cards stay on this phone and in Drive.</string>
+    <string name="sync_running_short">syncing</string>
+    <string name="sync_done_short">synced</string>
+    <string name="sync_failed_short">sync failed</string>
+    <string name="sync_needs_sign_in_short">sync needs approval</string>
+
+    <string name="password_export_title">Export password</string>
+    <string name="password_export_body">You need this password to import the file. It cannot be recovered.</string>
+    <string name="password_import_title">Import password</string>
+    <string name="password_label">Password</string>
+    <string name="password_repeat">Repeat password</string>
+    <plurals name="password_too_short">
+        <item quantity="one">Use at least %d character.</item>
+        <item quantity="other">Use at least %d characters.</item>
+    </plurals>
+
+    <string name="first_run_title">All your cards, one tap away</string>
+    <string name="first_run_body">Loyalty cards, vouchers and tickets, stored on this phone and synced through your Google Drive.</string>
+    <string name="first_run_restore">Restore from Google Drive</string>
+    <string name="first_run_restoring">Restoring…</string>
+    <string name="first_run_fresh">Start fresh</string>
+    <string name="first_run_later">You can turn on sync later in Settings.</string>
+
+    <string name="message_deleted">%s deleted</string>
+    <string name="message_unsupported_code">This code type is not supported yet.</string>
+    <string name="message_no_code_in_image">No code found in this image.</string>
+    <string name="message_pin_unsupported">Your launcher cannot pin shortcuts.</string>
+    <string name="message_no_screen_lock">Set up a screen lock or fingerprint first.</string>
+    <string name="message_unlock_failed">The card could not be unlocked.</string>
+    <string name="message_drive_connect_failed">Could not connect to Google Drive.</string>
+    <string name="message_sync_failed">Connected, but the first sync failed. It will try again.</string>
+    <string name="message_export_failed">The export could not be written.</string>
+    <string name="message_import_failed">The file could not be read.</string>
+    <string name="message_wrong_password">Wrong password.</string>
+    <string name="message_not_an_export">This is not a wallet export file.</string>
+    <plurals name="message_exported">
+        <item quantity="one">Exported %d card.</item>
+        <item quantity="other">Exported %d cards.</item>
+    </plurals>
+    <plurals name="message_imported">
+        <item quantity="one">Imported %d card.</item>
+        <item quantity="other">Imported %d cards.</item>
+    </plurals>
+</resources>

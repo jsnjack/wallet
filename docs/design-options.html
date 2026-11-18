@@ -1,0 +1,927 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wallet design</title>
+<link rel="stylesheet" href="bunk-present://assets/bunk-doc.css">
+<script src="bunk-present://assets/bunk-doc.js" defer></script>
+<style>
+  /* ---------- page chrome (theme-aware) ---------- */
+  .lead { font-size: 1.05em; }
+  .row { display: grid; grid-template-columns: 290px 1fr; gap: 28px; align-items: start; margin: 18px 0; }
+  @media (max-width: 760px) { .row { grid-template-columns: 1fr; } .row > .phone { margin: 0 auto; } }
+  .phones { display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; margin: 18px 0; }
+  .caption { text-align: center; color: var(--bunk-muted); font-size: .9em; margin-top: 8px; max-width: 272px; }
+  .fig { display: flex; flex-direction: column; align-items: center; }
+  .principles li { margin-bottom: .35em; }
+  .hint { color: var(--bunk-muted); font-size: .9em; }
+
+  /* ---------- phone mockups (fixed colours: they depict the app itself) ---------- */
+  .phone { width: 272px; height: 576px; flex: none; border-radius: 42px; padding: 8px;
+           background: #0b0b0e; border: 1px solid var(--bunk-border);
+           box-shadow: 0 10px 30px rgba(0,0,0,.28); }
+  .screen { position: relative; width: 100%; height: 100%; border-radius: 34px; overflow: hidden;
+            font: 13px/1.3 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; user-select: none; }
+  .screen.light { background: #F4F5F7; color: #111; }
+  .screen.dark  { background: #0E0F13; color: #F2F2F4; }
+  .sb { height: 30px; display: flex; justify-content: space-between; align-items: center;
+        padding: 6px 22px 0; font-size: 11px; font-weight: 600; }
+  .sb .cam { width: 10px; height: 10px; border-radius: 50%; background: #000; }
+  .hdr { padding: 10px 18px 8px; }
+  .hdr .t { font-size: 26px; font-weight: 750; letter-spacing: -.5px; }
+  .hdr .s { font-size: 11.5px; opacity: .6; margin-top: 2px; }
+  [data-card] { cursor: pointer; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 12px; }
+  .tile { aspect-ratio: 1.6; border-radius: 13px; padding: 9px 10px; display: flex; flex-direction: column;
+          justify-content: space-between; box-shadow: 0 1px 2px rgba(0,0,0,.12); transition: transform .08s; }
+  .dark .tile { box-shadow: none; }
+  .tile:active, .stk:active, .hero:active, .res:active, .upnext:active { transform: scale(.97); }
+  .tile .m { font-weight: 800; font-size: 17px; letter-spacing: -.4px; }
+  .tile .n { font-size: 10.5px; font-weight: 600; display: flex; justify-content: space-between; }
+  .tile .n i { font-style: normal; opacity: .75; font-weight: 500; }
+
+  .bbar { position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 12px 16px; display: flex; gap: 8px; align-items: center; }
+  .light .bbar { background: linear-gradient(transparent, #F4F5F7 30%); }
+  .dark .bbar  { background: linear-gradient(transparent, #0E0F13 30%); }
+  .search { flex: 1; height: 40px; border-radius: 20px; display: flex; align-items: center; padding: 0 14px; gap: 8px; font-size: 12.5px; }
+  .light .search { background: #fff; color: #777; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+  .dark .search  { background: #1D1F26; color: #9a9aa5; }
+  .fab { width: 40px; height: 40px; border-radius: 14px; display: grid; place-items: center; font-size: 20px; font-weight: 400; }
+  .light .fab { background: #111; color: #fff; }
+  .dark .fab  { background: #F2F2F4; color: #111; }
+
+  .upnext { margin: 2px 12px 10px; border-radius: 16px; padding: 10px; display: flex; gap: 10px; align-items: center; transition: transform .08s; }
+  .light .upnext { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+  .dark .upnext  { background: #1D1F26; }
+  .upnext .ic { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; font-weight: 800; color: #fff; flex: none; }
+  .upnext .tx { flex: 1; min-width: 0; }
+  .upnext .k { font-size: 9.5px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: #7B3FE4; }
+  .dark .upnext .k { color: #B08CFF; }
+  .upnext .h { font-weight: 650; font-size: 12.5px; }
+  .upnext .d { font-size: 10.5px; opacity: .6; }
+  .upnext .mini { width: 40px; height: 40px; flex: none; border-radius: 4px; overflow: hidden; }
+
+  /* stack */
+  .stack { padding: 6px 12px; }
+  .stk { height: 150px; border-radius: 16px; padding: 12px 14px; margin-bottom: -104px; position: relative;
+         box-shadow: 0 -4px 14px rgba(0,0,0,.35); display: flex; flex-direction: column; justify-content: space-between;
+         background-image: linear-gradient(135deg, rgba(255,255,255,.18), rgba(255,255,255,0) 60%); }
+  .stk:last-child { margin-bottom: 0; }
+  .stk .top { display: flex; justify-content: space-between; font-weight: 700; font-size: 13px; }
+  .stk .top i { font-style: normal; font-weight: 500; opacity: .8; font-size: 11px; }
+  .stk .bot { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11px; opacity: .85; letter-spacing: 1px; }
+
+  /* spotlight */
+  .q { margin: 10px 12px; height: 44px; border-radius: 14px; background: #fff; display: flex; align-items: center; padding: 0 14px;
+       font-size: 15px; box-shadow: 0 0 0 2px #111; }
+  .q .caret { width: 1.5px; height: 18px; background: #111; margin-left: 1px; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .chips { display: flex; gap: 6px; padding: 0 12px 8px; flex-wrap: wrap; }
+  .chip { font-size: 11px; padding: 5px 10px; border-radius: 99px; background: #E6E7EB; }
+  .chip.on { background: #111; color: #fff; }
+  .res { display: flex; align-items: center; gap: 10px; padding: 9px 12px; margin: 0 8px; border-radius: 12px; }
+  .res.top { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .res .dot { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-size: 10px; font-weight: 800; flex: none; }
+  .res .nm { font-weight: 600; font-size: 13px; } .res .ds { font-size: 10.5px; color: #777; }
+  .res .go { margin-left: auto; font-size: 10px; color: #777; }
+  .kbd { position: absolute; left: 0; right: 0; bottom: 0; height: 196px; background: #D5D7DD; padding: 8px 4px 18px;
+         display: flex; flex-direction: column; gap: 7px; }
+  .kbd div { display: flex; gap: 4px; justify-content: center; }
+  .kbd span { height: 34px; flex: 0 0 21px; background: #fff; border-radius: 5px; display: grid; place-items: center;
+              font-size: 13px; box-shadow: 0 1px 0 #999; }
+  .kbd span.w { flex: 0 0 120px; } .kbd span.g { background: #ADB1BA; flex: 0 0 34px; font-size: 10px; }
+
+  /* now */
+  .now { background: radial-gradient(120% 70% at 20% 0%, #2B1F66 0%, #0E0F13 60%); }
+  .ctx { margin: 0 18px 10px; font-size: 11px; display: inline-flex; gap: 6px; align-items: center;
+         background: rgba(255,255,255,.1); padding: 5px 10px; border-radius: 99px; }
+  .hero { margin: 0 12px; border-radius: 20px; padding: 12px; box-shadow: 0 10px 30px rgba(0,160,226,.35); }
+  .hero .top { display: flex; justify-content: space-between; align-items: center; font-weight: 750; font-size: 15px; }
+  .hero .top i { font-style: normal; font-weight: 500; font-size: 10.5px; opacity: .85; }
+  .hero .pan { background: #fff; border-radius: 12px; margin-top: 10px; padding: 10px 12px 8px; color: #111; text-align: center; }
+  .hero .pan .num { font-family: ui-monospace, Menlo, monospace; font-size: 11px; letter-spacing: 1.5px; margin-top: 4px; }
+  .sec { margin: 14px 18px 6px; font-size: 10px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; opacity: .6; }
+  .todo { margin: 0 12px; padding: 9px 10px; border-radius: 14px; background: rgba(255,255,255,.08); display: flex; gap: 10px; align-items: center; }
+  .todo .ic { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; font-weight: 800; font-size: 11px; flex: none; }
+  .todo .h { font-weight: 600; font-size: 12px; } .todo .d { font-size: 10.5px; opacity: .6; }
+  .strip { display: flex; gap: 8px; padding: 0 12px; overflow: hidden; }
+  .strip .tile { width: 86px; flex: none; }
+
+  /* code view overlay */
+  .cv { position: absolute; inset: 0; display: flex; flex-direction: column; animation: cvin .16s ease-out; z-index: 5; }
+  @keyframes cvin { from { transform: translateY(14px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .cv-top { display: flex; justify-content: space-between; align-items: center; padding: 34px 16px 0; }
+  .cv-x { width: 30px; height: 30px; border-radius: 50%; background: rgba(0,0,0,.18); display: grid; place-items: center; font-size: 13px; cursor: pointer; }
+  .cv-sun { font-size: 10.5px; padding: 4px 9px; border-radius: 99px; background: rgba(0,0,0,.18); }
+  .cv-head { display: flex; gap: 12px; align-items: center; padding: 18px 18px 16px; }
+  .cv-mono { width: 46px; height: 46px; border-radius: 14px; background: rgba(255,255,255,.2); display: grid; place-items: center; font-weight: 800; font-size: 15px; flex: none; }
+  .cv-name { font-size: 20px; font-weight: 750; letter-spacing: -.3px; }
+  .cv-kind { font-size: 11.5px; opacity: .8; }
+  .cv-panel { margin: 0 14px; background: #fff; color: #111; border-radius: 22px; padding: 18px 16px 16px; text-align: center;
+              box-shadow: 0 10px 30px rgba(0,0,0,.25); position: relative; }
+  .cv-code svg { display: block; margin: 0 auto; }
+  .cv-num { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; letter-spacing: 1.6px; margin-top: 10px; }
+  .cv-meta { font-size: 11px; color: #666; margin-top: 8px; }
+  .cv-acts { display: flex; gap: 6px; justify-content: center; margin-top: 12px; }
+  .cv-acts span { font-size: 11px; padding: 6px 11px; border-radius: 99px; background: #EEF0F3; }
+  .cv-acts span.p { background: #111; color: #fff; }
+  .cv-dots { margin-top: auto; text-align: center; padding-bottom: 18px; font-size: 10px; letter-spacing: 3px; opacity: .7; }
+  .cv-bal { padding: 0 18px 14px; display: flex; justify-content: space-between; align-items: baseline; }
+  .cv-bal b { font-size: 26px; letter-spacing: -.5px; } .cv-bal small { font-size: 10.5px; opacity: .75; }
+  .cv-lock .cv-code, .cv-lock .cv-num { filter: blur(7px); }
+  .cv-lockmsg { position: absolute; inset: 0; display: grid; place-items: center; align-content: center; gap: 6px; font-size: 12px; font-weight: 600; }
+  .cv-lockmsg .fp { width: 52px; height: 52px; border-radius: 50%; background: #111; color: #fff; display: grid; place-items: center; font-size: 24px; margin: 0 auto; }
+  .bp-route { display: flex; justify-content: space-between; align-items: flex-end; padding: 8px 20px 4px; }
+  .bp-route .ap { font-size: 30px; font-weight: 800; letter-spacing: -1px; line-height: 1; }
+  .bp-route .ct { font-size: 10.5px; opacity: .7; margin-top: 3px; }
+  .bp-route .tm { font-size: 12px; font-weight: 600; margin-top: 2px; }
+  .bp-route .pl { font-size: 18px; opacity: .8; padding-bottom: 18px; }
+  .bp-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 10px 16px 14px; text-align: center; }
+  .bp-grid b { display: block; font-size: 16px; } .bp-grid small { font-size: 9.5px; opacity: .65; text-transform: uppercase; letter-spacing: .5px; }
+
+  /* add-card flow */
+  .cam-view { position: absolute; inset: 0; background:
+      radial-gradient(60% 40% at 50% 42%, #5b6170 0%, #2a2d35 55%, #121318 100%); color: #fff; }
+  .cam-card { position: absolute; left: 44px; top: 170px; width: 168px; height: 106px; border-radius: 12px; background: #00A0E2;
+              transform: rotate(-4deg); box-shadow: 0 10px 30px rgba(0,0,0,.5); padding: 10px; }
+  .cam-card .m { font-weight: 800; color: #fff; font-size: 18px; }
+  .cam-card .bc { position: absolute; left: 12px; right: 12px; bottom: 10px; height: 36px; background: #fff; border-radius: 4px; padding: 3px 6px; }
+  .cam-box { position: absolute; left: 50px; top: 236px; width: 160px; height: 52px; border: 2.5px solid #4ADE80; border-radius: 8px;
+             box-shadow: 0 0 0 999px rgba(0,0,0,.25); }
+  .cam-top { position: absolute; top: 34px; left: 16px; right: 16px; display: flex; justify-content: space-between; }
+  .cam-top span { width: 32px; height: 32px; border-radius: 50%; background: rgba(0,0,0,.35); display: grid; place-items: center; font-size: 13px; }
+  .cam-found { position: absolute; left: 50%; top: 310px; transform: translateX(-50%); background: #4ADE80; color: #04210f;
+               font-size: 11.5px; font-weight: 700; padding: 6px 12px; border-radius: 99px; white-space: nowrap; }
+  .cam-hint { position: absolute; top: 120px; width: 100%; text-align: center; font-size: 12px; opacity: .85; }
+  .cam-src { position: absolute; left: 12px; right: 12px; bottom: 18px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .cam-src span { background: rgba(255,255,255,.14); border-radius: 14px; padding: 10px 4px; text-align: center; font-size: 10.5px; line-height: 1.5; }
+  .cam-src span b { display: block; font-size: 16px; font-weight: 400; }
+  .form { padding: 0 14px; }
+  .prev { height: 120px; border-radius: 16px; background: #00A0E2; color: #fff; padding: 12px 14px; display: flex; flex-direction: column; justify-content: space-between; }
+  .prev .m { font-weight: 800; font-size: 22px; } .prev .n { font-weight: 600; font-size: 12px; }
+  .sugg { margin: 10px 0; font-size: 11.5px; background: #E7F6FD; color: #035a80; border-radius: 10px; padding: 8px 10px; display: flex; justify-content: space-between; }
+  .fld { background: #fff; border-radius: 12px; padding: 7px 12px; margin-bottom: 6px; }
+  .fld small { display: block; font-size: 9.5px; color: #888; text-transform: uppercase; letter-spacing: .5px; }
+  .fld div { font-size: 13px; } .fld .ok { color: #15803D; font-size: 10.5px; }
+  .sw { display: flex; gap: 6px; margin: 4px 0 6px; } .sw span { width: 22px; height: 22px; border-radius: 50%; }
+  .sw span.on { outline: 2px solid #111; outline-offset: 2px; }
+  .save { position: absolute; left: 14px; right: 14px; bottom: 18px; height: 44px; border-radius: 14px; background: #111; color: #fff;
+          display: grid; place-items: center; font-weight: 650; }
+
+  /* settings */
+  .grp { margin: 0 12px 10px; background: #fff; border-radius: 18px; overflow: hidden; }
+  .it { display: flex; justify-content: space-between; align-items: center; padding: 11px 14px; border-bottom: 1px solid #EEF0F3; font-size: 12.5px; gap: 8px; }
+  .it:last-child { border-bottom: 0; } .it small { display: block; font-size: 10.5px; color: #888; }
+  .tg { width: 34px; height: 20px; border-radius: 99px; background: #2563EB; position: relative; flex: none; }
+  .tg::after { content: ""; position: absolute; right: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; }
+  .tg.off { background: #C9CCD3; } .tg.off::after { right: auto; left: 2px; }
+  .acct { display: flex; gap: 10px; align-items: center; }
+  .av { width: 34px; height: 34px; border-radius: 50%; background: #E8EAED; display: grid; place-items: center; font-weight: 700; color: #4285F4; }
+  .stat { margin: 0 12px 10px; border-radius: 18px; padding: 14px; background: #E9F7EF; color: #0f5132; }
+  .stat b { font-size: 15px; } .stat div { font-size: 11px; margin-top: 3px; }
+
+  /* search */
+  .sfield { position: absolute; left: 12px; right: 12px; bottom: 204px; display: flex; gap: 8px; }
+  .sfield .search { background: #fff; color: #111; box-shadow: 0 0 0 2px #111; font-size: 14px; }
+  .sfield .caret { width: 1.5px; height: 17px; background: #111; margin-left: -6px; animation: blink 1s steps(1) infinite; }
+  .ahit { margin: 10px 12px 0; background: #fff; border-radius: 12px; padding: 9px 12px; font-size: 11.5px; display: flex; gap: 8px; align-items: center; }
+  .ahit small { font-size: 9.5px; text-transform: uppercase; letter-spacing: .5px; color: #888; }
+
+  /* long-press menu */
+  .dim { position: absolute; inset: 0; background: rgba(10,10,14,.5); backdrop-filter: blur(2px); z-index: 2; }
+  .lift { position: absolute; z-index: 3; left: 50%; top: 150px; width: 150px; transform: translateX(-50%) scale(1.04);
+          box-shadow: 0 14px 30px rgba(0,0,0,.4); }
+  .menu { position: absolute; z-index: 3; left: 50%; top: 262px; width: 200px; transform: translateX(-50%);
+          background: #fff; color: #111; border-radius: 18px; padding: 6px; box-shadow: 0 14px 30px rgba(0,0,0,.35); }
+  .menu div { display: flex; gap: 10px; align-items: center; padding: 8px 10px; font-size: 12.5px; border-radius: 10px; }
+  .menu div i { font-style: normal; width: 16px; text-align: center; opacity: .7; }
+  .menu div.red { color: #DC2626; } .menu hr { border: 0; border-top: 1px solid #EEF0F3; margin: 4px 6px; }
+
+  /* archive */
+  .lrow { display: flex; gap: 10px; align-items: center; padding: 9px 12px; background: #fff; }
+  .lrow .dot { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-size: 10px; font-weight: 800; flex: none; color: #fff; }
+  .lrow .nm { font-weight: 600; font-size: 12.5px; } .lrow .ds { font-size: 10.5px; color: #888; }
+  .lgrp { margin: 0 12px; border-radius: 16px; overflow: hidden; }
+  .lgrp .lrow + .lrow { border-top: 1px solid #EEF0F3; }
+  .swiped { position: relative; background: #16A34A; }
+  .swiped .lrow { transform: translateX(-74px); }
+  .swiped .act { position: absolute; right: 0; top: 0; bottom: 0; width: 74px; display: grid; place-items: center; color: #fff; font-size: 11.5px; font-weight: 600; }
+  .afoot { text-align: center; font-size: 10.5px; color: #888; margin-top: 12px; }
+
+  /* first run */
+  .fan { position: relative; height: 210px; margin-top: 30px; }
+  .fan .tile { position: absolute; width: 150px; left: 50%; top: 40px; box-shadow: 0 10px 24px rgba(0,0,0,.18); }
+  .fr-t { font-size: 24px; font-weight: 750; letter-spacing: -.5px; text-align: center; padding: 0 24px; line-height: 1.15; }
+  .fr-s { font-size: 12px; color: #666; text-align: center; padding: 8px 30px 0; }
+  .fr-btns { position: absolute; left: 16px; right: 16px; bottom: 22px; display: flex; flex-direction: column; gap: 8px; }
+  .fr-btns div { height: 44px; border-radius: 14px; display: grid; place-items: center; font-weight: 650; font-size: 13px; }
+  .fr-btns .p { background: #111; color: #fff; } .fr-btns .s { background: #E6E7EB; }
+  .fr-btns small { text-align: center; font-size: 10.5px; color: #888; }
+
+  /* home screen */
+  .home { background: linear-gradient(165deg, #7A63D8 0%, #33449A 45%, #121733 100%); color: #fff; }
+  .wdg { margin: 8px 14px; border-radius: 22px; background: rgba(255,255,255,.9); color: #111; padding: 9px; }
+  .wdg .lbl { font-size: 9.5px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: #7B3FE4; }
+  .wdg-up { display: flex; gap: 10px; align-items: center; }
+  .wdg-up .h { font-weight: 650; font-size: 12.5px; } .wdg-up .d { font-size: 10.5px; color: #666; }
+  .wdg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .wdg-grid .tile { aspect-ratio: 2; padding: 6px 8px; border-radius: 11px; }
+  .wdg-grid .tile .m { font-size: 14px; } .wdg-grid .tile .n { font-size: 9.5px; }
+  .apps { position: absolute; left: 0; right: 0; bottom: 26px; display: flex; justify-content: space-around; padding: 0 14px; }
+  .app { width: 48px; text-align: center; font-size: 9.5px; }
+  .app i { display: block; width: 46px; height: 46px; border-radius: 15px; margin: 0 auto 4px; background: rgba(255,255,255,.25); }
+  .app.wal i { background: #111; position: relative; box-shadow: 0 0 0 3px rgba(255,255,255,.6); }
+  .app.wal i::before, .app.wal i::after { content: ""; position: absolute; left: 10px; right: 10px; height: 15px; border-radius: 4px; }
+  .app.wal i::before { top: 11px; background: #00A0E2; } .app.wal i::after { top: 19px; background: #FFD200; }
+  .pop { position: absolute; right: 12px; bottom: 98px; width: 196px; background: #fff; color: #111; border-radius: 18px; padding: 6px;
+         box-shadow: 0 14px 30px rgba(0,0,0,.4); }
+  .pop div { display: flex; gap: 10px; align-items: center; padding: 7px 8px; font-size: 12px; }
+  .pop div span { width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; font-size: 9px; font-weight: 800; flex: none; }
+  .pop hr { border: 0; border-top: 1px solid #EEF0F3; margin: 3px 6px; }
+</style>
+</head>
+<body>
+<article id="bunk-doc">
+
+<h1 id="wallet-design">Wallet: design</h1>
+<p class="lead">A local-first Android app for loyalty cards, vouchers, tickets and boarding passes, built for One UI 9 (Android 17) on Galaxy phones,
+with sync through your Google Drive. The goal is that a code is on screen within a second of reaching for the phone.</p>
+<nav class="bunk-toc"></nav>
+
+<h2 id="decisions">Decisions</h2>
+<table>
+  <thead><tr><th>Topic</th><th>Decision</th><th>Date</th></tr></thead>
+  <tbody>
+    <tr><td>Layout</td><td><a href="#smart-tiles">Smart tiles</a>: a tile grid, one “Up next” row when there is a strong reason, and search at the bottom</td><td>2026-11-19</td></tr>
+    <tr><td>Style</td><td>Brand colours on a neutral background that follows light and dark mode; the code always sits on white</td><td>2026-11-19</td></tr>
+    <tr><td>Sync</td><td><a href="#sync">Google Drive sync</a> from v1, not later</td><td>2026-11-19</td></tr>
+    <tr><td>Sync encryption</td><td>No passphrase: files in Drive are protected by your Google account only. See <a href="#encryption">Encryption</a>.</td><td>2026-11-19</td></tr>
+    <tr><td>App ID</td><td><code>io.github.jsnjack.wallet</code>, from <code>jsnjack.github.io</code>; fixed once installed</td><td>2026-11-19</td></tr>
+    <tr><td>Minimum Android</td><td>Android 13 (API 33), built for One UI 9 (Android 17); see <a href="#stack">Tech stack</a></td><td>2026-11-19</td></tr>
+  </tbody>
+</table>
+
+<h2 id="smart-tiles">Smart tiles</h2>
+<div class="phones">
+  <div class="fig">
+    <div class="phone"><div class="screen light">
+      <div class="sb"><span>9:41</span><span class="cam"></span><span>5G ▮▮▮</span></div>
+      <div class="hdr"><div class="t">Wallet</div><div class="s">Thursday · 11 cards · synced</div></div>
+      <div class="upnext" data-card="bringme">
+        <div class="ic" style="background:#7B3FE4">bm</div>
+        <div class="tx"><div class="k">Up next · expires 21:00</div><div class="h">bringme pickup</div><div class="d">Locker 14 · PIN 4821</div></div>
+        <div class="mini" data-qr="bringme-mini"></div>
+      </div>
+      <div class="grid2" data-tiles="ah,jumbo,kruidvat,ikea,basicfit,hema,oba,klm"></div>
+      <div class="bbar"><div class="search">⌕ Search or start typing</div><div class="fab">＋</div></div>
+    </div></div>
+    <div class="caption">Light mode. Tap any card or the “Up next” row.</div>
+  </div>
+  <div class="fig">
+    <div class="phone"><div class="screen dark">
+      <div class="sb"><span>9:41</span><span class="cam"></span><span>5G ▮▮▮</span></div>
+      <div class="hdr"><div class="t">Wallet</div><div class="s">Friday · 11 cards · synced</div></div>
+      <div class="upnext" data-card="klm">
+        <div class="ic" style="background:#0B1F3A;box-shadow:inset 0 0 0 1px #2c4a75">✈</div>
+        <div class="tx"><div class="k">Up next · boards 06:25</div><div class="h">AMS → LIS · KL 1691</div><div class="d">Gate D7 · seat 14C</div></div>
+        <div class="mini" data-aztec="klm-mini"></div>
+      </div>
+      <div class="grid2" data-tiles="ah,jumbo,kruidvat,ikea,basicfit,hema,oba,concert"></div>
+      <div class="bbar"><div class="search">⌕ Search or start typing</div><div class="fab">＋</div></div>
+    </div></div>
+    <div class="caption">Dark mode, on travel day. The boarding pass takes the “Up next” row.</div>
+  </div>
+</div>
+<p>The grid makes every card one tap from its code and shows about eight cards without scrolling, sorted by how often you use them.
+The “Up next” row appears only when one of the rules below fires; otherwise it is hidden, so a wrong guess never pushes your cards down.
+Search sits in the thumb zone at the bottom: tap it, or just start typing, and the grid filters as you type.</p>
+<p>The page background follows the phone’s light or dark mode, while cards keep their brand colours in both. In dark mode the tiles lose their shadow and the
+“Up next” row turns dark grey, so the brand colours carry the screen.</p>
+
+<h3 id="up-next">When “Up next” appears</h3>
+<p>Only one row shows. If several rules fire, the row shows the highest one and a “+1” badge; swiping the row moves to the next.</p>
+<table>
+  <thead><tr><th>Priority</th><th>Rule</th><th>Shows</th><th>Window</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Boarding pass for a flight not yet flown</td><td>The pass for the next leg</td><td>From 24 hours before the flight date until the day after</td></tr>
+    <tr><td>2</td><td>Event ticket</td><td>The ticket</td><td>The day of the event</td></tr>
+    <tr><td>3</td><td>You are at a place where you used a card before</td><td>That card</td><td>When the phone’s last known location is within about 150 m of a place where you opened this card at least three times</td></tr>
+    <tr><td>4</td><td>Voucher or pickup code with an expiry</td><td>The voucher</td><td>When it expires today or tomorrow</td></tr>
+  </tbody>
+</table>
+<p class="hint">Rule 3 needs the location permission, is off until you turn it on, and reads the location only when the app opens (no background tracking).
+The places it learns stay on the phone and are not synced.</p>
+
+<h3 id="principles">Design principles</h3>
+<ol class="principles">
+  <li><strong>Code in one tap or less.</strong> No network, no account check and no animation longer than 150 ms on the path from icon to code. Sync runs after the screen is drawn and never blocks it.</li>
+  <li><strong>One layout for every card.</strong> Name, code and number always sit in the same place. Type-specific details (expiry, PIN, balance, seat, gate) go next to or below the code, never in front of it.</li>
+  <li><strong>Works offline.</strong> Everything lives on the phone; Drive holds a synced copy.</li>
+  <li><strong>Thumb zone.</strong> Search, scan and actions at the bottom, as in One UI; the top holds only titles.</li>
+  <li><strong>Scanner-friendly.</strong> White quiet zone around the code, brightness to maximum, screen kept awake while the code is shown.</li>
+</ol>
+
+<h2 id="code-screen">The code screen</h2>
+<p>Every path ends on this screen. The brand colour fills the top for recognition; the code sits on white below it.
+Swipe left or right to move to the next card without going back.</p>
+<div class="phones">
+  <div class="fig"><div class="phone"><div class="screen" data-static="ah"></div></div><div class="caption">Loyalty card (EAN-13)</div></div>
+  <div class="fig"><div class="phone"><div class="screen" data-static="bringme"></div></div><div class="caption">One-time voucher (QR): expiry, PIN, “Mark as used”</div></div>
+  <div class="fig"><div class="phone"><div class="screen" data-static="klm"></div></div><div class="caption">Boarding pass (Aztec): route, gate, seat, trip legs</div></div>
+  <div class="fig"><div class="phone"><div class="screen" data-static="hema"></div></div><div class="caption">Gift card (Code 128): balance shown, code hidden until fingerprint</div></div>
+  <div class="fig"><div class="phone"><div class="screen" data-static="concert"></div></div><div class="caption">Event ticket (QR): date, entrance, seat</div></div>
+</div>
+<ul>
+  <li><strong>Brightness:</strong> the screen goes to full brightness while the code is shown and returns to normal when you leave.</li>
+  <li><strong>Vouchers:</strong> a reminder the day before expiry; “Mark as used” moves the voucher to an archive.</li>
+  <li><strong>Locked cards:</strong> any card can require a fingerprint. Gift cards default to locked because the number and PIN are spendable money.
+  The balance stays visible; you update it by hand after shopping.</li>
+  <li><strong>Tickets and passes</strong> move to the archive the day after their date.</li>
+</ul>
+
+<h2 id="adding">Adding a card</h2>
+<p>The <strong>＋</strong> button opens the camera straight away, because scanning is the most common way to add a card. Other sources sit along the bottom.</p>
+<div class="phones">
+  <div class="fig"><div class="phone"><div class="screen">
+    <div class="cam-view">
+      <div class="cam-top"><span>✕</span><span>ϟ</span></div>
+      <div class="cam-hint">Point at a card or a screen</div>
+      <div class="cam-card"><div class="m">AH</div><div class="bc" data-ean="cam-ah"></div></div>
+      <div class="cam-box"></div>
+      <div class="cam-found">✓ EAN-13 · 2620 0485 1173 4</div>
+      <div class="cam-src"><span><b>▣</b>Image or<br>screenshot</span><span><b>▤</b>PDF or<br>.pkpass</span><span><b>⌨</b>Type<br>number</span></div>
+    </div>
+  </div></div><div class="caption">1 · Scan. The app reads the code as soon as it is in view; there is no shutter button.</div></div>
+
+  <div class="fig"><div class="phone"><div class="screen light">
+    <div class="sb"><span>9:41</span><span class="cam"></span><span>5G ▮▮▮</span></div>
+    <div class="hdr" style="padding-bottom:10px"><div class="t" style="font-size:20px">New card</div></div>
+    <div class="form">
+      <div class="prev"><div class="m">AH</div><div class="n">AH Bonus</div></div>
+      <div class="sugg"><span>Looks like <b>Albert Heijn</b></span><span>change</span></div>
+      <div class="fld"><small>Name</small><div>AH Bonus</div></div>
+      <div class="fld"><small>Number · EAN-13</small><div>2620 0485 1173 4 <span class="ok">✓ check digit OK</span></div></div>
+      <div class="chips" style="padding:4px 0 2px"><span class="chip on">Loyalty</span><span class="chip">Voucher</span><span class="chip">Gift card</span><span class="chip">Ticket</span></div>
+      <div class="sw"><span class="on" style="background:#00A0E2"></span><span style="background:#E30613"></span><span style="background:#FFD200"></span><span style="background:#1F7A4D"></span><span style="background:#7B3FE4"></span><span style="background:#111"></span></div>
+    </div>
+    <div class="save">Save</div>
+  </div></div><div class="caption">2 · Confirm. Brand, name and colour are suggested; Save opens the new card’s code screen.</div></div>
+</div>
+<p>Brand suggestions come from a list of common Dutch and EU shops bundled with the app (name, colour, usual code format), so no network lookup is needed.
+For an unknown shop, the app takes the colour from the photo of the card, or you pick one.
+Choosing “Voucher”, “Gift card” or “Ticket” adds the fields for that type (expiry and PIN, balance, date and seat).</p>
+
+<table>
+  <thead><tr><th>Source</th><th>How it works</th></tr></thead>
+  <tbody>
+    <tr><td>Camera</td><td>Point at a plastic card or another phone’s screen; the format is detected automatically.</td></tr>
+    <tr><td>Screenshot or photo</td><td>Share an image to the app, or pick one from the gallery; it finds every code in the image.</td></tr>
+    <tr><td>PDF</td><td>Share an e-ticket or boarding pass PDF from email; the app renders each page and finds the codes.</td></tr>
+    <tr><td>.pkpass file</td><td>Apple Wallet pass files, which many airlines, cinemas and event sites send. The file holds the code, colours, fields and dates, so the card fills itself in.</td></tr>
+    <tr><td>Typed number</td><td>For cards that only print a number; the app guesses the format from the number’s length and check digit.</td></tr>
+    <tr><td>Create your own</td><td>Text, link, Wi-Fi login or contact as a QR code.</td></tr>
+  </tbody>
+</table>
+<p>Google Wallet and Samsung Wallet do not, as far as I know, let other apps export cards from them, so moving over means scanning each card once.</p>
+
+<h3 id="formats">Code formats</h3>
+<p>The app reads and generates all of these.</p>
+<table class="bunk-sort">
+  <thead><tr><th>Format</th><th>Typical use</th></tr></thead>
+  <tbody>
+    <tr><td>QR</td><td>Parcel lockers, vouchers, gym access, e-tickets</td></tr>
+    <tr><td>EAN-13 / EAN-8</td><td>Supermarket and drugstore loyalty cards</td></tr>
+    <tr><td>Code 128</td><td>Memberships, gift cards, library cards</td></tr>
+    <tr><td>Aztec</td><td>Boarding passes, train tickets</td></tr>
+    <tr><td>PDF417</td><td>Boarding passes</td></tr>
+    <tr><td>Data Matrix</td><td>Some tickets and parcel labels</td></tr>
+    <tr><td>UPC-A / UPC-E, Code 39, Code 93, ITF, Codabar</td><td>Older or regional cards</td></tr>
+  </tbody>
+</table>
+
+<h2 id="screens">More screens</h2>
+<div class="phones">
+  <div class="fig"><div class="phone"><div class="screen light">
+    <div class="sb"><span>9:41</span><span class="cam"></span><span>5G ▮▮▮</span></div>
+    <div class="hdr" style="padding-bottom:6px"><div class="s">3 cards match “k”</div></div>
+    <div class="grid2" data-tiles="kruidvat,klm,ikea"></div>
+    <div class="ahit"><small>Archive</small><span>KL 1690 · LIS → AMS · 14 Oct</span></div>
+    <div class="sfield"><div class="search">k<span class="caret"></span></div><div class="fab" style="background:#E6E7EB;color:#111;font-size:14px">✕</div></div>
+    <div class="kbd">
+      <div><span>q</span><span>w</span><span>e</span><span>r</span><span>t</span><span>y</span><span>u</span><span>i</span><span>o</span><span>p</span></div>
+      <div><span>a</span><span>s</span><span>d</span><span>f</span><span>g</span><span>h</span><span>j</span><span>k</span><span>l</span></div>
+      <div><span class="g">⇧</span><span>z</span><span>x</span><span>c</span><span>v</span><span>b</span><span>n</span><span>m</span><span class="g">⌫</span></div>
+      <div><span class="g">123</span><span class="w">space</span><span class="g">open</span></div>
+    </div>
+  </div></div><div class="caption">Search: the grid filters as you type</div></div>
+
+  <div class="fig"><div class="phone"><div class="screen light">
+    <div class="sb"><span>9:41</span><span class="cam"></span><span>5G ▮▮▮</span></div>
+    <div class="hdr"><div class="t">Wallet</div><div class="s">Thursday · 11 cards · synced</div></div>
+    <div class="grid2" data-tiles="ah,jumbo,kruidvat,ikea,basicfit,hema,oba,klm"></div>
+    <div class="dim"></div>
+    <div class="lift" data-tiles="jumbo"></div>
+    <div class="menu">
+      <div><i>★</i>Keep at top</div>
+      <div><i>⇱</i>Pin to home screen</div>
+      <div><i>✎</i>Edit</div>
+      <div><i>◉</i>Require fingerprint</div>
+      <hr>
+      <div><i>▤</i>Move to archive</div>
+      <div class="red"><i>✕</i>Delete</div>
+    </div>
+  </div></div><div class="caption">Long-press a card: quick actions</div></div>
+
+  <div class="fig"><div class="phone"><div class="screen light">
+    <div class="sb"><span>9:41</span><span class="cam"></span><span>5G ▮▮▮</span></div>
+    <div class="hdr" style="display:flex;justify-content:space-between;align-items:baseline;padding-bottom:10px"><div class="t" style="font-size:20px">Edit card</div><span style="font-weight:650;color:#2563EB">Done</span></div>
+    <div class="form">
+      <div class="prev" style="background:#FFD200;color:#1A1A1A;height:96px"><div class="m">J</div><div class="n">Jumbo Extra's</div></div>
+      <div class="fld" style="margin-top:10px"><small>Name</small><div>Jumbo Extra's</div></div>
+      <div class="fld"><small>Number · EAN-13</small><div>2701 3398 4402 1</div></div>
+      <div class="fld"><small>Note</small><div>Shared with family</div></div>
+    </div>
+    <div class="grp" style="margin-top:4px">
+      <div class="it"><div>Keep at top</div><span class="tg"></span></div>
+      <div class="it"><div>Require fingerprint</div><span class="tg off"></span></div>
+      <div class="it"><div>Show in widget</div><span class="tg"></span></div>
+    </div>
+    <div style="text-align:center;color:#DC2626;font-size:12.5px;font-weight:600;margin-top:6px">Delete card</div>
+  </div></div><div class="caption">Edit: from the code screen or the long-press menu</div></div>
+
+  <div class="fig"><div class="phone"><div class="screen light">
+    <div class="sb"><span>9:41</span><span class="cam"></span><span>5G ▮▮▮</span></div>
+    <div class="hdr"><div class="t">Archive</div><div class="s">Kept for 1 year</div></div>
+    <div class="chips"><span class="chip on">All</span><span class="chip">Vouchers</span><span class="chip">Trips</span><span class="chip">Tickets</span></div>
+    <div class="sec" style="opacity:.5">November</div>
+    <div class="lgrp">
+      <div class="swiped"><div class="act">Restore</div><div class="lrow"><div class="dot" style="background:#7B3FE4">bm</div><div><div class="nm">bringme pickup</div><div class="ds">Used 12 Nov</div></div></div></div>
+      <div class="lrow"><div class="dot" style="background:#B91C1C">P</div><div><div class="nm">Cinema voucher</div><div class="ds">Expired 15 Nov · unused</div></div></div>
+    </div>
+    <div class="sec" style="opacity:.5">October</div>
+    <div class="lgrp">
+      <div class="lrow"><div class="dot" style="background:#0B1F3A">✈</div><div><div class="nm">KL 1690 · LIS → AMS</div><div class="ds">Flown 14 Oct</div></div></div>
+      <div class="lrow"><div class="dot" style="background:#1E1B4B">♫</div><div><div class="nm">Concert</div><div class="ds">3 Oct · Ziggo Dome</div></div></div>
+    </div>
+    <div class="afoot">Swipe left to restore, right to delete</div>
+  </div></div><div class="caption">Archive: used, expired and past items</div></div>
+
+  <div class="fig"><div class="phone"><div class="screen light">
+    <div class="sb"><span>9:41</span><span class="cam"></span><span>5G ▮▮▮</span></div>
+    <div class="fan">
+      <div class="tile" style="background:#7B3FE4;color:#fff;transform:translateX(-80%) rotate(-12deg)"><div class="m">bm</div><div class="n"><span>bringme</span></div></div>
+      <div class="tile" style="background:#0B1F3A;color:#fff;transform:translateX(-20%) rotate(10deg)"><div class="m">✈</div><div class="n"><span>KL 1691</span></div></div>
+      <div class="tile" style="background:#00A0E2;color:#fff;transform:translateX(-50%) translateY(26px)"><div class="m">AH</div><div class="n"><span>AH Bonus</span></div></div>
+    </div>
+    <div class="fr-t">All your cards,<br>one tap away</div>
+    <div class="fr-s">Loyalty cards, vouchers, tickets and boarding passes. Stored on this phone, synced through your Google Drive.</div>
+    <div class="fr-btns">
+      <div class="p">G&nbsp;&nbsp;Restore from Google Drive</div>
+      <div class="s">Start fresh</div>
+      <small>You can turn on sync later in Settings</small>
+    </div>
+  </div></div><div class="caption">First run: restore or start fresh</div></div>
+
+  <div class="fig"><div class="phone"><div class="screen home">
+    <div class="sb"><span>9:41</span><span class="cam"></span><span>5G ▮▮▮</span></div>
+    <div class="wdg" style="margin-top:14px" data-card="bringme">
+      <div class="wdg-up"><div style="flex:1"><div class="lbl">Up next · expires 21:00</div><div class="h">bringme pickup</div><div class="d">Locker 14 · PIN 4821</div></div><div class="mini" data-qr="bringme-wdg" style="width:44px;height:44px"></div></div>
+    </div>
+    <div class="wdg"><div class="wdg-grid" data-tiles="ah,jumbo,kruidvat,basicfit"></div></div>
+    <div class="pop">
+      <div><span style="background:#00A0E2;color:#fff">AH</span>AH Bonus</div>
+      <div><span style="background:#FFD200;color:#1A1A1A">J</span>Jumbo Extra's</div>
+      <div><span style="background:#FF7500;color:#fff">BF</span>Basic-Fit</div>
+      <hr>
+      <div><span style="background:#E6E7EB;color:#111;font-size:13px">＋</span>Scan a new card</div>
+    </div>
+    <div class="apps">
+      <div class="app"><i></i>Phone</div><div class="app"><i></i>Messages</div><div class="app"><i></i>Camera</div><div class="app wal"><i></i>Wallet</div>
+    </div>
+  </div></div><div class="caption">Home screen: widgets and long-press shortcuts</div></div>
+</div>
+
+<table>
+  <thead><tr><th>Screen</th><th>Details</th></tr></thead>
+  <tbody>
+    <tr><td>Search</td><td>Typing anywhere on the grid opens search, with the field just above the keyboard. It matches the name, shop, the digits of the number and notes.
+      Archived items appear below as one line each. <em>open</em> on the keyboard shows the first result’s code.</td></tr>
+    <tr><td>Long-press menu</td><td>“Keep at top” pins a card above the usage-sorted cards. “Pin to home screen” creates a home screen icon that opens the code directly.
+      Delete asks once, and an “Undo” bar can restore the card for a few seconds.</td></tr>
+    <tr><td>Edit</td><td>The same form as “New card”, with the toggles and Delete. “Save” stores the changes, which sync a few seconds later; ✕ discards them.</td></tr>
+    <tr><td>Archive</td><td>Used vouchers, expired items and past tickets and flights move here automatically. Items are kept for a year by default (adjustable in Settings), then deleted.
+      Restore puts an item back in the grid.</td></tr>
+    <tr><td>First run</td><td>“Restore from Google Drive” signs in, downloads the cards, and opens the grid. “Start fresh” goes straight to the empty grid, with ＋ pulsing once.</td></tr>
+    <tr><td>Home screen</td><td>Two widgets: “Up next” (4×1), which shows the same suggestion as the app and collapses to a plain Wallet shortcut when there is none, and favourites (4×2), with four cards you choose.
+      Long-pressing the app icon lists your three most-used cards and “Scan a new card”. A Quick Settings tile opens the “Up next” card, or the grid when there is none.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="boarding">Boarding passes</h2>
+<p>Airlines encode boarding passes in a standard text format called IATA BCBP (Bar Coded Boarding Pass), printed as a PDF417, Aztec or QR code.
+When the app scans one, it reads the passenger name, booking reference (PNR), departure and arrival airports, airline, flight number, date, cabin and seat,
+and builds the flight card automatically. A bundled airport table turns “AMS” into “Amsterdam”.</p>
+<div class="bunk-callout note"><p class="bunk-callout-title">What the barcode does not contain</p>
+<p>The BCBP code holds the date but not departure time, boarding time or gate. A .pkpass file from the airline usually has them; otherwise you type them in.
+Live gate changes would need a flight-status API later.</p></div>
+<ul>
+  <li><strong>Travel day:</strong> from 24 hours before the flight date the pass takes the “Up next” row and gets a live notification.</li>
+  <li><strong>Trips:</strong> several legs or passengers on one booking group into one trip; swipe between them.</li>
+  <li><strong>Afterwards:</strong> the pass moves to the archive the day after the flight.</li>
+</ul>
+
+<h2 id="sync">Google Drive sync</h2>
+<p>The phone’s own database stays the main copy, so the app works offline and opens without waiting for the network.
+Google Drive holds a synced copy in its <em>app data folder</em>: a hidden folder that only this app can see, which does not appear in your Drive file list
+and uses a few hundred kilobytes of your Drive storage.</p>
+<pre class="mermaid">
+flowchart LR
+  subgraph PA[Phone]
+    DBA[(Local database)]
+  end
+  subgraph GD[Google Drive app data folder]
+    F1[card-uuid.bin, one per card]
+    F2[img-hash.bin, one per image]
+  end
+  subgraph PB[Tablet or new phone]
+    DBB[(Local database)]
+  end
+  DBA <-->|changed cards only| GD
+  DBB <-->|changed cards only| GD
+</pre>
+
+<h3 id="sync-how">How a sync works</h3>
+<ol>
+  <li><strong>When:</strong> after the app has drawn its first screen, a few seconds after you change a card, and every few hours in the background when the phone has network.</li>
+  <li><strong>What moves:</strong> each card is one small file, and each logo or photo is one file named by its content hash. Drive’s change list tells the app which files changed since the last sync, so it never downloads everything again.</li>
+  <li><strong>Conflicts:</strong> every card carries a “last changed” time. If the same card changed on two devices, the newer change wins for that card. For one person with two devices this is enough; a merge screen would be overkill.</li>
+  <li><strong>Deletes:</strong> a deleted card becomes a small “deleted” marker instead of disappearing, so the other device learns about the delete instead of uploading the card again.</li>
+  <li><strong>Not synced:</strong> how often you use each card and the places learned for “Up next”. They change every time you open a card, and location history is better kept on the phone.</li>
+</ol>
+
+<h3 id="encryption">Encryption</h3>
+<p><strong>Decision: no passphrase.</strong> Sync files are stored as they are, protected by your Google account and Google’s storage encryption.
+Setup on a new device is just “sign in, allow access”, and there is no passphrase to lose.</p>
+<p>The trade-off: Google, or anyone who gets into your Google account, can read the cards, including booking references and gift card PINs.
+A strong Google password with 2-step verification is the protection that matters here.
+The cards are stored as one small file each, so client-side encryption can be added later without changing the sync design.</p>
+<p>The export file is still encrypted with a password you choose when exporting, because that file can end up anywhere.</p>
+
+<h3 id="sync-screen">Sync settings</h3>
+<div class="row">
+  <div class="phone"><div class="screen light">
+    <div class="sb"><span>9:41</span><span class="cam"></span><span>5G ▮▮▮</span></div>
+    <div class="hdr" style="padding-bottom:12px"><div class="t" style="font-size:22px">Sync</div></div>
+    <div class="stat"><b>✓ Synced 2 min ago</b><div>11 cards · 2 devices</div></div>
+    <div class="grp">
+      <div class="it"><div class="acct"><div class="av">G</div><div>Google account<small>you@gmail.com</small></div></div><span style="font-size:11px;color:#2563EB">Change</span></div>
+    </div>
+    <div class="grp">
+      <div class="it"><div>Sync with Google Drive<small>Hidden app folder</small></div><span class="tg"></span></div>
+      <div class="it"><div>Use mobile data<small>Otherwise Wi-Fi only</small></div><span class="tg"></span></div>
+      <div class="it"><div>Sync now</div><span>↻</span></div>
+    </div>
+    <div class="grp">
+      <div class="it"><div>This phone<small>Galaxy S26</small></div><span style="font-size:11px;color:#888">now</span></div>
+      <div class="it"><div>Tablet<small>Galaxy Tab</small></div><span style="font-size:11px;color:#888">yesterday</span></div>
+    </div>
+    <div class="grp"><div class="it"><div>Export encrypted file<small>Works without Google</small></div><span>›</span></div></div>
+  </div></div>
+  <div>
+    <p>Sync is set up on <a href="#screens">first run</a> or later from Settings: pick your Google account and allow access to the app folder.
+    The same two steps on a second device download your cards.</p>
+    <p>The status card turns amber when the last sync is older than a day, and red when sync fails (for example, if access was removed in your Google account settings), with a button to fix it.
+    Sync problems never block opening a card.</p>
+    <p>The encrypted export file stays as a backup that does not depend on Google.</p>
+  </div>
+</div>
+
+<h3 id="google-setup">One-off Google Cloud setup</h3>
+<p>Drive access needs a Google Cloud project that identifies the app. This is free and takes about 15 minutes:</p>
+<ol>
+  <li>Create a project in the Google Cloud console and enable the Google Drive API.</li>
+  <li>Configure the OAuth consent screen (the “allow this app to…” page) as External, with only the <code>drive.appdata</code> scope.</li>
+  <li>Create an Android OAuth client with the package name <code>io.github.jsnjack.wallet</code> and the SHA-1 fingerprint of each signing key (debug and release).</li>
+  <li>Set the consent screen’s publishing status to <strong>In production</strong>. In “Testing” status, Google drops the app’s access 7 days after you approve it, and sync would stop every week.</li>
+</ol>
+<p class="hint"><code>drive.appdata</code> is a non-sensitive scope (<a href="https://developers.google.com/workspace/drive/api/guides/api-specific-auth">Google’s scope list</a>),
+so publishing should not need Google’s app review. The 7-day limit is described in <a href="https://support.google.com/cloud/answer/15549945">Google Cloud help</a>.</p>
+
+<h2 id="speed">Speed</h2>
+<p>Speed comes from two things: the app opening fast, and not having to open the app at all. These numbers are targets to measure against, not measured results.</p>
+<table>
+  <thead><tr><th>Moment</th><th>Target</th><th>How</th></tr></thead>
+  <tbody>
+    <tr><td>Cold start to card grid</td><td>&lt; 400 ms</td><td>Baseline Profile (pre-compiled startup code), no splash animation, no heavy dependency injection at startup, cards read from the local database; sync starts after the first frame</td></tr>
+    <tr><td>Warm start</td><td>&lt; 150 ms</td><td>Keep the activity light; no work in <code>onResume</code></td></tr>
+    <tr><td>Tap card to code</td><td>1–2 frames</td><td>Code images are generated when a card is saved and cached; nothing on this path touches the network</td></tr>
+    <tr><td>Scanner reads code</td><td>First try</td><td>Full brightness, white quiet zone, screen kept awake, code drawn pixel-exact (no blurry scaling)</td></tr>
+  </tbody>
+</table>
+
+<h3 id="launch-paths">Ways to reach a code without opening the app first</h3>
+<pre class="mermaid">
+flowchart LR
+  I[App icon] --> G[Card grid]
+  K[Side button double-press] --> G
+  LS[Lock screen shortcut] --> G
+  G -->|1 tap| C[Code screen at full brightness]
+  S[Long-press icon: top 4 cards] --> C
+  P[Card pinned to home screen] --> C
+  T[Quick Settings tile] --> C
+  W[Home screen widget] --> C
+  N[Live notification on travel or pickup day] --> C
+</pre>
+<ul>
+  <li><strong>Long-press shortcuts</strong> list your four most-used cards and update themselves as habits change.</li>
+  <li><strong>Side button:</strong> One UI can open any app on a double press of the side button (Settings → Advanced features → Side button).</li>
+  <li><strong>Lock screen shortcut:</strong> One UI lets you put any app in the two lock-screen shortcut slots.</li>
+  <li><strong>Live notification:</strong> on travel day or pickup day the app posts an ongoing notification that opens the code. On recent One UI versions these can show in the Now Bar on the lock screen; this needs checking on a device.</li>
+</ul>
+
+<h2 id="stack">Tech stack</h2>
+<table>
+  <thead><tr><th>Part</th><th>Choice</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td>Language and UI</td><td>Kotlin, Jetpack Compose, Material 3 with a custom theme</td><td>Native speed; a custom theme keeps it from looking like Google Wallet</td></tr>
+    <tr><td>Android version</td><td>Target Android 17 (One UI 9); minimum Android 13</td><td>Android 13 adds sensitive clipboard content and typed intent extras; a personal app can drop older versions and their workarounds</td></tr>
+    <tr><td>Storage</td><td>Android’s built-in SQLite, with all cards held in memory</td><td>One table read once at start; Room’s code generator would add build steps without a query to gain from</td></tr>
+    <tr><td>Scanning</td><td>CameraX with zxing-cpp</td><td>Open source, fast, offline, good with damaged codes. Google ML Kit’s bundled scanner is the alternative.</td></tr>
+    <tr><td>Generating codes</td><td>ZXing core</td><td>Small, mature, writes every format in the table above</td></tr>
+    <tr><td>PDF and .pkpass import</td><td>Android <code>PdfRenderer</code>; zip + JSON parsing</td><td>Both built in or tiny</td></tr>
+    <tr><td>Sign-in and Drive access</td><td>Identity <code>AuthorizationClient</code> (picks the account and grants <code>drive.appdata</code> in one step), Drive REST API over plain HTTP</td><td>No Firebase, Credential Manager or Drive client library needed for four calls</td></tr>
+    <tr><td>Background sync</td><td>WorkManager</td><td>Runs when the phone has network, survives reboots, respects battery saving</td></tr>
+    <tr><td>Export file encryption</td><td>Java’s built-in AES-256-GCM, key from the password with PBKDF2 (600,000 rounds)</td><td>Built into Android, so no extra library</td></tr>
+    <tr><td>Widget, tile, shortcuts</td><td>Jetpack Glance, <code>TileService</code>, <code>ShortcutManager</code></td><td>The launch paths in <a href="#speed">Speed</a></td></tr>
+    <tr><td>Card lock</td><td>Android’s own <code>BiometricPrompt</code> (fingerprint, face or screen lock)</td><td>Built into Android, so no extra library</td></tr>
+    <tr><td>Speed checks</td><td>Baseline Profiles, Macrobenchmark (not set up yet: they need a device or emulator)</td><td>Measures cold start on every build, so it cannot get slower unnoticed</td></tr>
+  </tbody>
+</table>
+
+<h2 id="plan">Plan</h2>
+<div class="bunk-steps">
+<section data-title="v1 · Cards + sync">
+<p><span class="bunk-badge info">built 2026-11-19, not yet tested on a device</span></p>
+<p><strong>Cards that open fast, on every device.</strong> Smart-tile grid (without “Up next” yet), code screen at full brightness with swipe between cards,
+add by camera, image or typed number, bundled brand list, search, long-press menu, card editing, card lock, long-press shortcuts on the app icon,
+first-run restore, Google Drive sync, and the encrypted export file.</p>
+</section>
+<section data-title="v2 · Passes">
+<p><strong>Vouchers, tickets and travel.</strong> Expiry, PIN, reminders and “Mark as used”; gift card balance; .pkpass and PDF import; boarding pass parsing and trips;
+the “Up next” row (rules 1, 2 and 4); the archive; live notification, Quick Settings tile and home screen widgets.</p>
+</section>
+<section data-title="v3 · Smart">
+<p><strong>Place-based suggestions and more.</strong> “Up next” rule 3 (cards you use at this place), and perhaps a Galaxy Watch view.</p>
+</section>
+</div>
+
+<h2 id="directions">Directions considered</h2>
+<p>Smart tiles was chosen from these four. Tap a card inside any mockup to open its code screen, and tap ✕ to close it.</p>
+
+<div class="bunk-tabs">
+<section data-title="A · Tiles">
+<h3 id="dir-tiles">A. Tiles</h3>
+<div class="row">
+  <div class="phone"><div class="screen light">
+    <div class="sb"><span>9:41</span><span class="cam"></span><span>5G ▮▮▮</span></div>
+    <div class="hdr" style="padding-top:34px"><div class="t" style="font-size:30px">Wallet</div><div class="s">9 cards · sorted by most used</div></div>
+    <div class="grid2" style="margin-top:8px" data-tiles="ah,bringme,jumbo,kruidvat,ikea,basicfit,decathlon,oba"></div>
+    <div class="bbar"><div class="search">⌕ Search</div><div class="fab">＋</div></div>
+  </div></div>
+  <div>
+    <p>A two-column grid of brand-coloured cards under a large One UI-style title, sorted by how often you use them.</p>
+    <ul>
+      <li><strong>Speed:</strong> open, then one tap. About eight cards visible without scrolling.</li>
+      <li><strong>Strong:</strong> predictable, dense, simplest to build.</li>
+      <li><strong>Weak:</strong> plain; every visit costs one tap, even when the right card is obvious.</li>
+    </ul>
+  </div>
+</div>
+</section>
+
+<section data-title="B · Stack">
+<h3 id="dir-stack">B. Stack</h3>
+<div class="row">
+  <div class="phone"><div class="screen dark">
+    <div class="sb"><span>9:41</span><span class="cam"></span><span>5G ▮▮▮</span></div>
+    <div class="hdr"><div class="t">Wallet</div><div class="s">Drag to reorder</div></div>
+    <div class="stack" data-stack="oba,decathlon,basicfit,ikea,kruidvat,jumbo,bringme,ah"></div>
+  </div></div>
+  <div>
+    <p>Overlapping cards like a physical wallet; tapping a card pulls it out and shows its code.</p>
+    <ul>
+      <li><strong>Speed:</strong> one tap for cards on screen, a scroll for the rest; the pull-out motion adds time.</li>
+      <li><strong>Strong:</strong> the most beautiful option.</li>
+      <li><strong>Weak:</strong> only six or seven names fit on screen; heavy motion is what makes Google Wallet feel slow.</li>
+    </ul>
+  </div>
+</div>
+</section>
+
+<section data-title="C · Spotlight">
+<h3 id="dir-spotlight">C. Spotlight</h3>
+<div class="row">
+  <div class="phone"><div class="screen light" style="background:#ECEDF0">
+    <div class="sb"><span>9:41</span><span class="cam"></span><span>5G ▮▮▮</span></div>
+    <div class="q">b<span class="caret"></span></div>
+    <div class="chips"><span class="chip">Recent:</span><span class="chip">AH</span><span class="chip">Basic-Fit</span><span class="chip">Jumbo</span></div>
+    <div data-results="bringme,basicfit,klm"></div>
+    <div class="kbd">
+      <div><span>q</span><span>w</span><span>e</span><span>r</span><span>t</span><span>y</span><span>u</span><span>i</span><span>o</span><span>p</span></div>
+      <div><span>a</span><span>s</span><span>d</span><span>f</span><span>g</span><span>h</span><span>j</span><span>k</span><span>l</span></div>
+      <div><span class="g">⇧</span><span>z</span><span>x</span><span>c</span><span>v</span><span>b</span><span>n</span><span>m</span><span class="g">⌫</span></div>
+      <div><span class="g">123</span><span class="w">space</span><span class="g">open</span></div>
+    </div>
+  </div></div>
+  <div>
+    <p>Opens with the search field focused and the keyboard up; one or two letters and <em>open</em> show the top result’s code.</p>
+    <ul>
+      <li><strong>Speed:</strong> two or three key presses, whatever the number of cards.</li>
+      <li><strong>Strong:</strong> best for large collections.</li>
+      <li><strong>Weak:</strong> the keyboard covers half the screen, and typing at a checkout is awkward.</li>
+    </ul>
+  </div>
+</div>
+</section>
+
+<section data-title="D · Now">
+<h3 id="dir-now">D. Now</h3>
+<div class="row">
+  <div class="phone"><div class="screen dark now">
+    <div class="sb"><span>9:41</span><span class="cam"></span><span>5G ▮▮▮</span></div>
+    <div class="hdr"><div class="t">Now</div></div>
+    <div class="ctx">◉ Albert Heijn Overtoom · 80 m</div>
+    <div class="hero" data-card="ah" style="background:#00A0E2;color:#fff">
+      <div class="top"><span>AH Bonus</span><i>used here 14×</i></div>
+      <div class="pan"><div data-ean="ah-hero"></div><div class="num">2620 0485 1173 4</div></div>
+    </div>
+    <div class="sec">Also today</div>
+    <div class="todo" data-card="bringme"><div class="ic" style="background:#7B3FE4;color:#fff">bm</div>
+      <div><div class="h">bringme pickup</div><div class="d">Expires 21:00 · locker 14</div></div></div>
+    <div class="sec">All cards</div>
+    <div class="strip" data-tiles="jumbo,kruidvat,ikea,basicfit,decathlon"></div>
+  </div></div>
+  <div>
+    <p>Opens on the one card the app predicts, with the code already visible.</p>
+    <ul>
+      <li><strong>Speed:</strong> zero taps when the guess is right; two when it is wrong.</li>
+      <li><strong>Strong:</strong> the most “magic” option.</li>
+      <li><strong>Weak:</strong> a wrong guess fills the screen with the wrong card. Its good part lives on as the “Up next” row.</li>
+    </ul>
+  </div>
+</div>
+</section>
+</div>
+
+</article>
+
+<script>
+const CARDS = {
+  ah:       {name:'AH Bonus', sub:'Albert Heijn · loyalty', mono:'AH', bg:'#00A0E2', fg:'#fff', fmt:'ean', num:'2620 0485 1173 4', meta:'Bonus box: 3 offers active'},
+  jumbo:    {name:"Jumbo Extra's", sub:'Jumbo · loyalty', mono:'J', bg:'#FFD200', fg:'#1A1A1A', fmt:'ean', num:'2701 3398 4402 1'},
+  kruidvat: {name:'Kruidvat', sub:'Kruidvat · loyalty', mono:'Kv', bg:'#E30613', fg:'#fff', fmt:'ean', num:'2950 1182 6620 7'},
+  ikea:     {name:'IKEA Family', sub:'IKEA · membership', mono:'IKEA', bg:'#0058A3', fg:'#FFDB00', fmt:'c128', num:'6275 9800 1234 5678'},
+  decathlon:{name:'Decathlon', sub:'Decathlon · loyalty', mono:'D', bg:'#3643BA', fg:'#fff', fmt:'ean', num:'2090 4471 0038 2'},
+  basicfit: {name:'Basic-Fit', sub:'Gym · access pass', mono:'BF', bg:'#FF7500', fg:'#fff', fmt:'qr', num:'M-0042-118-773'},
+  oba:      {name:'Library', sub:'OBA · library card', mono:'OBA', bg:'#1F7A4D', fg:'#fff', fmt:'c128', num:'2100 0123 4567 8'},
+  hema:     {name:'HEMA gift card', sub:'HEMA · gift card', mono:'H', bg:'#C8102E', fg:'#fff', fmt:'c128', num:'6299 1840 0072 4471', kind:'gift', balance:'€ 25,00', tag:'€25'},
+  concert:  {name:'Concert', sub:'Ticket · Sat 12 Dec 20:00', mono:'♫', bg:'#1E1B4B', fg:'#fff', fmt:'qr', num:'TKT-88F2-0193', kind:'ticket',
+             venue:'Ziggo Dome', entrance:'B', block:'112', rowseat:'Row 8 · Seat 14', tag:'Dec 12'},
+  bringme:  {name:'bringme', sub:'Parcel pickup · locker 14', mono:'bm', bg:'#7B3FE4', fg:'#fff', fmt:'qr', num:'BM-7Q4K-2291', kind:'voucher', expires:'today 21:00', pin:'4821', tag:'today'},
+  klm:      {name:'KL 1691', sub:'Boarding pass · Fri 20 Nov', mono:'✈', bg:'#0B1F3A', fg:'#fff', fmt:'aztec', kind:'boarding', tag:'Fri',
+             from:'AMS', to:'LIS', fromCity:'Amsterdam', toCity:'Lisbon', dep:'07:05', arr:'09:00', gate:'D7', boards:'06:25', seat:'14C', group:'3', pnr:'X7K2QP', pax:'A. TRAVELLER'}
+};
+
+/* deterministic pseudo-random so mockup codes look stable */
+function rng(seed){ let h = 2166136261 >>> 0; for (const ch of seed) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
+  if (!h) h = 1; return () => { h ^= h << 13; h >>>= 0; h ^= h >>> 17; h ^= h << 5; h >>>= 0; return h / 4294967296; }; }
+
+function qr(seed, size, n = 25){
+  const r = rng(seed); let d = '';
+  const finder = (x,y) => (x<8&&y<8)||(x>=n-8&&y<8)||(x<8&&y>=n-8);
+  for (let y=0;y<n;y++) for (let x=0;x<n;x++){
+    if (finder(x,y)) continue;
+    const on = (x===6||y===6) ? (x+y)%2===0 : r() > .5;
+    if (on) d += `M${x} ${y}h1v1h-1z`;
+  }
+  const f = (x,y) => `<rect x="${x}" y="${y}" width="7" height="7"/><rect x="${x+1}" y="${y+1}" width="5" height="5" fill="#fff"/><rect x="${x+2}" y="${y+2}" width="3" height="3"/>`;
+  return `<svg width="${size}" height="${size}" viewBox="-2 -2 ${n+4} ${n+4}" shape-rendering="crispEdges"><rect x="-2" y="-2" width="${n+4}" height="${n+4}" fill="#fff"/><g fill="#111"><path d="${d}"/>${f(0,0)}${f(n-7,0)}${f(0,n-7)}</g></svg>`;
+}
+function aztec(seed, size, n = 27){
+  const r = rng(seed), c = (n-1)/2; let d = '';
+  for (let y=0;y<n;y++) for (let x=0;x<n;x++){
+    const k = Math.max(Math.abs(x-c), Math.abs(y-c));
+    const on = k <= 5 ? k % 2 === 0 : r() > .5;
+    if (on) d += `M${x} ${y}h1v1h-1z`;
+  }
+  return `<svg width="${size}" height="${size}" viewBox="-2 -2 ${n+4} ${n+4}" shape-rendering="crispEdges"><rect x="-2" y="-2" width="${n+4}" height="${n+4}" fill="#fff"/><path fill="#111" d="${d}"/></svg>`;
+}
+function bars(pattern, w, h){
+  let out = '', x = 0;
+  for (const ch of pattern){ if (ch === '1' || ch === 'G') out += `<rect x="${x}" y="0" width="1" height="${ch==='G'?58:52}"/>`; x++; }
+  return `<svg width="${w}" height="${h}" viewBox="-8 0 ${x+16} 60" preserveAspectRatio="none" shape-rendering="crispEdges"><rect x="-8" width="${x+16}" height="60" fill="#fff"/><g fill="#111">${out}</g></svg>`;
+}
+function ean(seed, w = 196, h = 78){
+  const r = rng(seed), half = () => Array.from({length:42}, () => r() > .5 ? '1' : '0').join('');
+  return bars('G0G' + half() + '0G0G0' + half() + 'G0G', w, h);
+}
+function c128(seed, w = 196, h = 78){
+  const r = rng(seed); let p = '11010010000', bar = true;
+  while (p.length < 130) { const k = 1 + Math.floor(r()*4); p += (bar ? '1' : '0').repeat(k); bar = !bar; }
+  return bars(p + '1100011101011', w, h);
+}
+function codeFor(id, c){
+  if (c.fmt === 'qr') return qr(id, c.kind === 'ticket' ? 170 : 190);
+  if (c.fmt === 'aztec') return aztec(id, 150);
+  if (c.fmt === 'c128') return c128(id);
+  return ean(id);
+}
+
+function codeView(id, closable){
+  const c = CARDS[id];
+  const x = closable ? '<span class="cv-x">✕</span>' : '<span></span>';
+  if (c.kind === 'boarding') return `
+    <div class="cv" style="background:linear-gradient(180deg,#14325C,#0B1F3A 55%);color:#fff">
+      <div class="cv-top">${x}<span class="cv-sun">☀ max</span></div>
+      <div style="padding:14px 20px 0;font-size:11px;opacity:.75">KLM · ${c.name} · Fri 20 Nov</div>
+      <div class="bp-route">
+        <div><div class="ap">${c.from}</div><div class="ct">${c.fromCity}</div><div class="tm">${c.dep}</div></div>
+        <div class="pl">✈</div>
+        <div style="text-align:right"><div class="ap">${c.to}</div><div class="ct">${c.toCity}</div><div class="tm">${c.arr}</div></div>
+      </div>
+      <div class="bp-grid"><div><b>${c.gate}</b><small>Gate</small></div><div><b>${c.boards}</b><small>Boards</small></div><div><b>${c.seat}</b><small>Seat</small></div><div><b>${c.group}</b><small>Group</small></div></div>
+      <div class="cv-panel" style="padding:14px">
+        <div class="cv-code">${aztec(id, 150)}</div>
+        <div class="cv-meta" style="color:#333">${c.pax} · PNR ${c.pnr}</div>
+      </div>
+      <div class="cv-dots">● ○ trip: 1 of 2</div>
+    </div>`;
+  const head = `<div class="cv-top">${x}<span class="cv-sun">☀ max</span></div>
+      <div class="cv-head"><div class="cv-mono">${c.mono}</div><div><div class="cv-name">${c.name}</div><div class="cv-kind">${c.sub}</div></div></div>`;
+  if (c.kind === 'gift') return `
+    <div class="cv" style="background:${c.bg};color:${c.fg}">
+      ${head}
+      <div class="cv-bal"><div><small>Balance</small><br><b>${c.balance}</b></div><small>updated 2 Nov</small></div>
+      <div class="cv-panel cv-lock">
+        <div class="cv-code">${codeFor(id, c)}</div><div class="cv-num">${c.num}</div>
+        <div class="cv-meta" style="filter:none">PIN •••• </div>
+        <div class="cv-lockmsg"><div class="fp">◉</div>Touch the sensor to show</div>
+      </div>
+      <div class="cv-dots">○ ○ ● ○ ○</div>
+    </div>`;
+  if (c.kind === 'ticket') return `
+    <div class="cv" style="background:linear-gradient(180deg,#3B2A8C,${c.bg} 60%);color:${c.fg}">
+      ${head}
+      <div class="bp-grid" style="padding-top:0"><div><b>${c.entrance}</b><small>Entrance</small></div><div><b>${c.block}</b><small>Block</small></div><div><b>8</b><small>Row</small></div><div><b>14</b><small>Seat</small></div></div>
+      <div class="cv-panel" style="padding:14px"><div class="cv-code">${codeFor(id, c)}</div><div class="cv-num">${c.num}</div><div class="cv-meta">${c.venue} · doors 18:30</div></div>
+      <div class="cv-dots">● ○ 2 tickets</div>
+    </div>`;
+  const extra = c.kind === 'voucher'
+    ? `<div class="cv-meta">Expires ${c.expires} · PIN <b style="color:#111">${c.pin}</b></div><div class="cv-acts"><span>Copy</span><span class="p">Mark as used</span></div>`
+    : `<div class="cv-meta">${c.meta || 'Last used 3 days ago'}</div><div class="cv-acts"><span>Copy number</span><span>Edit</span></div>`;
+  return `
+    <div class="cv" style="background:${c.bg};color:${c.fg}">
+      ${head}
+      <div class="cv-panel"><div class="cv-code">${codeFor(id, c)}</div><div class="cv-num">${c.num}</div>${extra}</div>
+      <div class="cv-dots">○ ○ ● ○ ○</div>
+    </div>`;
+}
+
+function tile(id){
+  const c = CARDS[id];
+  const note = c.tag ? `<i>${c.tag}</i>` : '';
+  return `<div class="tile" data-card="${id}" style="background:${c.bg};color:${c.fg}"><div class="m">${c.mono}</div><div class="n"><span>${c.name}</span>${note}</div></div>`;
+}
+
+document.querySelectorAll('[data-tiles]').forEach(el => el.innerHTML = el.dataset.tiles.split(',').map(tile).join(''));
+document.querySelectorAll('[data-stack]').forEach(el => el.innerHTML = el.dataset.stack.split(',').map(id => {
+  const c = CARDS[id];
+  return `<div class="stk" data-card="${id}" style="background-color:${c.bg};color:${c.fg}"><div class="top"><span>${c.name}</span><i>${c.sub.split(' · ')[1]}</i></div><div class="bot">${c.num}</div></div>`;
+}).join(''));
+document.querySelectorAll('[data-results]').forEach(el => el.innerHTML = el.dataset.results.split(',').map((id, i) => {
+  const c = CARDS[id];
+  return `<div class="res${i===0?' top':''}" data-card="${id}"><div class="dot" style="background:${c.bg};color:${c.fg}">${c.mono}</div><div><div class="nm">${c.name}</div><div class="ds">${c.sub}</div></div>${i===0?'<span class="go">open ↵</span>':''}</div>`;
+}).join(''));
+document.querySelectorAll('[data-qr]').forEach(el => el.innerHTML = qr(el.dataset.qr, 40, 21));
+document.querySelectorAll('[data-aztec]').forEach(el => el.innerHTML = aztec(el.dataset.aztec, 40, 19));
+document.querySelectorAll('[data-ean]').forEach(el => {
+  const small = el.closest('.cam-card');
+  el.innerHTML = small ? ean(el.dataset.ean, 130, 30) : ean(el.dataset.ean, 200, 64);
+});
+document.querySelectorAll('[data-static]').forEach(el => el.innerHTML = codeView(el.dataset.static, false));
+
+document.addEventListener('click', e => {
+  const close = e.target.closest('.cv-x');
+  if (close) { close.closest('.cv').remove(); return; }
+  const card = e.target.closest('[data-card]');
+  if (!card) return;
+  const screen = card.closest('.screen');
+  if (!screen || screen.dataset.static) return;
+  screen.querySelector('.cv')?.remove();
+  screen.insertAdjacentHTML('beforeend', codeView(card.dataset.card, true));
+});
+</script>
+</body>
+</html>
