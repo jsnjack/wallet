@@ -44,10 +44,10 @@ app/src/main/java/io/github/jsnjack/wallet/
     AeroDataBox.kt          AeroDataBox flight status JSON → LiveFlight
     FlightLookups.kt        When to look a flight up, monthly allowance, changes worth an alert
     FlightProgress.kt       A flight's day as a 0–100 progress bar, and when to redraw it
-    CardJson.kt             Card format v3 (export bundle, database JSON columns)
+    CardJson.kt             Card format v4 (export bundle, database JSON columns)
     ExportCrypto.kt         Export file encryption: PBKDF2-HMAC-SHA256 + AES-256-GCM
   store/
-    CardDatabase.kt         SQLiteOpenHelper v3: cards and usage counts; upgrades only add columns
+    CardDatabase.kt         SQLiteOpenHelper v4: cards and usage counts; upgrades only add columns
     CardStore.kt            In-memory cards with write-through, StateFlows for the UI
     AppSettings.kt          Archive retention, notifications, reminders already posted, flight-status key
     FlightStore.kt          Latest lookup per flight and this month's lookup count
@@ -254,6 +254,11 @@ because their messages quote the response.
   Up next, shortcuts and the widget. A–Z reads like a page from the
   top-left (the user chose it over A–Z from the thumb); favourites keep
   their alphabetical place. Settings → "Card order" switches to most used.
+- **Cards can start later** (decided 2026-11-19): `Card.validFrom` for
+  vouchers, gift cards, memberships and tickets, from the form or from
+  ticket text ("Valid from", "Geldig vanaf"); `.pkpass` has no such field.
+  The code still shows before then, with "Valid from …" under it; Up next
+  says "Valid from today" on the day.
 - **Several tickets in one file become one form each** (decided
   2026-11-19 from a real Ticketmaster PDF: two pages, one ticket each, every
   code printed four times). Each form is filled from its own page, so seats
@@ -303,7 +308,8 @@ because their messages quote the response.
   `setBackgroundTintList`.
 - **Card format and database grow additively.** New fields have defaults
   and new columns are added with `ALTER TABLE`, so older export files read
-  fine and an upgrade keeps every stored card (v3 added `altFormat`).
+  fine and an upgrade keeps every stored card (v3 added `altFormat`, v4
+  `validFrom`).
 - **Brand list is approximate.** `Brands.ALL` holds names and approximate
   colours only, never number prefixes, so nothing guesses a shop from a
   number.

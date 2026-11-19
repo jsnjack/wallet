@@ -6,7 +6,7 @@ import java.time.LocalTime
 import java.time.ZoneId
 
 /** Why a card is suggested in the "Up next" row, highest priority first. */
-enum class UpNextReason { FLIGHT, EVENT_TODAY, EXPIRES_SOON }
+enum class UpNextReason { FLIGHT, EVENT_TODAY, STARTS_TODAY, EXPIRES_SOON }
 
 /** A suggested card and the reason for it. */
 data class UpNext(val card: Card, val reason: UpNextReason)
@@ -65,6 +65,7 @@ class Agenda(private val zone: ZoneId) {
         val moments = cards.filterNot { isArchived(it, now) }.flatMap { card ->
             buildList {
                 card.expires?.let { add(it.end); add(it.date.minusDays(1).atTime(REMINDER_TIME)) }
+                card.validFrom?.let { add(it.start) }
                 if (card.kind == CardKind.BOARDING_PASS) card.event?.let { add(flightWindowStart(it)) }
             }
         }
@@ -77,8 +78,8 @@ class Agenda(private val zone: ZoneId) {
         return when {
             card.kind == CardKind.BOARDING_PASS && event != null ->
                 UpNextReason.FLIGHT.takeIf { !now.isBefore(flightWindowStart(event)) }
-            card.kind == CardKind.TICKET && event != null ->
-                UpNextReason.EVENT_TODAY.takeIf { event.date == today }
+            card.kind == CardKind.TICKET && event != null && event.date == today -> UpNextReason.EVENT_TODAY
+            card.validFrom?.date == today -> UpNextReason.STARTS_TODAY
             card.expires != null && card.expires.date.let { it == today || it == today.plusDays(1) } ->
                 UpNextReason.EXPIRES_SOON
             else -> null

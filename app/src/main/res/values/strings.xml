@@ -165,6 +165,8 @@
     <string name="up_next_departs">Departs %s</string>
     <string name="up_next_event_at">%s</string>
     <string name="up_next_expires_at">Expires %s</string>
+    <string name="up_next_valid">Valid from today</string>
+    <string name="up_next_valid_from">Valid from %s</string>
 
     <string name="widget_up_next_name">Up next</string>
     <string name="widget_up_next_description">The card you need next: a flight, a ticket for today or a voucher that is about to expire.</string>
@@ -184,6 +186,8 @@
     <string name="notify_event_today">Today. Tap to show the ticket.</string>
     <string name="notify_expires_today_at">Expires today at %s.</string>
     <string name="notify_expires_today">Expires today.</string>
+    <string name="notify_valid_today">Valid from today.</string>
+    <string name="notify_valid_from_at">Valid from %s today.</string>
     <string name="notify_reminder_title">%s expires tomorrow</string>
     <string name="notify_reminder_text">Tap to show the card.</string>
     <string name="channel_flights">Flight changes</string>
@@ -207,6 +211,7 @@
     <string name="code_balance">Balance</string>
     <string name="code_pnr">Booking %s</string>
     <string name="code_expires">Expires %s</string>
+    <string name="code_valid_from">Valid from %s</string>
     <string name="code_expired">Expired %s</string>
     <string name="code_pin">PIN %s</string>
     <string name="code_pin_hidden">PIN hidden</string>
@@ -251,6 +256,7 @@
     </plurals>
     <string name="form_event">Date and time</string>
     <string name="form_expires">Expires</string>
+    <string name="form_valid_from">Valid from</string>
     <string name="form_balance">Balance</string>
     <string name="form_pin">PIN</string>
     <string name="form_flight">Flight</string>

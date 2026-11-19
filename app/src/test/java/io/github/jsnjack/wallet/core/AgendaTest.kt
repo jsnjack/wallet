@@ -87,6 +87,13 @@ class AgendaTest {
     }
 
     @Test
+    fun aCardValidFromTodayIsUpNext() {
+        val voucher = card("v", CardKind.VOUCHER).copy(validFrom = DayTime(today, LocalTime.of(18, 0)))
+        assertEquals(listOf(UpNext(voucher, UpNextReason.STARTS_TODAY)), agenda.upNext(listOf(voucher), now))
+        assertEquals(today.atTime(18, 0), agenda.nextChange(listOf(voucher), now))
+    }
+
+    @Test
     fun nextChangeIsTheNearestMomentOrMidnight() {
         val voucher = card("v", CardKind.VOUCHER, expires = DayTime(today, LocalTime.of(21, 0)))
         assertEquals(today.atTime(21, 0), agenda.nextChange(listOf(voucher), now))

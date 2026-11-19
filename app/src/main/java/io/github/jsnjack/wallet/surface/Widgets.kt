@@ -66,6 +66,7 @@ object Widgets {
                 when (item.reason) {
                     UpNextReason.FLIGHT -> R.string.up_next_flight
                     UpNextReason.EVENT_TODAY -> R.string.up_next_event
+                    UpNextReason.STARTS_TODAY -> R.string.up_next_valid
                     UpNextReason.EXPIRES_SOON -> R.string.up_next_expires
                 },
             ),

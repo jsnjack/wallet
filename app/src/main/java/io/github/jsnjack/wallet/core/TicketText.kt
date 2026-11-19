@@ -4,8 +4,17 @@ import java.time.DateTimeException
 import java.time.LocalDate
 import java.time.LocalTime
 
-/** What a ticket's printed text says: the event, when it starts, and details worth showing at the door. */
-data class TicketFacts(val name: String?, val event: DayTime?, val details: List<Detail>)
+/**
+ * What a ticket's or voucher's printed text says: the event, when it starts,
+ * details worth showing at the door, and the dates it is valid from and until.
+ */
+data class TicketFacts(
+    val name: String?,
+    val event: DayTime?,
+    val details: List<Detail>,
+    val validFrom: DayTime? = null,
+    val expires: DayTime? = null,
+)
 
 /**
  * Reads the text of an e-ticket, such as the text inside a PDF, in English
@@ -30,7 +39,7 @@ object TicketText {
     private val DUTCH_POSTCODE = Regex("""\b(\d{4} ?[A-Z]{2})\s+((?:'s-)?\p{Lu}[\p{L}'-]+)""")
     private val OTHER_POSTCODE = Regex("""^(\d{4,5})\s+(\p{Lu}[\p{L}'-]+(?:[ -]\p{Lu}[\p{L}'-]+)*)$""")
     private val STREET = Regex("""^\p{Lu}[\p{L}.'-]*(?: [\p{L}.'-]+)* \d{1,5} ?[A-Za-z]?(?:-\d+)?$""")
-    private val NOT_EVENT_DATE = Regex("""(?i)\b(order|besteld|bestel|gekocht|purchase|aankoop|printed|geprint|issued|uitgegeven|created|aangemaakt|geboren|born)""")
+    private val NOT_EVENT_DATE = Regex("""(?i)\b(order|besteld|bestel|gekocht|purchase|aankoop|printed|geprint|issued|uitgegeven|created|aangemaakt|geboren|born|geldig|valid|vervalt|vervaldatum|expir|houdbaar)""")
     private val BOILERPLATE = Regex("""(?i)(www\.|https?:|@|\*|e-?ticket|toegangsbewijs|print (this|dit)|mobile ticket|\bterms\b|conditions|voorwaarden)""")
     private val ISSUERS = setOf("ticketmaster", "eventim", "see tickets", "ticketswap", "paylogic", "eventbrite", "ticketcounter", "ticketland")
 
@@ -50,6 +59,11 @@ object TicketText {
     )
 
     private val DATE_LABELS = setOf("date", "date & time", "date and time", "datum", "datum & tijd", "datum en tijd", "when", "wanneer", "event date")
+    private val VALID_FROM_LABELS = setOf("valid from", "geldig vanaf", "geldig van", "vanaf", "starts", "geldig per")
+    private val VALID_UNTIL_LABELS = setOf(
+        "valid until", "valid to", "valid through", "geldig tot", "geldig t/m", "geldig tot en met", "expires", "expiry date",
+        "expiration date", "vervalt", "vervaldatum", "houdbaar tot", "uiterlijk",
+    )
     private val TIME_LABELS = setOf("time", "tijd", "start", "starts", "aanvang", "begin", "begintijd", "show")
     private val DETAIL_LABELS = setOf(
         "doors", "doors open", "deuren", "deuren open", "zaal open", "entree vanaf",
@@ -91,7 +105,7 @@ object TicketText {
         details += place(lines, used)
 
         val name = lines.indices.firstOrNull { i -> !used[i] && isName(lines[i].text, code) }?.let { lines[it].text }
-        return TicketFacts(name, event, details)
+        return TicketFacts(name, event, details, labelledDate(lines, VALID_FROM_LABELS), labelledDate(lines, VALID_UNTIL_LABELS))
     }
 
     // Pairs "Label:" lines with their value, inline or on the next line; the value line then counts as part of the label.
@@ -134,6 +148,12 @@ object TicketText {
             other.takeIf { it !== line && it.label?.lowercase() in TIME_LABELS }?.value?.let { TIME.find(it) }?.let(::time)
         }
         return DayTime(date, labelledTime)
+    }
+
+    // The date and time under one of [labels], such as "Geldig t/m: 31-12-2026".
+    private fun labelledDate(lines: List<Line>, labels: Set<String>): DayTime? = lines.firstNotNullOfOrNull { line ->
+        val value = line.value?.takeIf { line.label?.lowercase() in labels } ?: return@firstNotNullOfOrNull null
+        date(value)?.let { (date, end) -> DayTime(date, TIME.find(value, end)?.let(::time)) }
     }
 
     // The date in [text] and where it ends, so the time is looked for after it.

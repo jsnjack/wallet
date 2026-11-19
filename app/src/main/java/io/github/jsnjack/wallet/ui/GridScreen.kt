@@ -287,7 +287,11 @@ private fun NowBar(items: List<UpNext>, flightChecks: Map<String, FlightCheck>, 
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                val time = live?.departure?.toLocalTime() ?: (if (item.reason == UpNextReason.EXPIRES_SOON) card.expires else card.event)?.time
+                val time = live?.departure?.toLocalTime() ?: when (item.reason) {
+                    UpNextReason.EXPIRES_SOON -> card.expires
+                    UpNextReason.STARTS_TODAY -> card.validFrom
+                    else -> card.event
+                }?.time
                 val trailing = time?.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
                     ?: if (items.size > 1) "${page + 1}/${items.size}" else null
                 if (trailing != null) Text(trailing, color = accent, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
@@ -309,6 +313,8 @@ private fun upNextLabel(item: UpNext): String = when (item.reason) {
         ?: stringResource(R.string.up_next_flight)
     UpNextReason.EVENT_TODAY -> item.card.event?.let { stringResource(R.string.up_next_event_at, dayTimeText(it)) }
         ?: stringResource(R.string.up_next_event)
+    UpNextReason.STARTS_TODAY -> item.card.validFrom?.let { stringResource(R.string.up_next_valid_from, dayTimeText(it, inSentence = true)) }
+        ?: stringResource(R.string.up_next_valid)
     UpNextReason.EXPIRES_SOON -> item.card.expires?.let { stringResource(R.string.up_next_expires_at, dayTimeText(it)) }
         ?: stringResource(R.string.up_next_expires)
 }

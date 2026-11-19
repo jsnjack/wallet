@@ -134,6 +134,17 @@ class TicketTextTest {
     }
 
     @Test
+    fun voucherValidityDatesAreNotTheEvent() {
+        val facts = TicketText.read("Kerstbon\nGeldig vanaf: 1-12-2026\nGeldig t/m: 31-12-2026 23:59", today)
+        assertNull(facts.event)
+        assertEquals(DayTime(LocalDate.of(2026, 12, 1)), facts.validFrom)
+        assertEquals(DayTime(LocalDate.of(2026, 12, 31), LocalTime.of(23, 59)), facts.expires)
+        val draft = CardDraft(code = "1", format = CodeFormat.QR, formatChosen = true).withTicket(facts)
+        assertEquals(CardKind.VOUCHER, draft.kind)
+        assertEquals("Kerstbon", draft.name)
+    }
+
+    @Test
     fun aYearLineIsNoAddressAndNothingIsInventedFromNothing() {
         assertEquals("2026 Tour", TicketText.read("2026 Tour\nZiggo Dome", today).name)
         val empty = TicketText.read("", today)

@@ -80,6 +80,7 @@ import java.time.LocalTime
 import java.time.ZoneOffset
 
 private val EXPIRING_KINDS = setOf(CardKind.VOUCHER, CardKind.GIFT_CARD, CardKind.MEMBERSHIP)
+private val STARTING_KINDS = setOf(CardKind.VOUCHER, CardKind.GIFT_CARD, CardKind.MEMBERSHIP, CardKind.TICKET)
 private val PIN_KINDS = setOf(CardKind.VOUCHER, CardKind.GIFT_CARD)
 private val DETAIL_KINDS = setOf(CardKind.TICKET, CardKind.BOARDING_PASS, CardKind.OTHER)
 private val CHECKED_FORMATS = setOf(CodeFormat.EAN_13, CodeFormat.EAN_8, CodeFormat.UPC_A)
@@ -231,6 +232,9 @@ private fun KindFields(draft: CardDraft, balanceError: Boolean, update: ((CardDr
         CardKind.TICKET -> DayTimeField(stringResource(R.string.form_event), draft.event) { value -> update { it.copy(event = value) } }
         CardKind.BOARDING_PASS -> FlightFields(draft, update)
         else -> Unit
+    }
+    if (draft.kind in STARTING_KINDS || draft.validFrom != null) {
+        DayTimeField(stringResource(R.string.form_valid_from), draft.validFrom) { value -> update { it.copy(validFrom = value) } }
     }
     if (draft.kind in EXPIRING_KINDS) {
         DayTimeField(stringResource(R.string.form_expires), draft.expires) { value -> update { it.copy(expires = value) } }

@@ -30,6 +30,7 @@ data class CardDraft(
     val details: List<Detail> = emptyList(),
     val flight: Flight? = null,
     val altFormat: CodeFormat? = null,
+    val validFrom: DayTime? = null,
     val usedAt: Long? = null,
 ) {
     /** The colour the card gets: the chosen one, the brand's, or one derived from the name. */
@@ -54,15 +55,23 @@ data class CardDraft(
 
     /**
      * The draft with what a ticket's text says, where the code said nothing:
-     * its name, its date and time (which makes it a ticket) and extra details.
-     * A boarding pass keeps what its barcode says.
+     * its name, its date and time (which makes it a ticket), the dates it is
+     * valid from and until, and extra details. A boarding pass keeps what its
+     * barcode says.
      */
     fun withTicket(facts: TicketFacts): CardDraft {
         if (kind == CardKind.BOARDING_PASS) return this
         return copy(
             name = name.ifBlank { facts.name.orEmpty() },
-            kind = if (facts.event != null) CardKind.TICKET else kind,
+            kind = when {
+                facts.event != null -> CardKind.TICKET
+                // Validity dates without an event read like a voucher.
+                kind == CardKind.LOYALTY && (facts.validFrom != null || facts.expires != null) -> CardKind.VOUCHER
+                else -> kind
+            },
             event = event ?: facts.event,
+            validFrom = validFrom ?: facts.validFrom,
+            expires = expires ?: facts.expires,
             details = details + facts.details.filter { new -> details.none { it.label.equals(new.label, ignoreCase = true) } },
         )
     }
@@ -89,6 +98,7 @@ data class CardDraft(
         flight = flight,
         // An edited code or format can leave the second format unable to draw it.
         altFormat = altFormat?.takeIf { it != format && CodeMatrix.canEncode(cleanCode, it) },
+        validFrom = validFrom,
     )
 
     companion object {
@@ -134,6 +144,7 @@ data class CardDraft(
             flight = card.flight,
             usedAt = card.usedAt,
             altFormat = card.altFormat,
+            validFrom = card.validFrom,
         )
     }
 }

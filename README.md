@@ -28,8 +28,10 @@ Share (in that menu or at the bottom of a code) sends a picture of the code
 with the card's name. Anyone can show the picture at a till; Wallet on
 another phone imports it like a screenshot, with the name filled in.
 
-Vouchers can have an expiry date and a PIN, gift cards a balance, and
-tickets a date and seat. "Mark as used" moves a voucher to the archive;
+Vouchers can have a start date ("Valid from"), an expiry date and a PIN,
+gift cards and memberships the same dates, gift cards a balance, and tickets
+a date, a start date and a seat. A card that becomes valid today shows in Up
+next. "Mark as used" moves a voucher to the archive;
 expired cards and past tickets and flights move there by themselves and are
 deleted after the period chosen in Settings (one year by default).
 

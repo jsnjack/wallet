@@ -77,6 +77,12 @@ class CardJsonTest {
     }
 
     @Test
+    fun version4KeepsTheStartDate() {
+        val voucher = card.copy(kind = CardKind.VOUCHER, validFrom = DayTime(LocalDate.of(2026, 12, 1)))
+        assertEquals(voucher, roundTrip(voucher))
+    }
+
+    @Test
     fun version1CardReadsWithDefaults() {
         val v1 = """{"v":1,"id":"c1","name":"AH","code":"2620048511734","format":"EAN_13","kind":"LOYALTY",""" +
             """"color":"#00A0E2","note":"","pinned":false,"locked":false,"createdAt":1,"updatedAt":2,"deleted":false}"""

@@ -105,6 +105,7 @@ object Notifier {
         val time = when (item.reason) {
             UpNextReason.FLIGHT -> (if (airborne) live?.arrival else live?.departure)?.toLocalTime() ?: card.event?.time
             UpNextReason.EVENT_TODAY -> card.event?.time
+            UpNextReason.STARTS_TODAY -> card.validFrom?.time
             UpNextReason.EXPIRES_SOON -> card.expires?.time
         }
         val timeText = time?.let(::shortTime)
@@ -115,6 +116,8 @@ object Notifier {
                 ?: context.getString(R.string.notify_flight_today)
             UpNextReason.EVENT_TODAY -> timeText?.let { context.getString(R.string.notify_event_at, it) }
                 ?: context.getString(R.string.notify_event_today)
+            UpNextReason.STARTS_TODAY -> timeText?.let { context.getString(R.string.notify_valid_from_at, it) }
+                ?: context.getString(R.string.notify_valid_today)
             UpNextReason.EXPIRES_SOON -> timeText?.let { context.getString(R.string.notify_expires_today_at, it) }
                 ?: context.getString(R.string.notify_expires_today)
         }

@@ -513,6 +513,9 @@ private fun pageDetails(card: Card, live: LiveFlight?): List<Detail> {
 @Composable
 private fun MetaLine(card: Card, showCode: Boolean) {
     val parts = buildList {
+        card.validFrom?.takeIf { it.start.isAfter(LocalDateTime.now()) }?.let {
+            add(stringResource(R.string.code_valid_from, dayTimeText(it, inSentence = true)))
+        }
         card.expires?.let {
             val ended = !it.end.isAfter(LocalDateTime.now())
             add(stringResource(if (ended) R.string.code_expired else R.string.code_expires, dayTimeText(it, inSentence = true)))

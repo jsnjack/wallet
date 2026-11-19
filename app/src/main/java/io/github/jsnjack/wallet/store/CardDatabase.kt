@@ -29,16 +29,22 @@ internal class CardDatabase(context: Context) : SQLiteOpenHelper(context, NAME, 
         db.execSQL("CREATE TABLE usage (card_id TEXT PRIMARY KEY, count INTEGER NOT NULL, last_used_at INTEGER NOT NULL)")
         addVersion2Columns(db)
         addVersion3Columns(db)
+        addVersion4Columns(db)
     }
 
     // Upgrades only add columns, so stored cards stay as they are.
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) addVersion2Columns(db)
         if (oldVersion < 3) addVersion3Columns(db)
+        if (oldVersion < 4) addVersion4Columns(db)
     }
 
     private fun addVersion3Columns(db: SQLiteDatabase) {
         db.execSQL("ALTER TABLE cards ADD COLUMN alt_format TEXT")
+    }
+
+    private fun addVersion4Columns(db: SQLiteDatabase) {
+        db.execSQL("ALTER TABLE cards ADD COLUMN valid_from TEXT")
     }
 
     private fun addVersion2Columns(db: SQLiteDatabase) {
@@ -113,6 +119,7 @@ internal class CardDatabase(context: Context) : SQLiteOpenHelper(context, NAME, 
         put("details", CardJson.encodeDetails(details))
         put("flight", CardJson.encodeFlight(flight))
         put("alt_format", altFormat?.name)
+        put("valid_from", validFrom?.toString())
     }
 
     private fun Cursor.toCard(): Card? {
@@ -142,6 +149,7 @@ internal class CardDatabase(context: Context) : SQLiteOpenHelper(context, NAME, 
             details = CardJson.decodeDetails(optStr("details")),
             flight = CardJson.decodeFlight(optStr("flight")),
             altFormat = optStr("alt_format")?.let { name -> CodeFormat.entries.firstOrNull { it.name == name } },
+            validFrom = DayTime.parse(optStr("valid_from")),
         )
     }
 
@@ -153,6 +161,6 @@ internal class CardDatabase(context: Context) : SQLiteOpenHelper(context, NAME, 
     companion object {
         /** Database file name; Android backup rules refer to it. */
         const val NAME = "wallet.db"
-        private const val VERSION = 3
+        private const val VERSION = 4
     }
 }
