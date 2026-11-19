@@ -105,7 +105,8 @@ fun GridScreen(vm: WalletViewModel) {
     val showRail = favourites.isNotEmpty() && query.isBlank()
 
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Column(Modifier.fillMaxSize().statusBarsPadding()) {
+        // The grid fills from the bottom, so it must end above the keyboard or search results hide behind it.
+        Column(Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
             TitleBar(
                 title = stringResource(R.string.app_name),
                 subtitle = listOfNotNull(pluralStringResource(R.plurals.card_count, all.size, all.size), syncSummary(sync)).joinToString(" · "),
