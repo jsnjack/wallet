@@ -74,6 +74,7 @@
     <string name="form_name_placeholder">Card name</string>
     <string name="form_number">Number · %s</string>
     <string name="form_format">Code type</string>
+    <string name="form_change_format">Change code type</string>
     <string name="form_kind">Kind</string>
     <string name="form_color">Colour</string>
     <string name="form_note">Note</string>

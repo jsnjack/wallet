@@ -94,6 +94,8 @@ fun CardFormScreen(vm: WalletViewModel) {
     val problem = current.problem()
     var showProblem by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    // A scanned, imported or saved code keeps its type unless asked; a typed number shows the picker to fix the guess.
+    var pickFormat by remember(current.editingId) { mutableStateOf(false) }
     val context = LocalContext.current
     val update: ((CardDraft) -> CardDraft) -> Unit = vm::updateDraft
     val save = { if (problem == null) vm.saveDraft() else showProblem = true }
@@ -160,8 +162,15 @@ fun CardFormScreen(vm: WalletViewModel) {
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 modifier = Modifier.fillMaxWidth(),
             )
-            SectionLabel(stringResource(R.string.form_format))
-            ChipRow(CodeFormat.entries, current.format, { it.label }) { format -> update { it.copy(format = format, formatChosen = true) } }
+            if (!current.formatChosen || pickFormat) {
+                SectionLabel(stringResource(R.string.form_format))
+                ChipRow(CodeFormat.entries, current.format, { it.label }) { format ->
+                    pickFormat = true
+                    update { it.copy(format = format, formatChosen = true) }
+                }
+            } else {
+                TextButton(onClick = { pickFormat = true }) { Text(stringResource(R.string.form_change_format)) }
+            }
             SectionLabel(stringResource(R.string.form_kind))
             val kindLabels = CardKind.entries.associateWith { stringResource(kindLabel(it)) }
             ChipRow(CardKind.entries, current.kind, { kindLabels.getValue(it) }) { kind -> update { it.copy(kind = kind) } }

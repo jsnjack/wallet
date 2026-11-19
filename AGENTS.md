@@ -97,7 +97,10 @@ External services:
    drawable code replaces the scanner with the form (`CardDraft.scanned`).
    Picked or shared images go through `CodeReader.readImage`; "Type number"
    opens an empty form whose format follows `CodeNumbers.guessFormat` until
-   the user picks one. Saving a new card opens its code screen.
+   the user picks one; only then does the form show the code type picker.
+   A scanned, imported or saved code keeps its type behind "Change code
+   type", because changing it can make the card unreadable at the till.
+   Saving a new card opens its code screen.
 3. **Sync.** `CardStore` calls `SyncController.onLocalChange` after user
    changes, which schedules `SyncWorker` 5 s later (unique work, replaced on
    each change); the app also asks for a run at start and every 6 hours.
