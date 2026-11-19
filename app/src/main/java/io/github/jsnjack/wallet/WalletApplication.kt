@@ -16,10 +16,10 @@ class WalletApplication : Application(), Configuration.Provider {
     /** All cards. */
     val store: CardStore by lazy { CardStore(this) }
 
-    /** Archive and notification preferences, and the flight-status key. */
+    /** Card order, archive, notification and live flight preferences. */
     val settings: AppSettings by lazy { AppSettings(this) }
 
-    /** Live flight results and this month's lookup count. */
+    /** The latest flight lookup per flight, and when to retry after a failure. */
     val flights: FlightStore by lazy { FlightStore(this) }
 
     /** Looks boarding passes' flights up; new results refresh the surfaces. */

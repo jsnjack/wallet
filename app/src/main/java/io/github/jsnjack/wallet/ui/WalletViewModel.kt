@@ -156,14 +156,14 @@ class WalletViewModel(app: Application, private val saved: SavedStateHandle) : A
     val favourites: StateFlow<List<Card>> = combine(cards, store.usage, CardList::favourites)
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    /** Tiles that match the search through any card in their group; favourites appear here as well as in the rail. */
     /** "Coming up" above the grid: tiles with an event ahead, or a start or end date within 30 days, soonest first. */
     val comingUp: StateFlow<List<Card>> = combine(cards, now) { shown, time -> CardDates.comingUp(shown, time) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /**
-     * The grid's tiles: every tile matching a search, or, without one, the
-     * tiles not already in "Coming up".
+     * The grid's tiles: every tile matching a search through any card in its
+     * group, or, without one, the tiles not already in "Coming up".
+     * Favourites appear here as well as in the rail.
      */
     val visible: StateFlow<List<Card>> = combine(cards, current, query, comingUp) { shown, list, q, dated ->
         if (q.isBlank()) {
@@ -636,7 +636,7 @@ class WalletViewModel(app: Application, private val saved: SavedStateHandle) : A
     /** Puts a used card back among the current ones. */
     fun restore(cardId: String) = changeCard(cardId) { it.copy(usedAt = null) }
 
-    /** Keeps [cardId] above the cards sorted by use, or releases it. */
+    /** Makes [cardId] a favourite (the rail, shortcuts, widget and tile), or stops it being one. */
     fun togglePinned(cardId: String) = changeCard(cardId) { it.copy(pinned = !it.pinned) }
 
     /** Requires a fingerprint before [cardId]'s code shows, or stops requiring it. */

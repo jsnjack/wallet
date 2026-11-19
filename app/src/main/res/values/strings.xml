@@ -43,10 +43,10 @@
     <string name="menu_delete">Delete</string>
 
     <string name="delete_title">Delete %s?</string>
-    <string name="delete_body">The card is removed from this phone and from your other devices.</string>
+    <string name="delete_body">The card is removed from this phone and, at the next backup, from its Google backup.</string>
     <plurals name="delete_group_body">
-        <item quantity="one">The card is removed from this phone and from your other devices.</item>
-        <item quantity="other">All %d cards on this tile are removed from this phone and from your other devices.</item>
+        <item quantity="one">The card is removed from this phone and, at the next backup, from its Google backup.</item>
+        <item quantity="other">All %d cards on this tile are removed from this phone and, at the next backup, from its Google backup.</item>
     </plurals>
 
     <string name="action_delete">Delete</string>

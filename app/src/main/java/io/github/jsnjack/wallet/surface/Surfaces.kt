@@ -63,7 +63,6 @@ class Surfaces(
         val progress = FlightProgress.of(departure, live?.arrivalAt(zone), live?.state, instant)
         Notifier.update(context, today, live, progress, agenda.remindersDue(cards, now), settings)
         Widgets.update(context, agenda.upNext(shown, now).firstOrNull(), CardList.quickAccess(shown, store.usage.value, FAVOURITES))
-        WalletTileService.requestUpdate(context)
         afterRefresh()
         // Last: when AgendaWorker runs this, replacing its own work cancels it.
         // Measured between instants, so a daylight saving change in between does not move the run by an hour.

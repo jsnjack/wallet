@@ -50,7 +50,7 @@ check: build test lint
 install: build
 	adb install -r bin/$(BINARY).apk
 
-# Sync counts and errors only; card names and numbers are never logged.
+# Counts, HTTP statuses and errors only; card names and numbers are never logged.
 logs:
 	adb logcat -s Wallet
 

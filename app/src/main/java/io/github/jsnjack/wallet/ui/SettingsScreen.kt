@@ -56,6 +56,8 @@ fun SettingsSheet(vm: WalletViewModel) {
     var target by remember { mutableStateOf<Uri?>(null) }
     val context = LocalContext.current
     val resources = LocalResources.current
+    // A system call: once per sheet, not on every redraw.
+    val version = remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty() }
 
     val exportPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(EXPORT_MIME)) { uri ->
         if (uri != null) {
@@ -136,7 +138,7 @@ fun SettingsSheet(vm: WalletViewModel) {
                 )
             }
             Text(
-                stringResource(R.string.settings_version, context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()),
+                stringResource(R.string.settings_version, version),
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 8.dp),

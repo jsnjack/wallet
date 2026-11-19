@@ -12,7 +12,8 @@ import kotlinx.serialization.json.Json
 /**
  * Flight lookups on this device: the latest result per flight, by
  * [io.github.jsnjack.wallet.core.FlightRef.id]. Results are short-lived and
- * stay on the device.
+ * stay on the device: `data_extraction_rules.xml` leaves this file out of
+ * backups and transfers.
  */
 class FlightStore(context: Context) {
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

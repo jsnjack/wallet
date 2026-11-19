@@ -2,8 +2,6 @@ package io.github.jsnjack.wallet.surface
 
 import android.annotation.SuppressLint
 import android.app.PendingIntent
-import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.service.quicksettings.Tile
@@ -55,12 +53,5 @@ class WalletTileService : TileService() {
     override fun onDestroy() {
         scope.cancel()
         super.onDestroy()
-    }
-
-    companion object {
-        /** Asks the system to refresh the tile, for example after the agenda changed. */
-        fun requestUpdate(context: Context) {
-            requestListeningState(context, ComponentName(context, WalletTileService::class.java))
-        }
     }
 }

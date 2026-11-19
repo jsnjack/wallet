@@ -28,7 +28,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        // The date, permissions or cards from sync may have changed while the app was away.
+        // The date, permissions or cards restored from a backup may have changed while the app was away.
         if (vm.ready.value) vm.refreshSurfaces()
     }
 

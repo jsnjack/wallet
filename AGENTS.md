@@ -135,8 +135,9 @@ External services:
    changes (debounced), after flight lookups, from widget updates and from
    `AgendaWorker`, which it schedules for
    `Agenda.nextChange` (at least next midnight). It deletes cards past the
-   retention, posts or cancels notifications, redraws widgets and asks the
-   tile to refresh, then has `FlightUpdater` schedule the next lookup.
+   retention, posts or cancels notifications and redraws widgets, then has
+   `FlightUpdater` schedule the next lookup. The tile redraws itself each
+   time the Quick Settings panel opens.
 6. **Live flight info.** Unless Settings turns it off, `FlightUpdater.schedule`
    finds the earliest lookup `FlightLookups.next` asks for among current
    boarding passes (grouped by `FlightRef`) and enqueues `FlightWorker`

@@ -61,7 +61,7 @@ dependencies {
     // Draws codes in every supported format.
     implementation("com.google.zxing:core:3.5.4")
     implementation("androidx.work:work-runtime-ktx:2.12.0")
-    // AuthorizationClient: the Google Drive app-folder permission.
+    // Card export files, database columns, form drafts and FlightStats responses.
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     testImplementation("junit:junit:4.13.2")

@@ -37,26 +37,16 @@ fun WalletTheme(content: @Composable () -> Unit) {
     val danger = colorResource(R.color.danger)
     val toast = colorResource(R.color.toast)
     val nowBarAccent = colorResource(R.color.now_bar_accent)
-    val scheme = if (isSystemInDarkTheme()) {
-        darkColorScheme(
-            primary = primary, onPrimary = onPrimary, primaryContainer = container, onPrimaryContainer = onContainer,
-            secondary = primary, onSecondary = onPrimary, secondaryContainer = container, onSecondaryContainer = onContainer,
-            background = background, onBackground = text, surface = surface, onSurface = text,
-            surfaceVariant = surfaceVariant, onSurfaceVariant = muted, surfaceContainerLowest = background,
-            surfaceContainerLow = surface, surfaceContainer = surface, surfaceContainerHigh = surface,
-            surfaceContainerHighest = surfaceVariant, outline = outline, outlineVariant = outline, error = danger,
-            inverseSurface = toast, inverseOnSurface = Color.White, inversePrimary = nowBarAccent,
-        )
-    } else {
-        lightColorScheme(
-            primary = primary, onPrimary = onPrimary, primaryContainer = container, onPrimaryContainer = onContainer,
-            secondary = primary, onSecondary = onPrimary, secondaryContainer = container, onSecondaryContainer = onContainer,
-            background = background, onBackground = text, surface = surface, onSurface = text,
-            surfaceVariant = surfaceVariant, onSurfaceVariant = muted, surfaceContainerLowest = background,
-            surfaceContainerLow = surface, surfaceContainer = surface, surfaceContainerHigh = surface,
-            surfaceContainerHighest = surfaceVariant, outline = outline, outlineVariant = outline, error = danger,
-            inverseSurface = toast, inverseOnSurface = Color.White, inversePrimary = nowBarAccent,
-        )
-    }
+    // The colours come from resources that already differ by night mode; the base only fills the roles not set here.
+    val base = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()
+    val scheme = base.copy(
+        primary = primary, onPrimary = onPrimary, primaryContainer = container, onPrimaryContainer = onContainer,
+        secondary = primary, onSecondary = onPrimary, secondaryContainer = container, onSecondaryContainer = onContainer,
+        background = background, onBackground = text, surface = surface, onSurface = text,
+        surfaceVariant = surfaceVariant, onSurfaceVariant = muted, surfaceContainerLowest = background,
+        surfaceContainerLow = surface, surfaceContainer = surface, surfaceContainerHigh = surface,
+        surfaceContainerHighest = surfaceVariant, outline = outline, outlineVariant = outline, error = danger,
+        inverseSurface = toast, inverseOnSurface = Color.White, inversePrimary = nowBarAccent,
+    )
     MaterialTheme(colorScheme = scheme, shapes = OneUiShapes, content = content)
 }
