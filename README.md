@@ -54,9 +54,9 @@ barcode, Wallet shows the QR code with a "Show as barcode" switch under it,
 for a scanner that only reads barcodes. A card with a venue, an address or
 an Apple Wallet location shows it under its name; a tap opens Google Maps.
 
-With a key for AeroDataBox (see "Live flight info setup" below), a boarding
-pass also shows its gate, terminal, departure time and status, updated
-through the day of the flight, and after landing the baggage belt. The "Up
+A boarding pass also shows its gate, terminal, departure time and status
+from flightstats.com, updated through the day of the flight, and after
+landing the baggage belt (see "Live flight info" below). The "Up
 next" row and the notification show them too, and a gate change, a new
 departure time or a cancellation sends an alert. On Android 16 and newer the
 notification also shows the flight as a progress bar, from four hours before
@@ -109,7 +109,7 @@ sdkmanager 'platform-tools' 'platforms;android-37.0' 'build-tools;37.0.0'
 
 The app supports Android 13 and newer (`minSdk` 33) and is built for a
 Galaxy phone on One UI 9 (Android 17). It asks for the camera, to scan
-cards, and uses the network only for live flight info, when you add a key.
+cards, and uses the network only for live flight info (Settings can turn it off).
 
 ```bash
 make check     # build, unit tests and Android lint
@@ -121,23 +121,20 @@ make airports  # refresh the bundled airport table from OurAirports
 The app asks for the notification permission the first time you save a card
 with a date, for the "today" notification and reminders.
 
-## Live flight info setup
+## Live flight info
 
-Live flight info uses AeroDataBox through RapidAPI with your own key:
-
-1. Create a free account at rapidapi.com.
-2. Open the AeroDataBox API there and subscribe to its free Basic plan
-   (about 200 flight lookups a month; no card needed).
-3. Copy your key (`X-RapidAPI-Key`) and paste it into Settings → Live
-   flight info → "Save key". The app checks it straight away.
-
-A flight is looked up the day before and then more often on the day: every
-30 minutes from four hours before departure, every 15 minutes in the last
-hour, and once after landing, about a dozen lookups per flight; one lookup
-serves every passenger on the flight. Opening the pass on the day asks again
-when the information is more than ten minutes old. Only the flight number
-and date are sent. The key is kept with the app's settings, so Android
-backup and phone transfer carry it to a new phone.
+Live flight info needs no account or key. It reads the data that
+flightstats.com's own flight tracker pages load. That is not an official
+service: it can change or stop without notice, and the pass then simply
+shows no live information. It covers about yesterday to tomorrow, so a
+flight is looked up the day before and then more often on the day: every 30
+minutes from four hours before departure, every 15 minutes in the last hour,
+and once after landing, about a dozen lookups per flight. One lookup serves
+every passenger on the flight, and opening the pass on the day asks again
+when the information is more than ten minutes old. Only the airline, flight
+number and date are sent. FlightStats has no boarding status; Wallet shows
+scheduled, in the air, landed, cancelled or diverted, and the delay from
+the times. Settings → Live flight info turns it off.
 
 ## Releases
 

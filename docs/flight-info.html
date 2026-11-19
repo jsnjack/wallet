@@ -23,7 +23,10 @@
 <h1 id="live-flight-info">Live flight info on boarding passes</h1>
 <p>Gate, terminal, delays and status on a boarding pass, the way Google Wallet and Samsung Wallet show them. Researched 2026-11-19 from the providers' own pricing and API pages; prices and free tiers change, so the numbers are checked again at sign-up.</p>
 
-<div class="bunk-callout important"><p class="bunk-callout-title">Decided 2026-11-19</p>
+<div class="bunk-callout important"><p class="bunk-callout-title">Changed later on 2026-11-19: FlightStats, no key</p>
+<p>AeroDataBox was dropped: the user wants only free services without API keys. Wallet now reads the JSON behind flightstats.com's flight tracker pages. See <a href="#no-key">No-key sources</a>.</p></div>
+
+<div class="bunk-callout"><p class="bunk-callout-title">First decision, 2026-11-19</p>
 <p>Built with AeroDataBox on RapidAPI's free Basic plan. The key is pasted into Settings and kept with the app's settings, so the phone's Google backup carries it. (It first synced through Drive; Drive sync was removed the same day in favour of Google backup.) The .pkpass extras and Schiphol's API are not built.</p></div>
 
 <div class="bunk-callout tip"><p class="bunk-callout-title">Recommendation</p>
@@ -49,6 +52,19 @@
 <tr><td>FlightLabs</td><td>7 days or 50 requests</td><td>$24.99 a month</td><td>Not confirmed</td><td>Not stated</td><td><span class="bunk-badge bad">trial only</span></td></tr>
 <tr><td>Cirium / FlightStats</td><td>Evaluation only</td><td>Sales contract</td><td>—</td><td>—</td><td><span class="bunk-badge bad">enterprise</span></td></tr>
 <tr><td>OpenSky Network</td><td>4,000 credits a day</td><td>—</td><td>No gates, no flight-number lookup</td><td>No</td><td><span class="bunk-badge bad">no gates</span></td></tr>
+</tbody>
+</table>
+
+<h2 id="no-key">No-key sources (tested 2026-11-19)</h2>
+<p>Each was asked for KL1001 Amsterdam → London on the day, with only the flight number and date.</p>
+<table>
+<thead><tr><th>Source</th><th>Result</th><th>Verdict</th></tr></thead>
+<tbody>
+<tr><td>FlightStats tracker JSON</td><td>Gate D6, terminal 2, 07:20 → 07:26, arrived on time, arrival terminal 4, belt 8; Transavia HV5131 equally complete; tomorrow's flight with its planned gate; nothing three days ahead</td><td><span class="bunk-badge good">chosen</span> unofficial, may break</td></tr>
+<tr><td>FlightAware flight page</td><td>Data inside a 500 KB page; no departure gate for this flight</td><td><span class="bunk-badge warn">heavy</span></td></tr>
+<tr><td>Flightradar24 flight list</td><td>Schedules; no gate or terminal for upcoming flights</td><td><span class="bunk-badge warn">thin</span></td></tr>
+<tr><td>adsb.lol</td><td>Positions of planes in the air only</td><td><span class="bunk-badge bad">no gates</span></td></tr>
+<tr><td>Schiphol website</td><td>HTTP 403</td><td><span class="bunk-badge bad">blocked</span></td></tr>
 </tbody>
 </table>
 

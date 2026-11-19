@@ -28,8 +28,6 @@ import io.github.jsnjack.wallet.core.TicketText
 import io.github.jsnjack.wallet.core.UpNext
 import io.github.jsnjack.wallet.core.Usage
 import io.github.jsnjack.wallet.core.WrongPasswordException
-import io.github.jsnjack.wallet.flight.KeyCheck
-import io.github.jsnjack.wallet.store.LookupUsage
 import io.github.jsnjack.wallet.platform.CardShare
 import io.github.jsnjack.wallet.platform.CodeReader
 import io.github.jsnjack.wallet.platform.FileReadResult
@@ -210,21 +208,8 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     /** Live flight results by [io.github.jsnjack.wallet.core.FlightRef.id]. */
     val flightChecks: StateFlow<Map<String, FlightCheck>> = wallet.flights.checks
 
-    /** The RapidAPI key for live flight info; empty when it is off. */
-    val flightKey: StateFlow<String> = settings.flightKey
-
-    /** This month's flight lookups on this device. */
-    val lookupUsage: StateFlow<LookupUsage> = wallet.flights.usage
-
-    private val _keyCheck = MutableStateFlow<KeyCheck?>(null)
-
-    /** The result of the last key check in Settings, or null before one. */
-    val keyCheck: StateFlow<KeyCheck?> = _keyCheck.asStateFlow()
-
-    private val _checkingKey = MutableStateFlow(false)
-
-    /** True while the key is being checked. */
-    val checkingKey: StateFlow<Boolean> = _checkingKey.asStateFlow()
+    /** Whether boarding passes look their flight up on flightstats.com. */
+    val liveFlights: StateFlow<Boolean> = settings.liveFlights
 
     /** True while an import or file read runs in the foreground. */
     val busy = MutableStateFlow(false)
@@ -629,25 +614,10 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
 
     // Live flight info
 
-    /** Saves (or with a blank [key], removes) the flight-status key and checks a new one right away. */
-    fun setFlightKey(key: String) {
-        settings.setFlightKey(key)
-        wallet.flightUpdater.keyChanged()
-        _keyCheck.value = null
-        if (key.isNotBlank()) checkFlightKey() else viewModelScope.launch { wallet.flightUpdater.schedule() }
-    }
-
-    /** Checks the saved key with one request. */
-    fun checkFlightKey() {
-        if (_checkingKey.value) return
-        viewModelScope.launch {
-            _checkingKey.value = true
-            try {
-                _keyCheck.value = wallet.flightUpdater.checkKey()
-            } finally {
-                _checkingKey.value = false
-            }
-        }
+    /** Turns live flight info on or off; turning it off cancels the lookups already planned. */
+    fun setLiveFlights(enabled: Boolean) {
+        settings.setLiveFlights(enabled)
+        viewModelScope.launch { wallet.flightUpdater.schedule() }
     }
 
     /** Looks the flight of [cardId] up if its pass just opened and the last result is stale. */

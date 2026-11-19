@@ -72,13 +72,4 @@ class FlightLookupsTest {
         assertEquals(setOf(FlightChange.CANCELED), FlightLookups.changes(before, before.copy(state = FlightState.CANCELED)))
         assertEquals(emptySet<FlightChange>(), FlightLookups.changes(null, before))
     }
-
-    @Test
-    fun theAllowanceKeepsAReserveForOpeningAPass() {
-        assertTrue(FlightLookups.allows(189, background = true))
-        assertFalse(FlightLookups.allows(190, background = true))
-        assertTrue(FlightLookups.allows(199, background = false))
-        assertFalse(FlightLookups.allows(200, background = false))
-        assertEquals("2026-11", FlightLookups.month(departs))
-    }
 }

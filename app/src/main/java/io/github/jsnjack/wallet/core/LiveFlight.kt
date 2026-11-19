@@ -67,15 +67,6 @@ data class LiveFlight(
 @Serializable
 data class FlightCheck(val checkedAt: Long, val flight: LiveFlight?)
 
-/** Why lookups stopped until something changes. */
-enum class LookupProblem {
-    /** The service refused the key; lookups wait for a new key. */
-    KEY_REJECTED,
-
-    /** This month's allowance is used up; lookups wait for next month. */
-    LIMIT_REACHED,
-}
-
 /** Stores [LocalDateTime] as ISO text, such as "2026-11-20T14:10". */
 object LocalDateTimeText : KSerializer<LocalDateTime> {
     override val descriptor = PrimitiveSerialDescriptor("LocalDateTimeText", PrimitiveKind.STRING)

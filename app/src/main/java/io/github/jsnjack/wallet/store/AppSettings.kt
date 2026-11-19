@@ -9,8 +9,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Card order, archive and notification preferences and the flight-status
- * key, kept on this device; Android backup and phone transfer carry them.
+ * Card order, archive, notification and live flight preferences, kept on
+ * this device; Android backup and phone transfer carry them.
  */
 class AppSettings(context: Context) {
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -25,10 +25,15 @@ class AppSettings(context: Context) {
     /** Whether the app posts the "today" notification and expiry reminders. */
     val notifications: StateFlow<Boolean> = _notifications.asStateFlow()
 
-    private val _flightKey = MutableStateFlow(prefs.getString(KEY_FLIGHT_KEY, null).orEmpty())
+    init {
+        // A key for the earlier AeroDataBox service is a secret nothing uses any more; it leaves the phone and its backup.
+        if (prefs.contains(KEY_OLD_FLIGHT_KEY)) prefs.edit { remove(KEY_OLD_FLIGHT_KEY) }
+    }
 
-    /** The user's RapidAPI key for AeroDataBox; empty when live flight info is off. Never logged. */
-    val flightKey: StateFlow<String> = _flightKey.asStateFlow()
+    private val _liveFlights = MutableStateFlow(prefs.getBoolean(KEY_LIVE_FLIGHTS, true))
+
+    /** Whether boarding passes look their flight up on flightstats.com; on unless turned off. */
+    val liveFlights: StateFlow<Boolean> = _liveFlights.asStateFlow()
 
     /** Keys ("card id@expiry date") of reminders already posted, so each is posted once. */
     var postedReminders: Set<String>
@@ -60,11 +65,10 @@ class AppSettings(context: Context) {
         _notifications.value = enabled
     }
 
-    /** Sets the flight-status key; a blank key turns live flight info off. */
-    fun setFlightKey(key: String) {
-        val trimmed = key.trim()
-        prefs.edit { putString(KEY_FLIGHT_KEY, trimmed) }
-        _flightKey.value = trimmed
+    /** Turns live flight info on or off. */
+    fun setLiveFlights(enabled: Boolean) {
+        prefs.edit { putBoolean(KEY_LIVE_FLIGHTS, enabled) }
+        _liveFlights.value = enabled
     }
 
     private fun readRetention(): Retention =
@@ -76,6 +80,7 @@ class AppSettings(context: Context) {
         const val KEY_ORDER = "card_order"
         const val KEY_NOTIFICATIONS = "notifications"
         const val KEY_POSTED_REMINDERS = "posted_reminders"
-        const val KEY_FLIGHT_KEY = "flight_api_key"
+        const val KEY_LIVE_FLIGHTS = "live_flights"
+        const val KEY_OLD_FLIGHT_KEY = "flight_api_key"
     }
 }

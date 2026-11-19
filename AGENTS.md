@@ -41,20 +41,20 @@ app/src/main/java/io/github/jsnjack/wallet/
     TicketText.kt           E-ticket text (English, Dutch) → event name, date and time, door details, venue and address
     CardPlace.kt            A card's venue, address or coordinates as one maps search
     CardDates.kt            "Coming up" cards and the date chip: event ahead, start or end within 30 days
-    LiveFlight.kt           FlightRef (one flight on one day), LiveFlight, FlightCheck, LookupProblem
-    AeroDataBox.kt          AeroDataBox flight status JSON → LiveFlight
-    FlightLookups.kt        When to look a flight up, monthly allowance, changes worth an alert
+    LiveFlight.kt           FlightRef (one flight on one day), LiveFlight, FlightCheck
+    FlightStats.kt          flightstats.com flight tracker JSON → LiveFlight
+    FlightLookups.kt        When to look a flight up, changes worth an alert
     FlightProgress.kt       A flight's day as a 0–100 progress bar, and when to redraw it
     CardJson.kt             Card format v4 (export bundle, database JSON columns)
     ExportCrypto.kt         Export file encryption: PBKDF2-HMAC-SHA256 + AES-256-GCM
   store/
     CardDatabase.kt         SQLiteOpenHelper v4: cards and usage counts; upgrades only add columns
     CardStore.kt            In-memory cards with write-through, StateFlows for the UI
-    AppSettings.kt          Archive retention, notifications, reminders already posted, flight-status key
-    FlightStore.kt          Latest lookup per flight and this month's lookup count
+    AppSettings.kt          Card order, archive retention, notifications, reminders already posted, live flights switch
+    FlightStore.kt          Latest lookup per flight and the retry time after a failure
   flight/
-    AeroDataBoxClient.kt    RapidAPI GET for a flight or a key check; LookupRefused for bad key or used-up quota
-    FlightUpdater.kt        Due lookups (FlightWorker), lookup on opening a pass, key check, scheduling
+    FlightStatsClient.kt    GET of one flight from flightstats.com's tracker data, no key
+    FlightUpdater.kt        Due lookups (FlightWorker), lookup on opening a pass, scheduling
     FlightText.kt           Status labels shared by the code screen, Now Bar and notifications
   platform/
     CodeReader.kt           zxing-cpp: camera frames, images and PDF pages → ReadCode
@@ -87,15 +87,14 @@ docs/design-options.html           Design, decisions and roadmap (bunk-gui page)
 docs/style-storybook.html          Five visual styles compared; One UI 9 was chosen
 docs/one-hand.html                 One-handed layouts and tile styles compared
 docs/favourites.html               Favourites ideas compared
-docs/flight-info.html              Live flight info: services compared, AeroDataBox chosen
+docs/flight-info.html              Live flight info: services compared, FlightStats (no key) chosen
 ```
 
 External services:
 - Android's Google backup (Auto Backup, `data_extraction_rules.xml`): the
   card database and settings, about once a day; no code of our own.
-- `aerodatabox.p.rapidapi.com` (AeroDataBox through RapidAPI) with the
-  user's own key: flight status by number and date, and an airport lookup
-  to check the key.
+- `www.flightstats.com/v2/api-next/flight-tracker/{airline}/{number}/{y}/{m}/{d}`:
+  the JSON behind flightstats.com's tracker pages, no key; unofficial.
 
 ---
 
@@ -135,16 +134,15 @@ External services:
    `Agenda.nextChange` (at least next midnight). It deletes cards past the
    retention, posts or cancels notifications, redraws widgets and asks the
    tile to refresh, then has `FlightUpdater` schedule the next lookup.
-6. **Live flight info.** With a key in Settings, `FlightUpdater.schedule`
+6. **Live flight info.** Unless Settings turns it off, `FlightUpdater.schedule`
    finds the earliest lookup `FlightLookups.next` asks for among current
    boarding passes (grouped by `FlightRef`) and enqueues `FlightWorker`
    (unique work "flights", network required). `runDue` looks up what is
-   due, one request a second, keeping 10 of the 200 monthly lookups for
-   opening a pass; `CodeScreen` calls `refreshOnOpen` for each page. A
+   due, a second apart; `CodeScreen` calls `refreshOnOpen` for each page. A
    result goes to `FlightStore`, fills in a pass's missing departure time,
    posts an alert for a gate, time or cancellation change, and refreshes
-   the surfaces. A refused key or used-up quota stops lookups
-   (`LookupProblem`); other failures wait 10 minutes. On Android 16 and
+   the surfaces. A failed lookup makes background lookups wait 10 minutes.
+   On Android 16 and
    newer the "today" notification for a flight carries a
    `Notification.ProgressStyle` bar from `FlightProgress`; `Surfaces`
    schedules `AgendaWorker` every 10 minutes while the bar moves.
@@ -180,7 +178,7 @@ Version: `make build` passes `-PappVersion` from `monova`;
 without the property the version is 0.0.1, code 1, for local use only.
 
 Supported: Android 13+ (`minSdk` 33), target 37. Permissions: camera,
-internet (AeroDataBox), biometric, notifications, promoted notifications
+internet (flightstats.com), biometric, notifications, promoted notifications
 (Live Updates). Tested over adb on a Galaxy A56 (SM-A566B, One UI 9,
 Android 17): the screens in light and dark mode, the v1 → v2 database
 upgrade, image, multi-screenshot, PDF and .pkpass import, boarding pass
@@ -210,7 +208,7 @@ Logging: tag `Wallet`. Log counts, HTTP status codes and error
 messages only; card names, numbers, notes and account addresses are
 personal data and are never logged. `CodeMatrix` errors name the format,
 never the code. Flight lookups log the flight's state and HTTP statuses,
-never the flight number, date or API key, and parser errors only by type,
+never the flight number or date, and parser errors only by type,
 because their messages quote the response.
 
 ---
@@ -330,14 +328,15 @@ because their messages quote the response.
 - **Brand list is approximate.** `Brands.ALL` holds names and approximate
   colours only, never number prefixes, so nothing guesses a shop from a
   number.
-- **Live flight info from AeroDataBox with the user's key** (decided
-  2026-11-19 from `docs/flight-info.html`). Free RapidAPI Basic plan: 400
-  units a month, 2 per flight lookup, so 200 lookups; gate, terminal,
-  check-in desk, belt, revised and predicted times and status in one call,
-  for every airport. The key is pasted in Settings and kept with the app's
-  settings, so Google backup carries it; a key built into the APK would be
-  public and missing from F-Droid builds. Live results and the monthly count
-  stay on the device.
+- **Live flight info from FlightStats, free and without a key** (decided
+  2026-11-19; it replaced AeroDataBox, which needed a RapidAPI key and a
+  monthly allowance and which the user rejected). Of the no-key sources
+  tested on real flights, flightstats.com's tracker JSON was the only one
+  with gates, terminals, belts and times in one small response (FlightAware
+  needs a 500 KB page, Flightradar24 lacked gates, adsb.lol has positions
+  only, Schiphol's site answered 403). It is unofficial and may break; a
+  failure just means no live information. Settings has an on/off switch
+  (on); the old key and allowance entries are erased from the phone.
 - **A shared card is a picture, not a file format** (decided 2026-11-19).
   Anyone can show the picture at a till without the app, Wallet imports it
   with the existing image route, and no import format has to stay stable.
@@ -375,12 +374,10 @@ because their messages quote the response.
   a line, never the rest of it.
 - ZXing's Code 39 writer switches to extended mode for lowercase, so
   `canEncode` accepts lowercase text; only non-ASCII text fails.
-- RapidAPI answers HTTP 429 both for the monthly quota and for more than
-  one request a second; `AeroDataBoxClient` treats only a body that
-  mentions "quota" as a used-up allowance.
-- AeroDataBox's spec does not pin down its time format: responses have
-  been seen as "2026-11-20 14:10+01:00", the spec says ISO date-time;
-  `AeroDataBox.localTime` reads the wall-clock part of either form.
+- FlightStats answers an unknown flight, and one more than about a day
+  ahead, with HTTP 200 and `{"data":{}}`; its times are local at each
+  airport ("2026-11-19T07:20:00.000") and its status codes are S, A, L, C,
+  D, R, NO, U and DN. It has no boarding or gate-closed status.
 - `Notification.Builder.setRequestPromotedOngoing` is API 36.1: guard with
   `SDK_INT_FULL >= VERSION_CODES_FULL.BAKLAVA_1`, not `SDK_INT >= 36`.
 - `ProcessCameraProvider.awaitInstance` is an extension function; it needs

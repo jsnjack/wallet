@@ -12,6 +12,5 @@
     <color name="on_primary_container">#FFBDF4E9</color>
     <color name="danger">#FFFF6B6B</color>
     <color name="positive">#FF4CD48A</color>
-    <color name="warning">#FFFBBF24</color>
     <color name="switch_off_track">#FF48484C</color>
 </resources>

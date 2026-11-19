@@ -5,14 +5,13 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
-import java.time.YearMonth
 
 /** What a new lookup changed compared with the one before, worth an alert. */
 enum class FlightChange { GATE, TIME, CANCELED }
 
 /**
- * When to look a flight up, so the free monthly allowance covers about a
- * dozen lookups per flight: once the day before, every 30 minutes from four
+ * When to look a flight up, about a dozen times per flight so the service
+ * that answers is not burdened: once the day before, every 30 minutes from four
  * hours before departure, every 15 minutes in the last hour, and once after
  * landing for the baggage belt. [zone] converts the stored lookup instants.
  */
@@ -56,12 +55,6 @@ class FlightLookups(private val zone: ZoneId) {
     private fun local(epochMillis: Long): LocalDateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), zone)
 
     companion object {
-        /** Lookups a month on AeroDataBox's free plan (400 units, 2 per lookup). */
-        const val MONTHLY_LOOKUPS = 200
-
-        /** Background lookups stop this many short of the limit, so opening a pass can still look it up. */
-        const val RESERVE = 10
-
         private val FIRST_LOOKUP_TIME: LocalTime = LocalTime.of(8, 0)
         private val RETRY_TIME: LocalTime = LocalTime.of(6, 0)
         private const val DAY_AHEAD_HOURS = 24L
@@ -71,12 +64,6 @@ class FlightLookups(private val zone: ZoneId) {
         private const val AFTER_LANDING_MINUTES = 10L
         private const val FRESH_MINUTES = 10L
         private const val TIME_CHANGE_MINUTES = 15L
-
-        /** True when [used] lookups this month leave room for one more; [background] lookups keep the reserve. */
-        fun allows(used: Int, background: Boolean): Boolean = used < MONTHLY_LOOKUPS - if (background) RESERVE else 0
-
-        /** The month a lookup counts against, such as "2026-11". */
-        fun month(now: LocalDateTime): String = YearMonth.from(now).toString()
 
         /** What changed between two lookups: a gate set or moved, departure moved by 15 minutes or more, or a cancellation. */
         fun changes(old: LiveFlight?, new: LiveFlight?): Set<FlightChange> {

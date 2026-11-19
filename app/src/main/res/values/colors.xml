@@ -13,7 +13,6 @@
     <color name="on_primary_container">#FF064C42</color>
     <color name="danger">#FFE5383B</color>
     <color name="positive">#FF1E9E5A</color>
-    <color name="warning">#FFB45309</color>
     <!-- Date chips sit on brand-coloured tiles, so they look the same in both themes. -->
     <color name="accent_on_white">#FF0A7F6D</color>
     <color name="chip_warn">#FFFFB020</color>

@@ -97,21 +97,7 @@
     <string name="settings_version">Version %s</string>
     <string name="export_file_name">wallet-%s.wallet</string>
     <string name="flights_title">Live flight info</string>
-    <string name="flights_body">Gate, terminal, delays and status on boarding passes, from AeroDataBox. Create a free account at rapidapi.com, subscribe to AeroDataBox\'s Basic plan and paste your key here. Only the flight number and date are sent. The key is kept in your phone\'s Google backup.</string>
-    <string name="flights_key_label">RapidAPI key</string>
-    <string name="flights_save">Save key</string>
-    <string name="flights_key_saved">Key ending in %s</string>
-    <string name="flights_test">Test</string>
-    <string name="flights_remove">Remove</string>
-    <string name="flights_checking">Checking the key…</string>
-    <string name="flights_key_works">The key works.</string>
-    <string name="flights_key_rejected">RapidAPI rejected this key. Check that it is copied in full and subscribed to AeroDataBox.</string>
-    <string name="flights_limit_reached">This month\'s lookups are used up; they start again next month.</string>
-    <string name="flights_unreachable">Could not reach RapidAPI. Try again when you are online.</string>
-    <plurals name="flights_usage">
-        <item quantity="one">%1$d of %2$d lookup used this month</item>
-        <item quantity="other">%1$d of %2$d lookups used this month</item>
-    </plurals>
+    <string name="flights_body">Gate, terminal, delays and baggage belt for boarding passes, looked up on flightstats.com on the day of the flight. Only the flight number and date are sent. It is not an official service, so it may stop working.</string>
 
     <string name="password_export_title">Export password</string>
     <string name="password_export_body">You need this password to import the file. It cannot be recovered.</string>
