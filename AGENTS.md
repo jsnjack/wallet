@@ -166,7 +166,7 @@ make install      # build + adb install -r
 make test         # JVM unit tests (core/)
 make logs         # adb logcat -s Wallet
 make airports     # refresh assets/airports.tsv from OurAirports
-make release      # check, upload GitHub release, then queue F-Droid publication (not set up yet)
+make release      # check, upload GitHub release, then queue F-Droid publication (jsnjack/android-apps)
 make fdroid-publish  # retry F-Droid publication for the current commit
 ```
 
@@ -191,11 +191,20 @@ card, biometric unlock, the widgets, sharing, the flight progress bar and
 live flight info. The Quick Settings tile was tested with
 `cmd statusbar add-tile` / `click-tile` and removed again.
 
-Signing: local builds use the debug keystore. A dedicated app key is still
-to be created before the first F-Droid release (AGENTS.android.md). Google
-backup restores only into a build signed with the same key, and Android
-refuses an update signed with another key; moving the installed app to a
-new key means export, uninstall, install, import.
+Signing: local builds use the debug keystore, which is also the personal app
+key that `jsnjack/android-apps` signs every published app with (alias
+`androiddebugkey`, certificate SHA-256 `53d59ccc…13ebf`). So repository
+builds update a locally installed build in place and keep its cards, and
+Google backup restores into either. Android refuses an update signed with
+another key; moving to a new key means export, uninstall, install, import.
+
+Releases: the publisher builds `assembleRelease` (R8 minify and resource
+shrinking) at the released commit and verifies package, version, certificate
+and that it is not debuggable. The first release build (0.15.0) was signed
+locally the same way, installed over the phone's debug build and started
+with no crash. The published version code is the higher of `version_floor`
+(15000 in `apps.json`) plus one and the `make release` mapping; local
+builds installed afterwards must not be lower.
 
 Logging: tag `Wallet`. Log counts, HTTP status codes and error
 messages only; card names, numbers, notes and account addresses are

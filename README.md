@@ -141,11 +141,14 @@ backup and phone transfer carry it to a new phone.
 
 ## Releases
 
-Release publishing through the shared F-Droid repository is not set up yet.
-The app first needs a GitHub repository, a dedicated signing key and an
-entry in the publisher's configuration in `jsnjack/android-apps`. After
-that, commit and push `master`, then run `make release`; it runs the checks,
-uploads the APK to the app's GitHub release and starts F-Droid publication
-for that exact commit. If the GitHub release succeeds but the F-Droid trigger
+Wallet is published in the personal F-Droid repository at
+https://jsnjack.github.io/android-apps/ (configured in
+`jsnjack/android-apps`). Commit and push `master`, then run `make release`;
+it runs the checks, uploads the APK to the app's GitHub release and starts
+F-Droid publication for that exact commit. The publisher builds an optimised
+release APK and signs it with the same personal key as local builds, so a
+repository update installs over a local build and keeps the cards.
+Repository builds get a version code of at least 15001; a local build
+installed over one must not be lower. If the GitHub release succeeds but the F-Droid trigger
 fails, retry with `make fdroid-publish` and follow the deployment in
 https://github.com/jsnjack/android-apps/actions/workflows/publish.yml.
