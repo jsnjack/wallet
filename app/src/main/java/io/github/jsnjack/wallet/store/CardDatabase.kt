@@ -9,7 +9,9 @@ import android.util.Log
 import androidx.core.database.sqlite.transaction
 import io.github.jsnjack.wallet.LOG_TAG
 import io.github.jsnjack.wallet.core.Card
+import io.github.jsnjack.wallet.core.CardJson
 import io.github.jsnjack.wallet.core.CardKind
+import io.github.jsnjack.wallet.core.DayTime
 import io.github.jsnjack.wallet.core.CodeFormat
 import io.github.jsnjack.wallet.core.Usage
 
@@ -25,10 +27,23 @@ internal class CardDatabase(context: Context) : SQLiteOpenHelper(context, NAME, 
                 created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted INTEGER NOT NULL)""",
         )
         db.execSQL("CREATE TABLE usage (card_id TEXT PRIMARY KEY, count INTEGER NOT NULL, last_used_at INTEGER NOT NULL)")
+        addVersion2Columns(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // Version 1 is the first schema; add migrations here when it changes.
+        if (oldVersion < 2) addVersion2Columns(db)
+    }
+
+    private fun addVersion2Columns(db: SQLiteDatabase) {
+        listOf(
+            "pin TEXT NOT NULL DEFAULT ''",
+            "expires TEXT",
+            "event TEXT",
+            "balance_cents INTEGER",
+            "used_at INTEGER",
+            "details TEXT NOT NULL DEFAULT '[]'",
+            "flight TEXT",
+        ).forEach { db.execSQL("ALTER TABLE cards ADD COLUMN $it") }
     }
 
     /** Every card, deleted tombstones included. */
@@ -83,6 +98,13 @@ internal class CardDatabase(context: Context) : SQLiteOpenHelper(context, NAME, 
         put("created_at", createdAt)
         put("updated_at", updatedAt)
         put("deleted", if (deleted) 1 else 0)
+        put("pin", pin)
+        put("expires", expires?.toString())
+        put("event", event?.toString())
+        put("balance_cents", balanceCents)
+        put("used_at", usedAt)
+        put("details", CardJson.encodeDetails(details))
+        put("flight", CardJson.encodeFlight(flight))
     }
 
     private fun Cursor.toCard(): Card? {
@@ -104,15 +126,24 @@ internal class CardDatabase(context: Context) : SQLiteOpenHelper(context, NAME, 
             createdAt = long("created_at"),
             updatedAt = long("updated_at"),
             deleted = getInt(getColumnIndexOrThrow("deleted")) != 0,
+            pin = str("pin"),
+            expires = DayTime.parse(optStr("expires")),
+            event = DayTime.parse(optStr("event")),
+            balanceCents = optLong("balance_cents"),
+            usedAt = optLong("used_at"),
+            details = CardJson.decodeDetails(optStr("details")),
+            flight = CardJson.decodeFlight(optStr("flight")),
         )
     }
 
     private fun Cursor.str(column: String): String = getString(getColumnIndexOrThrow(column))
     private fun Cursor.long(column: String): Long = getLong(getColumnIndexOrThrow(column))
+    private fun Cursor.optStr(column: String): String? = getColumnIndexOrThrow(column).let { if (isNull(it)) null else getString(it) }
+    private fun Cursor.optLong(column: String): Long? = getColumnIndexOrThrow(column).let { if (isNull(it)) null else getLong(it) }
 
     companion object {
         /** Database file name; Android backup rules refer to it. */
         const val NAME = "wallet.db"
-        private const val VERSION = 1
+        private const val VERSION = 2
     }
 }

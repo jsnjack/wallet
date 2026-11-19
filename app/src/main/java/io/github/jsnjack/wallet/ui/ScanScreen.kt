@@ -76,8 +76,11 @@ fun ScanScreen(vm: WalletViewModel) {
         granted = ok
         asked = true
     }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) vm.readImage(uri, fromShare = false)
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(MAX_SCREENSHOTS)) { uris ->
+        if (uris.isNotEmpty()) vm.importScreenshots(uris, fromShare = false)
+    }
+    val files = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) vm.importFile(uri, fromShare = false)
     }
     LaunchedEffect(Unit) { if (!granted) permission.launch(Manifest.permission.CAMERA) }
     var torch by remember { mutableStateOf(false) }
@@ -125,6 +128,9 @@ fun ScanScreen(vm: WalletViewModel) {
         ) {
             SourceButton(R.drawable.ic_image, stringResource(R.string.scan_from_image), Modifier.weight(1f)) {
                 picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            }
+            SourceButton(R.drawable.ic_file, stringResource(R.string.scan_from_file), Modifier.weight(1f)) {
+                files.launch(IMPORT_TYPES)
             }
             SourceButton(R.drawable.ic_keyboard, stringResource(R.string.scan_type_number), Modifier.weight(1f)) { vm.startTyping() }
         }
@@ -209,6 +215,18 @@ private fun SourceButton(icon: Int, label: String, modifier: Modifier, onClick: 
         }
     }
 }
+
+/** Most screenshots one import takes, for example when moving cards over from Google Wallet. */
+const val MAX_SCREENSHOTS = 30
+
+/** File types offered by the file picker: PDFs and Apple Wallet passes, which some apps label generically. */
+val IMPORT_TYPES = arrayOf(
+    "application/pdf",
+    "application/vnd.apple.pkpass",
+    "application/vnd-com.apple.pkpass",
+    "application/zip",
+    "application/octet-stream",
+)
 
 private val ANALYSIS_SIZE = Size(1280, 720)
 private const val UNSUPPORTED_REPEAT_MS = 4_000L

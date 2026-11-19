@@ -14,7 +14,7 @@ import io.github.jsnjack.wallet.ui.WalletRoot
 import io.github.jsnjack.wallet.ui.WalletTheme
 import io.github.jsnjack.wallet.ui.WalletViewModel
 
-/** The only activity: hosts the Compose UI and routes launcher shortcuts and shared images. */
+/** The only activity: hosts the Compose UI and routes shortcuts, widgets, notifications and shared files. */
 class MainActivity : ComponentActivity() {
     private val vm: WalletViewModel by viewModels()
 
@@ -26,6 +26,12 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) route(intent)
     }
 
+    override fun onStart() {
+        super.onStart()
+        // The date, permissions or cards from sync may have changed while the app was away.
+        if (vm.ready.value) vm.refreshSurfaces()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         route(intent)
@@ -35,10 +41,14 @@ class MainActivity : ComponentActivity() {
         when (intent.action) {
             Shortcuts.ACTION_SHOW_CARD -> intent.getStringExtra(Shortcuts.EXTRA_CARD_ID)?.let(vm::openFromShortcut)
             Shortcuts.ACTION_SCAN -> vm.openScanFromShortcut()
-            Intent.ACTION_SEND -> {
-                val uri = intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
-                if (intent.type?.startsWith("image/") == true && uri?.scheme == "content") vm.readImage(uri, fromShare = true)
-            }
+            Intent.ACTION_SEND -> intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+                ?.takeIf { it.scheme == SCHEME_CONTENT }
+                ?.let { vm.importFile(it, fromShare = true) }
+            Intent.ACTION_SEND_MULTIPLE -> intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java)
+                ?.filter { it.scheme == SCHEME_CONTENT }
+                ?.takeIf { it.isNotEmpty() }
+                ?.let { vm.importScreenshots(it, fromShare = true) }
+            Intent.ACTION_VIEW -> intent.data?.takeIf { it.scheme == SCHEME_CONTENT }?.let { vm.importFile(it, fromShare = true) }
         }
     }
 
@@ -54,5 +64,9 @@ class MainActivity : ComponentActivity() {
                 }
             },
         )
+    }
+
+    private companion object {
+        const val SCHEME_CONTENT = "content"
     }
 }

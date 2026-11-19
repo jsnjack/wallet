@@ -50,6 +50,10 @@ install: build
 logs:
 	adb logcat -s Wallet
 
+# Refresh the bundled airport table (IATA code → city) from OurAirports.
+airports:
+	./scripts/airports.sh app/src/main/assets/airports.tsv
+
 standards:
 	curl -fsSL https://raw.githubusercontent.com/jsnjack/standards/master/AGENTS.universal.md \
 	    -o AGENTS.universal.md
@@ -73,4 +77,4 @@ fdroid-publish: version
 clean:
 	rm -rf app/build build bin/
 
-.PHONY: version test lint build check install logs standards release-preflight release fdroid-publish clean
+.PHONY: version test lint build check install logs airports standards release-preflight release fdroid-publish clean

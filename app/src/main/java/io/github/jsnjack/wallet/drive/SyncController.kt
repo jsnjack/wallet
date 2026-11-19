@@ -41,9 +41,14 @@ data class SyncStatus(
 /**
  * Keeps the card store and the Drive app folder in step. Runs happen in
  * [SyncWorker] (after changes, at app start and every few hours) or directly
- * from the UI right after the user grants access.
+ * from the UI right after the user grants access. [onRemoteChange] runs when
+ * a sync brought in changed cards.
  */
-class SyncController(private val context: Context, private val store: CardStore) {
+class SyncController(
+    private val context: Context,
+    private val store: CardStore,
+    private val onRemoteChange: () -> Unit,
+) {
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     private val runLock = Mutex()
     private val _status = MutableStateFlow(readStatus(running = false))
@@ -124,6 +129,7 @@ class SyncController(private val context: Context, private val store: CardStore)
             store.load()
             val (downloaded, uploaded) = withContext(Dispatchers.IO) { transfer(DriveClient(token)) }
             Log.i(LOG_TAG, "sync done: $downloaded downloaded, $uploaded uploaded")
+            if (downloaded > 0) onRemoteChange()
             prefs.edit {
                 putLong(KEY_LAST_SYNC, System.currentTimeMillis())
                 remove(KEY_PROBLEM)

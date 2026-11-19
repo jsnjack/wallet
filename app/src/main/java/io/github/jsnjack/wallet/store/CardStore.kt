@@ -72,6 +72,23 @@ class CardStore(context: Context, private val onLocalChange: () -> Unit) {
         return previous
     }
 
+    /**
+     * Replaces several cards with tombstones without undo, for archive
+     * clean-up. Returns how many were deleted.
+     */
+    suspend fun deleteAll(ids: Collection<String>, now: Long): Int {
+        val removed = mutex.withLock {
+            val current = ids.mapNotNull { all[it]?.takeUnless { card -> card.deleted } }
+            if (current.isEmpty()) return@withLock 0
+            write(current.map { it.tombstone(maxOf(now, it.updatedAt + 1)) })
+            withContext(Dispatchers.IO) { current.forEach { db.deleteUsage(it.id) } }
+            _usage.value = _usage.value - current.map { it.id }.toSet()
+            current.size
+        }
+        if (removed > 0) onLocalChange()
+        return removed
+    }
+
     /** Counts one showing of the card. */
     suspend fun recordUse(id: String, now: Long) = mutex.withLock {
         val usage = _usage.value[id]?.let { it.copy(count = it.count + 1, lastUsedAt = now) } ?: Usage(1, now)

@@ -1,7 +1,8 @@
 # Wallet
 
-An Android app for loyalty cards, vouchers and tickets. Cards are stored on
-the phone and open in one tap, with the code at full screen brightness.
+An Android app for loyalty cards, vouchers, tickets and boarding passes.
+Cards are stored on the phone and open in one tap, with the code at full
+screen brightness.
 Sync through a hidden folder in your Google Drive keeps a second phone or a
 tablet up to date. The design and the plan for later versions are in
 `docs/design-options.html`.
@@ -20,6 +21,30 @@ Dutch and European shops and checks the check digit of EAN and UPC numbers.
 Long-press a card to keep it at the top, pin it to the home screen, edit
 it, require a fingerprint or screen lock before its code shows, or delete
 it. Long-pressing the app icon lists the three most used cards.
+
+Vouchers can have an expiry date and a PIN, gift cards a balance, and
+tickets a date and seat. "Mark as used" moves a voucher to the archive;
+expired cards and past tickets and flights move there by themselves and are
+deleted after the period chosen in Settings (one year by default).
+
+Boarding passes fill themselves in from the barcode (IATA BCBP): flight,
+route with city names, seat and booking reference. Legs on one booking form
+a trip, which shows as one tile and swipes between legs. Apple Wallet
+`.pkpass` files and e-ticket PDFs can be shared to the app or picked with
+"PDF or pass" in the scanner.
+
+An "Up next" row on top of the grid shows a boarding pass from the day
+before the flight, a ticket on the day of the event, or a voucher that
+expires today or tomorrow. The same card appears as an ongoing notification
+on the day (a Live Update on Android 16 QPR2 and newer, shown in One UI's
+Now Bar), in the "Up next" home screen widget and in the Quick Settings
+tile. A reminder arrives at 09:00 the day before a card expires. The
+"Favourite cards" widget shows the four most used cards.
+
+Google Wallet has no export, so cards move over as screenshots: open each
+card in Google Wallet, take a screenshot of its barcode, then use Settings →
+"Import Google Wallet screenshots" (or share the screenshots to Wallet). The
+form opens for each card in turn so you can name it.
 
 Settings turns on Google Drive sync and exports or imports all cards as one
 file encrypted with a password.
@@ -51,7 +76,11 @@ cards, and uses the network only for Google Drive sync.
 make check     # build, unit tests and Android lint
 make install   # build bin/wallet.apk and install it over adb
 make logs      # sync and error log lines
+make airports  # refresh the bundled airport table from OurAirports
 ```
+
+The app asks for the notification permission the first time you save a card
+with a date, for the "today" notification and reminders.
 
 ## Google Drive sync setup
 

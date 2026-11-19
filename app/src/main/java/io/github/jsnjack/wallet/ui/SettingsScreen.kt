@@ -2,30 +2,25 @@ package io.github.jsnjack.wallet.ui
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
+import androidx.compose.material3.TextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -33,13 +28,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.colorResource
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -49,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.jsnjack.wallet.R
+import io.github.jsnjack.wallet.core.Retention
 import io.github.jsnjack.wallet.drive.SyncProblem
 import io.github.jsnjack.wallet.drive.SyncStatus
 import java.time.LocalDate
@@ -80,36 +73,78 @@ fun SettingsScreen(vm: WalletViewModel) {
             passwordFor = PasswordFor.IMPORT
         }
     }
+    val screenshots = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(MAX_SCREENSHOTS)) { uris ->
+        if (uris.isNotEmpty()) vm.importScreenshots(uris, fromShare = false)
+    }
+    val passFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) vm.importFile(uri, fromShare = false)
+    }
+    val retention by vm.retention.collectAsStateWithLifecycle()
+    val notifications by vm.notifications.collectAsStateWithLifecycle()
 
     Column(
         Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
-            .navigationBarsPadding()
-            .verticalScroll(rememberScrollState()),
+            .navigationBarsPadding(),
     ) {
-        Row(Modifier.padding(horizontal = 6.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { vm.back() }) {
-                Icon(painterResource(R.drawable.ic_close), contentDescription = stringResource(R.string.action_close))
-            }
-            Text(stringResource(R.string.settings_title), fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        }
-        Column(Modifier.padding(horizontal = SCREEN_PADDING), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            SyncCard(sync, busy, vm)
+        TitleBar(stringResource(R.string.settings_title), onBack = { vm.back() })
+        Column(
+            Modifier.verticalScroll(rememberScrollState()).padding(horizontal = SCREEN_PADDING).padding(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(GROUP_GAP),
+        ) {
+            SyncGroup(sync, busy, vm)
             Group {
-                ClickRow(stringResource(R.string.settings_export), stringResource(R.string.settings_export_detail)) {
-                    exportPicker.launch(resources.getString(R.string.export_file_name, LocalDate.now().toString()))
+                GroupRow(
+                    stringResource(R.string.settings_google_wallet),
+                    stringResource(R.string.settings_google_wallet_detail),
+                    icon = R.drawable.ic_image,
+                    onClick = { screenshots.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                )
+                GroupDivider()
+                GroupRow(
+                    stringResource(R.string.settings_pass_files),
+                    stringResource(R.string.settings_pass_files_detail),
+                    icon = R.drawable.ic_file,
+                    onClick = { passFiles.launch(IMPORT_TYPES) },
+                )
+            }
+            Group {
+                GroupRow(
+                    stringResource(R.string.settings_notifications),
+                    stringResource(R.string.settings_notifications_detail),
+                    icon = R.drawable.ic_brightness,
+                    onClick = { vm.setNotifications(!notifications) },
+                ) { WalletSwitch(checked = notifications, onCheckedChange = vm::setNotifications) }
+                GroupDivider()
+                Column(Modifier.padding(start = 54.dp, end = 18.dp, top = 12.dp, bottom = 14.dp)) {
+                    Text(stringResource(R.string.settings_retention), fontSize = 16.sp)
+                    Row(Modifier.padding(top = 8.dp), horizontalArrangement = CHIP_GAP) {
+                        Retention.entries.forEach { option ->
+                            WalletChip(stringResource(retentionLabel(option)), selected = option == retention, onClick = { vm.setRetention(option) })
+                        }
+                    }
                 }
-                ClickRow(stringResource(R.string.settings_import), stringResource(R.string.settings_import_detail)) {
-                    importPicker.launch(arrayOf("*/*"))
-                }
+            }
+            Group {
+                GroupRow(
+                    stringResource(R.string.settings_export),
+                    stringResource(R.string.settings_export_detail),
+                    onClick = { exportPicker.launch(resources.getString(R.string.export_file_name, LocalDate.now().toString())) },
+                )
+                GroupDivider()
+                GroupRow(
+                    stringResource(R.string.settings_import),
+                    stringResource(R.string.settings_import_detail),
+                    onClick = { importPicker.launch(arrayOf("*/*")) },
+                )
             }
             Text(
                 stringResource(R.string.settings_version, context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()),
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(4.dp),
+                modifier = Modifier.padding(horizontal = 8.dp),
             )
         }
     }
@@ -128,11 +163,18 @@ fun SettingsScreen(vm: WalletViewModel) {
     }
 }
 
+/** The label for an archive retention choice. */
+fun retentionLabel(value: Retention): Int = when (value) {
+    Retention.THREE_MONTHS -> R.string.retention_three_months
+    Retention.ONE_YEAR -> R.string.retention_one_year
+    Retention.FOREVER -> R.string.retention_forever
+}
+
 @Composable
-private fun SyncCard(sync: SyncStatus, busy: Boolean, vm: WalletViewModel) {
+private fun SyncGroup(sync: SyncStatus, busy: Boolean, vm: WalletViewModel) {
     if (!sync.enabled) {
         Group {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.sync_title), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                 Text(stringResource(R.string.sync_off_body), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                 Button(onClick = vm::connectDrive, enabled = !busy) { Text(stringResource(R.string.sync_turn_on)) }
@@ -148,45 +190,28 @@ private fun SyncCard(sync: SyncStatus, busy: Boolean, vm: WalletViewModel) {
         else -> stringResource(R.string.sync_waiting) to colorResource(R.color.muted)
     }
     Group {
-        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(title, color = tint, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                Text(
-                    sync.account ?: stringResource(R.string.sync_account_unknown),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 13.sp,
-                )
-            }
-            if (sync.running || busy) CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.padding(4.dp))
+        GroupRow(title, sync.account ?: stringResource(R.string.sync_account_unknown), titleColor = tint) {
+            if (sync.running || busy) CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
         }
+        GroupDivider()
         if (sync.problem == SyncProblem.NEEDS_SIGN_IN) {
-            ClickRow(stringResource(R.string.sync_sign_in_again), null, onClick = vm::connectDrive)
+            GroupRow(stringResource(R.string.sync_sign_in_again), titleColor = MaterialTheme.colorScheme.primary, onClick = vm::connectDrive)
         } else {
-            ClickRow(stringResource(R.string.sync_now), null, onClick = vm::syncNow)
+            GroupRow(stringResource(R.string.sync_now), titleColor = MaterialTheme.colorScheme.primary, onClick = vm::syncNow)
         }
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.sync_mobile_data), fontSize = 15.sp)
-                Text(stringResource(R.string.sync_mobile_data_detail), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Switch(checked = sync.useMobileData, onCheckedChange = vm::setUseMobileData)
-        }
-        ClickRow(stringResource(R.string.sync_turn_off), stringResource(R.string.sync_turn_off_detail), danger = true, onClick = vm::disableSync)
-    }
-}
-
-@Composable
-private fun Group(content: @Composable () -> Unit) {
-    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
-        Column { content() }
-    }
-}
-
-@Composable
-private fun ClickRow(title: String, detail: String?, danger: Boolean = false, onClick: () -> Unit) {
-    Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp)) {
-        Text(title, fontSize = 15.sp, color = if (danger) colorResource(R.color.danger) else Color.Unspecified)
-        if (detail != null) Text(detail, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        GroupDivider()
+        GroupRow(
+            stringResource(R.string.sync_mobile_data),
+            stringResource(R.string.sync_mobile_data_detail),
+            onClick = { vm.setUseMobileData(!sync.useMobileData) },
+        ) { WalletSwitch(checked = sync.useMobileData, onCheckedChange = vm::setUseMobileData) }
+        GroupDivider()
+        GroupRow(
+            stringResource(R.string.sync_turn_off),
+            stringResource(R.string.sync_turn_off_detail),
+            titleColor = colorResource(R.color.danger),
+            onClick = vm::disableSync,
+        )
     }
 }
 
@@ -202,7 +227,7 @@ private fun PasswordDialog(confirmTwice: Boolean, onDismiss: () -> Unit, onDone:
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (confirmTwice) Text(stringResource(R.string.password_export_body), fontSize = 14.sp)
-                OutlinedTextField(
+                TextField(
                     value = password,
                     onValueChange = { password = it },
                     label = { Text(stringResource(R.string.password_label)) },
@@ -216,7 +241,7 @@ private fun PasswordDialog(confirmTwice: Boolean, onDismiss: () -> Unit, onDone:
                     },
                 )
                 if (confirmTwice) {
-                    OutlinedTextField(
+                    TextField(
                         value = repeat,
                         onValueChange = { repeat = it },
                         label = { Text(stringResource(R.string.password_repeat)) },
@@ -232,8 +257,8 @@ private fun PasswordDialog(confirmTwice: Boolean, onDismiss: () -> Unit, onDone:
             TextButton(
                 onClick = { onDone(password.toCharArray()) },
                 enabled = password.isNotEmpty() && !tooShort && !mismatch,
-            ) { Text(stringResource(R.string.action_continue)) }
+            ) { Text(stringResource(R.string.action_continue), fontWeight = FontWeight.Bold) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel), fontWeight = FontWeight.Bold) } },
     )
 }

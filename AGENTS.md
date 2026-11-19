@@ -8,12 +8,13 @@
 ## Overview
 
 `wallet` is an Android app (Kotlin, Jetpack Compose, personal sideload) for
-loyalty cards, vouchers and tickets. Cards live in a local SQLite database
-and open in one tap at full brightness; Google Drive's hidden app folder
-keeps other devices in step. It is built for a Galaxy phone on One UI 9
-(Android 17). The design, the decisions behind it and the v2/v3 plan
-(boarding passes, .pkpass and PDF import, "Up next" suggestions, widgets)
-are in `docs/design-options.html`.
+loyalty cards, vouchers, gift cards, tickets and boarding passes. Cards live
+in a local SQLite database and open in one tap at full brightness; Google
+Drive's hidden app folder keeps other devices in step. Time-based rules
+archive used and past cards and surface the card needed next in the grid,
+a notification, two widgets and a Quick Settings tile. It is built for a
+Galaxy A56 on One UI 9 (Android 17). The design, decisions and plan are in
+`docs/design-options.html`.
 
 ---
 
@@ -22,38 +23,54 @@ are in `docs/design-options.html`.
 ```
 app/src/main/java/io/github/jsnjack/wallet/
   core/                     Plain Kotlin, no Android types; everything here has JVM tests
-    Card.kt                 Card, CardKind, CodeFormat, Usage
-    CardDraft.kt            The add/edit form's state, validation and conversion to a Card
+    Card.kt                 Card, CardKind, CodeFormat, Detail, Flight, Usage
+    CardDraft.kt            The add/edit form's state, validation, boarding-pass fill-in, conversion to a Card
+    DayTime.kt, Money.kt    Date with optional time (no zone); euro balances
+    Bcbp.kt                 IATA boarding pass barcode text → passenger and legs
+    Pkpass.kt               Apple Wallet .pkpass zip → CardDraft
+    Airports.kt             IATA code → city table parsing
+    Agenda.kt               Archive, retention, "Up next", reminders, next change; Trips (one tile per booking)
     CodeNumbers.kt          GS1 check digits, format guess for typed numbers, display grouping
     CodeMatrix.kt           ZXing: code → BitMatrix with no quiet zone
     CardLooks.kt            Text contrast, palette, colour for a name, monograms, hex
     Brands.kt               Bundled shop list for name suggestions and colours
     CardList.kt             Grid order, search matching, most-used cards for shortcuts
     SyncPlan.kt             SyncRules: file names, newer-wins plan, duplicate files
-    CardJson.kt             Card file format v1 (sync files and export bundle)
+    CardJson.kt             Card file format v2 (sync files, export bundle, database JSON columns)
     ExportCrypto.kt         Export file encryption: PBKDF2-HMAC-SHA256 + AES-256-GCM
   store/
-    CardDatabase.kt         SQLiteOpenHelper: cards (synced) and usage (this device only)
+    CardDatabase.kt         SQLiteOpenHelper v2: cards (synced) and usage (this device only)
     CardStore.kt            In-memory cards with write-through, StateFlows for the UI
+    AppSettings.kt          Archive retention, notifications, reminders already posted
   drive/
     DriveAuth.kt            Play services AuthorizationClient for the drive.appdata scope
     DriveClient.kt          Drive REST v3 over HttpURLConnection: list, download, create, update
     SyncController.kt       Sync runs, status, WorkManager scheduling, sync preferences
     SyncWorker.kt           Background run; silent authorization only
   platform/
-    CodeReader.kt           zxing-cpp: camera frames and images → ReadCode
+    CodeReader.kt           zxing-cpp: camera frames, images and PDF pages → ReadCode
+    AirportTable.kt         Loads assets/airports.tsv once
     CodeBitmaps.kt          BitMatrix → 1-pixel-per-module Bitmap, LRU cached
     Shortcuts.kt            Dynamic (top 3) and pinned launcher shortcuts
     Biometrics.kt           Framework BiometricPrompt (strong biometric or screen lock)
+  surface/
+    Surfaces.kt             Refresh of everything outside the app; AgendaWorker runs it at the next change
+    Notifier.kt             "Today" ongoing notification (Live Update on 36.1+) and expiry reminders
+    Widgets.kt              RemoteViews widgets: Up next (4×1) and Favourite cards (4×2)
+    WalletTileService.kt    Quick Settings tile
   ui/
-    WalletViewModel.kt      Screen stack, actions, snackbar events, export/import
+    WalletViewModel.kt      Screen stack, actions, imports, snackbar events, export/import
     WalletRoot.kt           Shows the top screen, snackbar, Google consent launcher
-    GridScreen.kt, CodeScreen.kt, ScanScreen.kt, CardFormScreen.kt, SettingsScreen.kt, FirstRunScreen.kt
-    CardParts.kt            CardTile, pixel-exact CodeImage, kind labels
-    Theme.kt                Material 3 scheme from res/values(-night)/colors.xml
+    GridScreen.kt, CodeScreen.kt, ScanScreen.kt, CardFormScreen.kt, ArchiveScreen.kt, SettingsScreen.kt, FirstRunScreen.kt
+    CardParts.kt            Glossy CardTile, pixel-exact CodeImage with quiet zone, DetailGrid, dates, kind labels
+    OneUi.kt                One UI parts: TitleBar, Group/GroupRow, WalletSwitch, WalletChip, WalletField, ToastSnackbar
+    Theme.kt                Material 3 scheme and shapes from res/values(-night)/colors.xml (One UI teal)
   MainActivity.kt           Compose host; routes shortcut and share intents; holds the first frame until cards load
   WalletApplication.kt      Lazy CardStore and SyncController; on-demand WorkManager
-docs/design-options.html    Design, decisions and roadmap (bunk-gui page)
+app/src/main/assets/airports.tsv   Bundled airport table (make airports)
+scripts/airports.sh                Builds it from OurAirports (public domain)
+docs/design-options.html           Design, decisions and roadmap (bunk-gui page)
+docs/style-storybook.html          Five visual styles compared; One UI 9 was chosen
 ```
 
 External services:
@@ -81,6 +98,19 @@ External services:
    newer remote cards and uploads newer local ones.
 4. **Delete.** A deleted card becomes a blank tombstone (`Card.tombstone`)
    that syncs like any card; undo saves the old card again with a new time.
+5. **Import a file.** Shared or picked files go to `WalletViewModel.importFile`,
+   which sniffs the bytes: a zip is read by `Pkpass`, `%PDF` pages are
+   rendered and read by `CodeReader.readPdf`, anything else is read as an
+   image. Several codes open a chooser. `importScreenshots` reads many
+   images (the Google Wallet route) and queues one form per card found.
+6. **Archive and agenda.** `Agenda` decides from `usedAt`, `expires` and,
+   for tickets and boarding passes, `event` whether a card is archived; the
+   ViewModel ticks a clock every minute. `Surfaces.refresh` runs after card
+   changes (debounced), after a sync that downloaded cards, from widget
+   updates and from `AgendaWorker`, which it schedules for
+   `Agenda.nextChange` (at least next midnight). It deletes cards past the
+   retention, posts or cancels notifications, redraws widgets and asks the
+   tile to refresh.
 
 ---
 
@@ -92,6 +122,7 @@ make build        # debug APK → bin/wallet.apk, version from monova
 make install      # build + adb install -r
 make test         # JVM unit tests (core/)
 make logs         # adb logcat -s Wallet
+make airports     # refresh assets/airports.tsv from OurAirports
 make release      # check, upload GitHub release, then queue F-Droid publication (not set up yet)
 make fdroid-publish  # retry F-Droid publication for the current commit
 ```
@@ -106,7 +137,14 @@ Version: `make build` passes `-PappVersion` from `monova`;
 without the property the version is 0.0.1, code 1, for local use only.
 
 Supported: Android 13+ (`minSdk` 33), target 37. Permissions: camera,
-internet (Drive only), biometric. Not yet tested on a device.
+internet (Drive only), biometric, notifications, promoted notifications
+(Live Updates). Tested over adb on a Galaxy A56 (SM-A566B, One UI 9,
+Android 17): the screens in light and dark mode, the v1 → v2 database
+upgrade, image, multi-screenshot, PDF and .pkpass import, boarding pass
+reading, "Up next", the promoted "today" notification, voucher "Mark as
+used" and the archive. Not yet tested on a device: camera scanning of a
+real card, biometric unlock, Drive sync (needs the Google Cloud setup),
+widgets and the Quick Settings tile.
 
 Signing: local builds use the debug keystore. A dedicated app key is still
 to be created before the first F-Droid release (AGENTS.android.md); the
@@ -149,6 +187,26 @@ never the code.
   and similar codes can be drawn again exactly as read.
 - **Text colour by WCAG contrast.** White when it reaches 3:1 (large or bold
   text), otherwise near-black; Albert Heijn's light blue gets dark text.
+- **One UI 9 style, compact** (decided 2026-11-19 from
+  `docs/style-storybook.html`). Teal accent, grouped rounded containers,
+  glossy tiles with a soft shadow, a dark "Now Bar" capsule for Up next,
+  One UI switches, chips and toasts, and Material Symbols Rounded weight
+  300 line icons (Apache 2.0, converted to vector drawables). One UI's tall
+  title area is replaced by a 60 dp title bar so content uses the screen;
+  square codes fill the panel width.
+- **Google Wallet import is by screenshot.** Google Wallet and Samsung
+  Wallet offer no export to other apps; a screenshot of each card's barcode
+  is read like any image, several at once.
+- **Archive is derived, not stored.** Only "used at" is stored; expiry and
+  past events are computed from dates each time, so changing a date moves a
+  card in or out of the archive. Retention deletes create tombstones that
+  sync.
+- **Widgets use RemoteViews, not Glance.** Two small fixed layouts do not
+  justify the Glance dependency; tiles are tinted with
+  `setBackgroundTintList`.
+- **File format v2 is additive.** New fields have defaults, so v1 files read
+  fine; a v1 app ignores the new fields and drops them when it re-uploads a
+  card, so update all devices together.
 - **Brand list is approximate.** `Brands.ALL` holds names and approximate
   colours only, never number prefixes, so nothing guesses a shop from a
   number.
@@ -156,6 +214,18 @@ never the code.
 ---
 
 ## Gotchas
+
+- `adb shell am start … --grant-read-uri-permission` cannot grant MediaStore
+  URIs, so a shared image from adb arrives without access; the app reports
+  "could not be read". Test imports through the photo picker or a real share.
+- The phone locks during long adb sessions; a blind tap at the bottom right
+  of the lock screen opens the camera. Check `topResumedActivity` before
+  tapping or taking screenshots.
+- `AgendaWorker` reschedules itself with `ExistingWorkPolicy.REPLACE`, which
+  cancels the running run right after it enqueued the next one. Doze can
+  delay the run, so a morning reminder may arrive late.
+- `Notification.Builder.setRequestPromotedOngoing` is API 36.1: guard with
+  `SDK_INT_FULL >= VERSION_CODES_FULL.BAKLAVA_1`, not `SDK_INT >= 36`.
 
 - `ProcessCameraProvider.awaitInstance` is an extension function; it needs
   `import androidx.camera.lifecycle.awaitInstance`.

@@ -1,18 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- One UI 9 style: neutral grey page, white surfaces, teal accent. -->
 <resources>
-    <color name="background">#FFF4F5F7</color>
+    <color name="background">#FFF2F2F5</color>
     <color name="surface">#FFFFFFFF</color>
-    <color name="surface_variant">#FFE6E7EB</color>
-    <color name="on_background">#FF111111</color>
-    <color name="muted">#FF6B6F7A</color>
-    <color name="outline">#FFD5D7DD</color>
-    <color name="danger">#FFDC2626</color>
-    <color name="positive">#FF15803D</color>
+    <color name="surface_variant">#FFE8E8EC</color>
+    <color name="on_background">#FF000000</color>
+    <color name="muted">#FF737373</color>
+    <color name="outline">#FFDDDDE1</color>
+    <color name="primary">#FF0A9C86</color>
+    <color name="on_primary">#FFFFFFFF</color>
+    <color name="primary_container">#FFD8F3EE</color>
+    <color name="on_primary_container">#FF064C42</color>
+    <color name="danger">#FFE5383B</color>
+    <color name="positive">#FF1E9E5A</color>
     <color name="warning">#FFB45309</color>
+    <color name="switch_off_track">#FFBDBDC2</color>
+    <!-- The "Now Bar" capsule and toasts stay dark in both modes, as in One UI. -->
+    <color name="now_bar">#FF1C1C1E</color>
+    <color name="now_bar_accent">#FF9FE9DC</color>
+    <color name="toast">#FF3A3A3C</color>
     <!-- The code panel stays white in dark mode: scanners need dark bars on light. -->
     <color name="code_panel">#FFFFFFFF</color>
     <color name="code_ink">#FF111111</color>
-    <color name="launcher_background">#FF111318</color>
-    <color name="launcher_card_back">#FF00A0E2</color>
-    <color name="launcher_card_front">#FFFFD200</color>
+    <color name="launcher_teal">#FF0A9C86</color>
+    <color name="launcher_teal_light">#FF2BD9BC</color>
+    <color name="launcher_teal_dark">#FF077A69</color>
+    <color name="launcher_shadow">#4705463C</color>
 </resources>

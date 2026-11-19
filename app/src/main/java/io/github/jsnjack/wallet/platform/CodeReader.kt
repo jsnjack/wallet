@@ -2,30 +2,33 @@ package io.github.jsnjack.wallet.platform
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.graphics.ImageDecoder
+import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import androidx.camera.core.ImageProxy
+import androidx.core.graphics.createBitmap
 import io.github.jsnjack.wallet.core.CodeFormat
 import zxingcpp.BarcodeReader
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
 
-/** A code read from the camera or an image, in a format the app can draw again. */
+/** A code read from the camera, an image or a PDF, in a format the app can draw again. */
 data class ReadCode(val text: String, val format: CodeFormat)
 
-/** Outcome of reading an image. */
-sealed interface ImageReadResult {
-    /** The first readable code. */
-    data class Found(val code: ReadCode) : ImageReadResult
+/** Outcome of reading an image or a PDF. */
+sealed interface FileReadResult {
+    /** Every drawable code found, in page order, without duplicates. */
+    data class Found(val codes: List<ReadCode>) : FileReadResult
 
-    /** A code was found, but in a format the app cannot draw. */
-    data object Unsupported : ImageReadResult
+    /** Codes were found, but only in formats the app cannot draw. */
+    data object Unsupported : FileReadResult
 
-    /** No code in the image. */
-    data object Nothing : ImageReadResult
+    /** No code at all. */
+    data object Nothing : FileReadResult
 }
 
-/** Reads codes with zxing-cpp; one instance per scanner screen. */
+/** Reads codes with zxing-cpp; one instance per scanner screen or file. */
 class CodeReader(liveCamera: Boolean) {
     private val reader = BarcodeReader(
         BarcodeReader.Options(
@@ -58,13 +61,35 @@ class CodeReader(liveCamera: Boolean) {
         }
     }
 
-    /** Reads the first code in the image at [uri]. Throws [IOException] when the image cannot be opened. */
-    fun readImage(context: Context, uri: Uri): ImageReadResult {
-        val bitmap = decode(context, uri)
-        val results = reader.read(bitmap).filter { it.error == null && !it.text.isNullOrEmpty() }
-        if (results.isEmpty()) return ImageReadResult.Nothing
-        val drawable = results.firstNotNullOfOrNull { r -> r.format.toCodeFormat()?.let { ReadCode(r.text!!, it) } }
-        return drawable?.let { ImageReadResult.Found(it) } ?: ImageReadResult.Unsupported
+    /** Reads every code in the image at [uri]. Throws [IOException] when it cannot be opened. */
+    fun readImage(context: Context, uri: Uri): FileReadResult = summarize(listOf(decode(context, uri)))
+
+    /** Reads every code on the first pages of the PDF at [uri]. Throws [IOException] when it cannot be opened. */
+    fun readPdf(context: Context, uri: Uri): FileReadResult {
+        val descriptor = context.contentResolver.openFileDescriptor(uri, "r") ?: throw IOException("PDF could not be opened")
+        val pages = try {
+            PdfRenderer(descriptor).use { pdf ->
+                (0 until minOf(pdf.pageCount, MAX_PDF_PAGES)).map { index ->
+                    pdf.openPage(index).use { page ->
+                        val scale = PDF_PAGE_SIDE.toFloat() / maxOf(page.width, page.height)
+                        val bitmap = createBitmap((page.width * scale).toInt(), (page.height * scale).toInt())
+                        bitmap.eraseColor(Color.WHITE)
+                        page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                        bitmap
+                    }
+                }
+            }
+        } catch (e: SecurityException) {
+            throw IOException("PDF is password protected", e)
+        }
+        return summarize(pages)
+    }
+
+    private fun summarize(bitmaps: List<Bitmap>): FileReadResult {
+        val results = bitmaps.flatMap { bitmap -> reader.read(bitmap).filter { it.error == null && !it.text.isNullOrEmpty() } }
+        if (results.isEmpty()) return FileReadResult.Nothing
+        val codes = results.mapNotNull { r -> r.format.toCodeFormat()?.let { ReadCode(r.text!!, it) } }.distinct()
+        return if (codes.isEmpty()) FileReadResult.Unsupported else FileReadResult.Found(codes)
     }
 
     private fun decode(context: Context, uri: Uri): Bitmap {
@@ -79,7 +104,7 @@ class CodeReader(liveCamera: Boolean) {
                 }
             }.let { if (it.config == Bitmap.Config.ARGB_8888) it else it.copy(Bitmap.Config.ARGB_8888, false) }
         } catch (e: ImageDecoder.DecodeException) {
-            throw IOException("shared image could not be decoded", e)
+            throw IOException("image could not be decoded", e)
         }
     }
 
@@ -104,6 +129,8 @@ class CodeReader(liveCamera: Boolean) {
 
     private companion object {
         const val MAX_IMAGE_SIDE = 2400
+        const val MAX_PDF_PAGES = 10
+        const val PDF_PAGE_SIDE = 2000
         val READABLE = setOf(
             BarcodeReader.Format.QR_CODE, BarcodeReader.Format.MICRO_QR_CODE, BarcodeReader.Format.AZTEC,
             BarcodeReader.Format.PDF_417, BarcodeReader.Format.DATA_MATRIX, BarcodeReader.Format.EAN_13,

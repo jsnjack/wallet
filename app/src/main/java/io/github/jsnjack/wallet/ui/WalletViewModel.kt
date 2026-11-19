@@ -9,9 +9,34 @@ import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.android.gms.common.api.CommonStatusCodes
+import com.google.android.gms.common.api.ApiException
+import io.github.jsnjack.wallet.LOG_TAG
+import io.github.jsnjack.wallet.R
+import io.github.jsnjack.wallet.WalletApplication
+import io.github.jsnjack.wallet.core.Agenda
+import io.github.jsnjack.wallet.core.Card
+import io.github.jsnjack.wallet.core.CardDraft
+import io.github.jsnjack.wallet.core.CardJson
+import io.github.jsnjack.wallet.core.CardList
+import io.github.jsnjack.wallet.core.ExportCrypto
+import io.github.jsnjack.wallet.core.NotAnExportException
+import io.github.jsnjack.wallet.core.Pkpass
+import io.github.jsnjack.wallet.core.Retention
+import io.github.jsnjack.wallet.core.Trips
+import io.github.jsnjack.wallet.core.UpNext
+import io.github.jsnjack.wallet.core.WrongPasswordException
+import io.github.jsnjack.wallet.drive.AuthOutcome
+import io.github.jsnjack.wallet.drive.DriveAuth
+import io.github.jsnjack.wallet.drive.SyncStatus
+import io.github.jsnjack.wallet.platform.CodeReader
+import io.github.jsnjack.wallet.platform.FileReadResult
+import io.github.jsnjack.wallet.platform.ReadCode
+import io.github.jsnjack.wallet.platform.Shortcuts
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -19,29 +44,18 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import io.github.jsnjack.wallet.LOG_TAG
-import io.github.jsnjack.wallet.R
-import io.github.jsnjack.wallet.WalletApplication
-import io.github.jsnjack.wallet.core.Card
-import io.github.jsnjack.wallet.core.CardDraft
-import io.github.jsnjack.wallet.core.CardJson
-import io.github.jsnjack.wallet.core.CardList
-import io.github.jsnjack.wallet.core.ExportCrypto
-import io.github.jsnjack.wallet.core.NotAnExportException
-import io.github.jsnjack.wallet.core.WrongPasswordException
-import io.github.jsnjack.wallet.drive.AuthOutcome
-import io.github.jsnjack.wallet.drive.DriveAuth
-import io.github.jsnjack.wallet.drive.SyncStatus
-import io.github.jsnjack.wallet.platform.CodeReader
-import io.github.jsnjack.wallet.platform.ImageReadResult
-import io.github.jsnjack.wallet.platform.ReadCode
-import io.github.jsnjack.wallet.platform.Shortcuts
 import java.io.IOException
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.util.Locale
 import java.util.UUID
 
 /** Screens on the navigation stack; the last one is shown. */
@@ -58,7 +72,10 @@ sealed interface Screen {
     /** The new-card or edit form; its content is [WalletViewModel.draft]. */
     data object Form : Screen
 
-    /** Sync and backup settings. */
+    /** Used, expired and past cards. */
+    data object Archive : Screen
+
+    /** Sync, archive, notification and backup settings. */
     data object Settings : Screen
 
     /** Restore from Drive or start fresh. */
@@ -70,10 +87,13 @@ sealed interface UiEvent {
     /** [card] was deleted and can be restored. */
     data class Deleted(val card: Card) : UiEvent
 
+    /** [card] was marked as used and can be put back. */
+    data class MarkedUsed(val card: Card) : UiEvent
+
     /** A message from string resources. */
     data class Message(@param:StringRes val text: Int) : UiEvent
 
-    /** A message from plural resources about [count] cards. */
+    /** A message from plural resources about [count] items. */
     data class Counted(@param:PluralsRes val text: Int, val count: Int) : UiEvent
 }
 
@@ -83,6 +103,9 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     private val wallet = app as WalletApplication
     private val store = wallet.store
     private val sync = wallet.sync
+    private val settings = wallet.settings
+    private val zone: ZoneId = ZoneId.systemDefault()
+    private val agenda = Agenda(zone)
 
     private val _ready = MutableStateFlow(false)
 
@@ -92,12 +115,38 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     /** The search text. */
     val query = MutableStateFlow("")
 
-    /** All cards in grid order. */
-    val cards: StateFlow<List<Card>> = combine(store.cards, store.usage, CardList::sorted)
+    /** The current time, updated every minute so time-based rules move on while the app is open. */
+    private val now: StateFlow<LocalDateTime> = flow {
+        while (true) {
+            emit(LocalDateTime.now(zone))
+            delay(CLOCK_TICK_MS)
+        }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, LocalDateTime.now(zone))
+
+    /** Every card that is not deleted, archived ones and every trip leg included. */
+    val allCards: StateFlow<List<Card>> = store.cards
+
+    /** Current (not archived) cards in grid order, one card per trip. */
+    val cards: StateFlow<List<Card>> = combine(store.cards, store.usage, now) { all, usage, time ->
+        CardList.sorted(Trips.collapse(all.filterNot { agenda.isArchived(it, time) }), usage)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Current cards matching the search. */
+    val visible: StateFlow<List<Card>> = combine(cards, query) { all, q -> all.filter { CardList.matches(it, q) } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    /** Cards matching the search. */
-    val visible: StateFlow<List<Card>> = combine(cards, query) { all, q -> all.filter { CardList.matches(it, q) } }
+    /** Archived cards, most recently archived first. */
+    val archived: StateFlow<List<Pair<Card, LocalDateTime>>> = combine(store.cards, now) { all, time ->
+        all.mapNotNull { card -> agenda.archivedAt(card, time)?.let { card to it } }.sortedByDescending { it.second }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Archived cards matching a non-empty search, shown under the grid's results. */
+    val archivedMatches: StateFlow<List<Card>> = combine(archived, query) { list, q ->
+        if (q.isBlank()) emptyList() else list.map { it.first }.filter { CardList.matches(it, q) }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Cards suggested in the "Up next" row. */
+    val upNext: StateFlow<List<UpNext>> = combine(store.cards, now) { all, time -> agenda.upNext(all, time) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val _stack = MutableStateFlow<List<Screen>>(listOf(Screen.Grid))
@@ -108,10 +157,23 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     /** The card in the form, or null outside it. */
     val draft = MutableStateFlow<CardDraft?>(null)
 
+    /** Screenshots still waiting in the import queue after the current form. */
+    val queued = MutableStateFlow(0)
+    private val queue = ArrayDeque<CardDraft>()
+
+    /** Codes found in one file when there are several to choose from. */
+    val choices = MutableStateFlow<List<ReadCode>?>(null)
+
     /** Drive sync state. */
     val syncStatus: StateFlow<SyncStatus> = sync.status
 
-    /** True while a restore or import runs in the foreground. */
+    /** How long archived cards are kept. */
+    val retention: StateFlow<Retention> = settings.retention
+
+    /** Whether "today" notifications and reminders are on. */
+    val notifications: StateFlow<Boolean> = settings.notifications
+
+    /** True while a restore, import or file read runs in the foreground. */
     val busy = MutableStateFlow(false)
 
     private val events = Channel<UiEvent>(Channel.BUFFERED)
@@ -124,17 +186,29 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     /** Google consent screens the activity must launch. */
     val consentRequests: Flow<PendingIntent> = consent.receiveAsFlow()
 
+    private val permission = Channel<Unit>(Channel.CONFLATED)
+
+    /** Requests to ask for the notification permission. */
+    val notificationPermissionRequests: Flow<Unit> = permission.receiveAsFlow()
+
     init {
         viewModelScope.launch {
             store.load()
             if (store.cards.value.isEmpty() && !sync.firstRunDone) _stack.value = listOf(Screen.FirstRun)
             _ready.value = true
             sync.requestNow()
+            wallet.surfaces.refresh()
         }
         viewModelScope.launch {
             combine(store.cards, store.usage) { all, usage -> CardList.mostUsed(all, usage) to all }
                 .debounce(SHORTCUT_DEBOUNCE_MS)
                 .collect { (top, all) -> withContext(Dispatchers.Default) { Shortcuts.update(app, top, all) } }
+        }
+        viewModelScope.launch {
+            combine(store.cards, settings.retention, settings.notifications) { _, _, _ -> }
+                .drop(1)
+                .debounce(SURFACE_DEBOUNCE_MS)
+                .collect { wallet.surfaces.refresh() }
         }
     }
 
@@ -144,7 +218,10 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     fun back(): Boolean {
         val stack = _stack.value
         if (stack.size <= 1) return false
-        if (stack.last() == Screen.Form) draft.value = null
+        if (stack.last() == Screen.Form) {
+            draft.value = null
+            clearQueue()
+        }
         _stack.value = stack.dropLast(1)
         return true
     }
@@ -152,7 +229,22 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     /** Opens the code screen at [cardId]. */
     fun openCard(cardId: String) = push(Screen.Code(cardId))
 
-    /** Opens a card from a launcher shortcut, on top of the grid. */
+    /**
+     * The page order for a code screen opened at [cardId]: the legs of its
+     * trip, the grid's results, or the archive, whichever holds it.
+     */
+    fun pagesFor(cardId: String): List<String> {
+        val card = store.get(cardId) ?: return emptyList()
+        val trip = Trips.legs(card, store.cards.value)
+        return when {
+            trip.size > 1 -> trip
+            visible.value.any { it.id == cardId } -> visible.value
+            archived.value.any { it.first.id == cardId } -> archived.value.map { it.first }
+            else -> listOf(card)
+        }.map { it.id }
+    }
+
+    /** Opens a card from a launcher shortcut, widget or notification, on top of the grid. */
     fun openFromShortcut(cardId: String) {
         viewModelScope.launch {
             ready.first { it }
@@ -175,12 +267,15 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     /** Opens settings. */
     fun openSettings() = push(Screen.Settings)
 
+    /** Opens the archive. */
+    fun openArchive() = push(Screen.Archive)
+
     /** Replaces the scanner with an empty form for typing a number. */
     fun startTyping() = showForm(CardDraft(), replaceTop = true)
 
     /** Opens the form for [cardId]. */
     fun edit(cardId: String) {
-        store.get(cardId)?.let { showForm(CardDraft.editing(it), replaceTop = false) }
+        store.get(cardId)?.let { showForm(CardDraft.editing(it, Locale.getDefault()), replaceTop = false) }
     }
 
     private fun push(screen: Screen) {
@@ -193,48 +288,159 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun showForm(initial: CardDraft, replaceTop: Boolean) {
         draft.value = initial
+        if (_stack.value.lastOrNull() == Screen.Form) return
         if (replaceTop) replaceTop(Screen.Form) else push(Screen.Form)
     }
 
-    // Adding and changing cards
+    // Adding cards
 
-    /** A code was read by the camera. */
-    fun onScanned(code: ReadCode) = showForm(CardDraft.scanned(code.text, code.format), replaceTop = true)
+    /** A code was read by the camera or picked from several in a file. */
+    fun onScanned(code: ReadCode) {
+        choices.value = null
+        val draft = CardDraft.scanned(code.text, code.format, LocalDate.now(zone))
+        if (_stack.value.lastOrNull() == Screen.Scan) showForm(draft, replaceTop = true) else openFormFromOutside(draft)
+    }
 
-    /** Reads a code from a picked or shared image and opens the form for it. */
-    fun readImage(uri: Uri, fromShare: Boolean) {
+    /** Closes the chooser for files with several codes. */
+    fun dismissChoices() {
+        choices.value = null
+    }
+
+    /**
+     * Reads a picked or shared file: a .pkpass, a PDF or an image. One code
+     * opens the form; several open a chooser.
+     */
+    fun importFile(uri: Uri, fromShare: Boolean) {
         viewModelScope.launch {
             if (fromShare) ready.first { it }
-            val result = try {
-                withContext(Dispatchers.Default) { CodeReader(liveCamera = false).readImage(getApplication(), uri) }
-            } catch (e: IOException) {
-                Log.w(LOG_TAG, "image read failed: ${e.message}")
-                null
-            }
-            when (result) {
-                is ImageReadResult.Found -> {
-                    if (fromShare) _stack.value = listOf(Screen.Grid, Screen.Scan)
-                    onScanned(result.code)
+            busy.value = true
+            try {
+                val context = getApplication<Application>()
+                val bytes = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { it.readNBytes(MAX_FILE_BYTES) }
+                        ?: throw IOException("file could not be opened")
                 }
-                ImageReadResult.Unsupported -> events.send(UiEvent.Message(R.string.message_unsupported_code))
-                ImageReadResult.Nothing, null -> events.send(UiEvent.Message(R.string.message_no_code_in_image))
+                when {
+                    Pkpass.looksLikePkpass(bytes) -> {
+                        val draft = withContext(Dispatchers.Default) {
+                            Pkpass.read(bytes, LocalDate.now(zone), System.currentTimeMillis())
+                        }
+                        openFormFromOutside(draft)
+                    }
+                    isPdf(bytes) -> handleRead(withContext(Dispatchers.Default) { CodeReader(liveCamera = false).readPdf(context, uri) })
+                    else -> handleRead(withContext(Dispatchers.Default) { CodeReader(liveCamera = false).readImage(context, uri) })
+                }
+            } catch (e: IOException) {
+                Log.w(LOG_TAG, "file import failed: ${e.message}")
+                events.send(UiEvent.Message(R.string.message_file_unreadable))
+            } catch (e: SecurityException) {
+                // A share without a read grant, or a grant that has expired.
+                Log.w(LOG_TAG, "file import not allowed: ${e.message}")
+                events.send(UiEvent.Message(R.string.message_file_unreadable))
+            } finally {
+                busy.value = false
             }
         }
     }
+
+    /**
+     * Reads several screenshots, for example from Google Wallet, and opens
+     * the form for each card found, one after another.
+     */
+    fun importScreenshots(uris: List<Uri>, fromShare: Boolean) {
+        if (uris.size == 1) return importFile(uris.single(), fromShare)
+        viewModelScope.launch {
+            if (fromShare) ready.first { it }
+            busy.value = true
+            val today = LocalDate.now(zone)
+            val drafts = withContext(Dispatchers.Default) {
+                val reader = CodeReader(liveCamera = false)
+                uris.mapNotNull { uri ->
+                    val result = try {
+                        reader.readImage(getApplication(), uri)
+                    } catch (e: IOException) {
+                        Log.w(LOG_TAG, "screenshot import skipped one image: ${e.message}")
+                        null
+                    } catch (e: SecurityException) {
+                        Log.w(LOG_TAG, "screenshot import not allowed for one image: ${e.message}")
+                        null
+                    }
+                    (result as? FileReadResult.Found)?.codes?.first()?.let { CardDraft.scanned(it.text, it.format, today) }
+                }
+            }
+            busy.value = false
+            val missing = uris.size - drafts.size
+            if (missing > 0) events.send(UiEvent.Counted(R.plurals.message_screenshots_without_code, missing))
+            if (drafts.isEmpty()) return@launch
+            clearQueue()
+            queue.addAll(drafts.drop(1))
+            queued.value = queue.size
+            openFormFromOutside(drafts.first())
+        }
+    }
+
+    private suspend fun handleRead(result: FileReadResult) {
+        when (result) {
+            is FileReadResult.Found -> if (result.codes.size == 1) onScanned(result.codes.single()) else choices.value = result.codes
+            FileReadResult.Unsupported -> events.send(UiEvent.Message(R.string.message_unsupported_code))
+            FileReadResult.Nothing -> events.send(UiEvent.Message(R.string.message_no_code_in_file))
+        }
+    }
+
+    private fun openFormFromOutside(draft: CardDraft) {
+        val top = _stack.value.lastOrNull()
+        when {
+            top == Screen.Scan || top == Screen.Form -> showForm(draft, replaceTop = true)
+            top == Screen.FirstRun -> {
+                sync.firstRunDone = true
+                _stack.value = listOf(Screen.Grid)
+                showForm(draft, replaceTop = false)
+            }
+            else -> showForm(draft, replaceTop = false)
+        }
+    }
+
+    private fun clearQueue() {
+        queue.clear()
+        queued.value = 0
+    }
+
+    private fun isPdf(bytes: ByteArray) = bytes.size > PDF_MAGIC.size && bytes.copyOfRange(0, PDF_MAGIC.size).contentEquals(PDF_MAGIC)
+
+    // Changing cards
 
     /** Updates the form. */
     fun updateDraft(change: (CardDraft) -> CardDraft) {
         draft.value = draft.value?.let(change)
     }
 
-    /** Saves the form; a new card opens on its code screen, an edited one returns. */
+    /** Skips the current screenshot in an import and shows the next one. */
+    fun skipDraft() {
+        val next = queue.removeFirstOrNull()
+        queued.value = queue.size
+        if (next != null) draft.value = next else back()
+    }
+
+    /** Saves the form: a new card opens on its code screen, an edited one returns, a queued import moves on. */
     fun saveDraft() {
         val current = draft.value ?: return
         if (current.problem() != null) return
         viewModelScope.launch {
             val saved = store.save(current.toCard(UUID.randomUUID().toString(), System.currentTimeMillis()))
-            draft.value = null
-            if (current.editingId == null) replaceTop(Screen.Code(saved.id)) else back()
+            if (saved.expires != null || saved.event != null) permission.trySend(Unit)
+            val next = queue.removeFirstOrNull()
+            queued.value = queue.size
+            when {
+                next != null -> draft.value = next
+                current.editingId == null -> {
+                    draft.value = null
+                    replaceTop(Screen.Code(saved.id))
+                }
+                else -> {
+                    draft.value = null
+                    back()
+                }
+            }
         }
     }
 
@@ -252,6 +458,19 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     fun undoDelete(card: Card) {
         viewModelScope.launch { store.save(card.copy(deleted = false, updatedAt = System.currentTimeMillis())) }
     }
+
+    /** Moves a voucher or ticket to the archive; the snackbar offers undo. */
+    fun markUsed(cardId: String) {
+        val card = store.get(cardId) ?: return
+        viewModelScope.launch {
+            store.save(card.copy(usedAt = System.currentTimeMillis(), updatedAt = System.currentTimeMillis()))
+            _stack.value = _stack.value.filterNot { it == Screen.Code(cardId) }
+            events.send(UiEvent.MarkedUsed(card))
+        }
+    }
+
+    /** Puts a used card back among the current ones. */
+    fun restore(cardId: String) = changeCard(cardId) { it.copy(usedAt = null) }
 
     /** Keeps [cardId] above the cards sorted by use, or releases it. */
     fun togglePinned(cardId: String) = changeCard(cardId) { it.copy(pinned = !it.pinned) }
@@ -285,6 +504,9 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { events.send(UiEvent.Message(text)) }
     }
 
+    /** The card with [cardId], unless deleted. */
+    fun card(cardId: String): Card? = store.get(cardId)
+
     // First run and sync
 
     /** Starts Drive access; may ask the activity to show Google's consent screen. */
@@ -293,8 +515,7 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 handleAuth(DriveAuth.authorize(getApplication()))
             } catch (e: IOException) {
-                Log.w(LOG_TAG, "Drive connect failed: ${e.message}")
-                events.send(UiEvent.Message(R.string.message_drive_connect_failed))
+                reportAuthFailure(e)
             }
         }
     }
@@ -305,10 +526,15 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 handleAuth(DriveAuth.afterConsent(getApplication(), data))
             } catch (e: IOException) {
-                Log.w(LOG_TAG, "Drive consent not completed: ${e.message}")
-                events.send(UiEvent.Message(R.string.message_drive_connect_failed))
+                reportAuthFailure(e)
             }
         }
+    }
+
+    private suspend fun reportAuthFailure(e: IOException) {
+        Log.w(LOG_TAG, "Drive access not granted: ${e.message}")
+        val cancelled = (e.cause as? ApiException)?.statusCode == CommonStatusCodes.CANCELED
+        if (!cancelled) events.send(UiEvent.Message(R.string.message_drive_connect_failed))
     }
 
     private suspend fun handleAuth(outcome: AuthOutcome) {
@@ -342,6 +568,23 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Allows or forbids syncing over mobile data. */
     fun setUseMobileData(allowed: Boolean) = sync.setUseMobileData(allowed)
+
+    /** Changes how long archived cards are kept. */
+    fun setRetention(value: Retention) = settings.setRetention(value)
+
+    /**
+     * Brings notifications, widgets and the tile up to date, for example after
+     * the notification permission was granted or the app came back to the front.
+     */
+    fun refreshSurfaces() {
+        viewModelScope.launch { wallet.surfaces.refresh() }
+    }
+
+    /** Turns notifications on or off; turning them on asks for the permission when needed. */
+    fun setNotifications(enabled: Boolean) {
+        settings.setNotifications(enabled)
+        if (enabled) permission.trySend(Unit)
+    }
 
     // Export and import
 
@@ -404,5 +647,9 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
 
     private companion object {
         const val SHORTCUT_DEBOUNCE_MS = 2_000L
+        const val SURFACE_DEBOUNCE_MS = 1_000L
+        const val CLOCK_TICK_MS = 60_000L
+        const val MAX_FILE_BYTES = 20 * 1024 * 1024
+        val PDF_MAGIC = "%PDF".toByteArray(Charsets.US_ASCII)
     }
 }

@@ -1,7 +1,7 @@
 package io.github.jsnjack.wallet.core
 
-/** What a card is used for; decides the label shown under its name. */
-enum class CardKind { LOYALTY, MEMBERSHIP, VOUCHER, GIFT_CARD, TICKET, OTHER }
+/** What a card is used for; decides its label, form fields and code screen. */
+enum class CardKind { LOYALTY, MEMBERSHIP, VOUCHER, GIFT_CARD, TICKET, BOARDING_PASS, OTHER }
 
 /**
  * Barcode symbologies the app can read and draw. A [linear] code is one row
@@ -23,10 +23,30 @@ enum class CodeFormat(val label: String, val linear: Boolean) {
     CODABAR("Codabar", true),
 }
 
+/** A labelled line shown on the code screen, such as "Gate · D7" or "Row · 8". */
+data class Detail(val label: String, val value: String)
+
+/** One flight leg of a boarding pass; codes are as printed (IATA airport and airline codes). */
+data class Flight(
+    val from: String,
+    val to: String,
+    val carrier: String,
+    val number: String,
+    val passenger: String = "",
+    val pnr: String = "",
+    val seat: String = "",
+    val cabin: String = "",
+) {
+    /** "KL 1691". */
+    val code: String get() = listOf(carrier, number).filter { it.isNotBlank() }.joinToString(" ")
+}
+
 /**
  * One stored card. [code] is the exact text inside the barcode and [color]
- * an ARGB brand colour. A deleted card stays as a blank tombstone so sync
- * can pass the deletion on to other devices.
+ * an ARGB brand colour. [expires] ends a voucher's or membership's validity;
+ * [event] is a ticket's or flight's date. A card with [usedAt] set is in the
+ * archive. A deleted card stays as a blank tombstone so sync can pass the
+ * deletion on to other devices.
  */
 data class Card(
     val id: String,
@@ -41,9 +61,19 @@ data class Card(
     val createdAt: Long,
     val updatedAt: Long,
     val deleted: Boolean = false,
+    val pin: String = "",
+    val expires: DayTime? = null,
+    val event: DayTime? = null,
+    val balanceCents: Long? = null,
+    val usedAt: Long? = null,
+    val details: List<Detail> = emptyList(),
+    val flight: Flight? = null,
 ) {
     /** The tombstone that replaces this card when it is deleted at [time]. */
-    fun tombstone(time: Long) = copy(name = "", code = "", note = "", deleted = true, updatedAt = time)
+    fun tombstone(time: Long) = Card(
+        id = id, name = "", code = "", format = format, kind = kind, color = color, note = "",
+        pinned = false, locked = false, createdAt = createdAt, updatedAt = time, deleted = true,
+    )
 }
 
 /** How often and how recently a card was shown on this device; not synced. */

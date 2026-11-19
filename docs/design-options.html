@@ -255,7 +255,7 @@ with sync through your Google Drive. The goal is that a code is on screen within
   <thead><tr><th>Topic</th><th>Decision</th><th>Date</th></tr></thead>
   <tbody>
     <tr><td>Layout</td><td><a href="#smart-tiles">Smart tiles</a>: a tile grid, one “Up next” row when there is a strong reason, and search at the bottom</td><td>2026-11-19</td></tr>
-    <tr><td>Style</td><td>Brand colours on a neutral background that follows light and dark mode; the code always sits on white</td><td>2026-11-19</td></tr>
+    <tr><td>Style</td><td>One UI 9 style with a teal accent and compact title bars that use the screen fully (see <code>docs/style-storybook.html</code>); cards keep their brand colours; the code always sits on white</td><td>2026-11-19</td></tr>
     <tr><td>Sync</td><td><a href="#sync">Google Drive sync</a> from v1, not later</td><td>2026-11-19</td></tr>
     <tr><td>Sync encryption</td><td>No passphrase: files in Drive are protected by your Google account only. See <a href="#encryption">Encryption</a>.</td><td>2026-11-19</td></tr>
     <tr><td>App ID</td><td><code>io.github.jsnjack.wallet</code>, from <code>jsnjack.github.io</code>; fixed once installed</td><td>2026-11-19</td></tr>
@@ -663,12 +663,13 @@ flowchart LR
 <h2 id="plan">Plan</h2>
 <div class="bunk-steps">
 <section data-title="v1 · Cards + sync">
-<p><span class="bunk-badge info">built 2026-11-19, not yet tested on a device</span></p>
+<p><span class="bunk-badge info">built 2026-11-19, smoke-tested on a Galaxy A56</span></p>
 <p><strong>Cards that open fast, on every device.</strong> Smart-tile grid (without “Up next” yet), code screen at full brightness with swipe between cards,
 add by camera, image or typed number, bundled brand list, search, long-press menu, card editing, card lock, long-press shortcuts on the app icon,
 first-run restore, Google Drive sync, and the encrypted export file.</p>
 </section>
 <section data-title="v2 · Passes">
+<p><span class="bunk-badge info">built 2026-11-19, partly tested on a Galaxy A56</span> Includes the v3 "Up next" surfaces and Google Wallet screenshot import.</p>
 <p><strong>Vouchers, tickets and travel.</strong> Expiry, PIN, reminders and “Mark as used”; gift card balance; .pkpass and PDF import; boarding pass parsing and trips;
 the “Up next” row (rules 1, 2 and 4); the archive; live notification, Quick Settings tile and home screen widgets.</p>
 </section>

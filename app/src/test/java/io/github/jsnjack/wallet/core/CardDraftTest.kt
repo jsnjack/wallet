@@ -1,5 +1,7 @@
 package io.github.jsnjack.wallet.core
 
+import java.time.LocalDate
+import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -13,7 +15,7 @@ class CardDraftTest {
 
     @Test
     fun typingKeepsAChosenFormat() {
-        val draft = CardDraft.scanned("ABC", CodeFormat.QR).withCode("4006381333931")
+        val draft = CardDraft.scanned("ABC", CodeFormat.QR, LocalDate.of(2026, 11, 19)).withCode("4006381333931")
         assertEquals(CodeFormat.QR, draft.format)
     }
 
@@ -53,10 +55,37 @@ class CardDraftTest {
     @Test
     fun editedCardKeepsIdAndCreationTime() {
         val original = CardDraft(name = "Gym", code = "M-1").toCard("orig", 10)
-        val edited = CardDraft.editing(original).copy(name = "Gym 2").toCard("ignored", 99)
+        val edited = CardDraft.editing(original, Locale.ROOT).copy(name = "Gym 2").toCard("ignored", 99)
         assertEquals("orig", edited.id)
         assertEquals(10L, edited.createdAt)
         assertEquals(99L, edited.updatedAt)
         assertTrue(edited.name == "Gym 2")
+    }
+
+    @Test
+    fun scannedBoardingPassFillsTheFlight() {
+        val draft = CardDraft.scanned(BcbpTest.ONE_LEG, CodeFormat.PDF_417, LocalDate.of(2026, 11, 19))
+        assertEquals(CardKind.BOARDING_PASS, draft.kind)
+        assertEquals("KL 1691", draft.name)
+        assertEquals(LocalDate.of(2026, 11, 20), draft.event?.date)
+        assertEquals("X7K2QP", draft.flight?.pnr)
+        assertEquals(CardDraft.BOARDING_COLOR, draft.effectiveColor)
+    }
+
+    @Test
+    fun invalidBalanceBlocksSaving() {
+        val draft = CardDraft(name = "Gift", code = "M-1", kind = CardKind.GIFT_CARD, balanceText = "lots")
+        assertEquals(DraftProblem.BALANCE_INVALID, draft.problem())
+        assertEquals(2550L, draft.copy(balanceText = "25,50").toCard("g", 1).balanceCents)
+    }
+
+    @Test
+    fun editingKeepsTypeSpecificFields() {
+        val card = CardDraft(
+            name = "Voucher", code = "V-1", kind = CardKind.VOUCHER, pin = "4821",
+            expires = DayTime(LocalDate.of(2026, 11, 20)), details = listOf(Detail("Locker", "14")),
+        ).toCard("v", 1)
+        val again = CardDraft.editing(card, Locale.ROOT).toCard("other", 2)
+        assertEquals(card.copy(updatedAt = 2), again)
     }
 }

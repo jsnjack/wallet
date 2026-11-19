@@ -1,12 +1,15 @@
 package io.github.jsnjack.wallet.core
 
+import java.time.LocalDate
+import java.util.Locale
+
 /** Why a card in the form cannot be saved yet. */
-enum class DraftProblem { NAME_MISSING, CODE_MISSING, CODE_NOT_DRAWABLE }
+enum class DraftProblem { NAME_MISSING, CODE_MISSING, CODE_NOT_DRAWABLE, BALANCE_INVALID }
 
 /**
  * A card being added or edited. [formatChosen] is true once the format came
  * from a scan or a tap, so typing no longer re-guesses it; a null [color]
- * follows the brand list or the name.
+ * follows the brand list or the name. [balanceText] is the balance as typed.
  */
 data class CardDraft(
     val editingId: String? = null,
@@ -20,9 +23,17 @@ data class CardDraft(
     val pinned: Boolean = false,
     val locked: Boolean = false,
     val createdAt: Long? = null,
+    val pin: String = "",
+    val expires: DayTime? = null,
+    val event: DayTime? = null,
+    val balanceText: String = "",
+    val details: List<Detail> = emptyList(),
+    val flight: Flight? = null,
+    val usedAt: Long? = null,
 ) {
     /** The colour the card gets: the chosen one, the brand's, or one derived from the name. */
-    val effectiveColor: Int get() = color ?: Brands.exact(name)?.color ?: CardLooks.forName(name)
+    val effectiveColor: Int
+        get() = color ?: if (kind == CardKind.BOARDING_PASS) BOARDING_COLOR else Brands.exact(name)?.color ?: CardLooks.forName(name)
 
     /** The code as it will be stored. */
     val cleanCode: String get() = CodeNumbers.clean(code, format)
@@ -32,6 +43,7 @@ data class CardDraft(
         name.isBlank() -> DraftProblem.NAME_MISSING
         cleanCode.isEmpty() -> DraftProblem.CODE_MISSING
         !CodeMatrix.canEncode(cleanCode, format) -> DraftProblem.CODE_NOT_DRAWABLE
+        balanceText.isNotBlank() && Money.parseCents(balanceText) == null -> DraftProblem.BALANCE_INVALID
         else -> null
     }
 
@@ -52,14 +64,39 @@ data class CardDraft(
         locked = locked,
         createdAt = createdAt ?: now,
         updatedAt = now,
+        pin = pin.trim(),
+        expires = expires,
+        event = event,
+        balanceCents = Money.parseCents(balanceText),
+        usedAt = usedAt,
+        details = details.map { Detail(it.label.trim(), it.value.trim()) }.filter { it.label.isNotEmpty() || it.value.isNotEmpty() },
+        flight = flight,
     )
 
     companion object {
-        /** A draft for a code read by the camera or from an image. */
-        fun scanned(code: String, format: CodeFormat) = CardDraft(code = code, format = format, formatChosen = true)
+        /** Navy used for boarding passes, which rarely have a brand colour of their own. */
+        const val BOARDING_COLOR = 0xFF0B1F3A.toInt()
 
-        /** A draft that edits [card]. */
-        fun editing(card: Card) = CardDraft(
+        /**
+         * A draft for a code read by the camera, an image or a PDF. A boarding
+         * pass barcode fills in the flight; [today] places its date in a year.
+         */
+        fun scanned(code: String, format: CodeFormat, today: LocalDate): CardDraft {
+            val leg = Bcbp.parse(code, today)?.legs?.firstOrNull()
+                ?: return CardDraft(code = code, format = format, formatChosen = true)
+            return CardDraft(
+                name = leg.flight.code,
+                code = code,
+                format = format,
+                formatChosen = true,
+                kind = CardKind.BOARDING_PASS,
+                event = DayTime(leg.date),
+                flight = leg.flight,
+            )
+        }
+
+        /** A draft that edits [card]; [locale] formats the balance for typing. */
+        fun editing(card: Card, locale: Locale) = CardDraft(
             editingId = card.id,
             name = card.name,
             code = card.code,
@@ -71,6 +108,13 @@ data class CardDraft(
             pinned = card.pinned,
             locked = card.locked,
             createdAt = card.createdAt,
+            pin = card.pin,
+            expires = card.expires,
+            event = card.event,
+            balanceText = card.balanceCents?.let { Money.editable(it, locale) }.orEmpty(),
+            details = card.details,
+            flight = card.flight,
+            usedAt = card.usedAt,
         )
     }
 }

@@ -15,6 +15,7 @@
     <string name="kind_voucher">Voucher</string>
     <string name="kind_gift_card">Gift card</string>
     <string name="kind_ticket">Ticket</string>
+    <string name="kind_boarding_pass">Boarding pass</string>
     <string name="kind_other">Other</string>
 
     <string name="grid_empty_title">No cards yet</string>
@@ -46,7 +47,7 @@
     <string name="action_torch">Torch</string>
     <string name="action_continue">Continue</string>
 
-    <string name="code_brightness">☀ Full brightness</string>
+    <string name="code_brightness">Full brightness</string>
     <string name="code_hidden">Locked</string>
     <string name="unlock_prompt_title">Show this card</string>
 
@@ -117,7 +118,6 @@
 
     <string name="message_deleted">%s deleted</string>
     <string name="message_unsupported_code">This code type is not supported yet.</string>
-    <string name="message_no_code_in_image">No code found in this image.</string>
     <string name="message_pin_unsupported">Your launcher cannot pin shortcuts.</string>
     <string name="message_no_screen_lock">Set up a screen lock or fingerprint first.</string>
     <string name="message_unlock_failed">The card could not be unlocked.</string>
@@ -134,5 +134,117 @@
     <plurals name="message_imported">
         <item quantity="one">Imported %d card.</item>
         <item quantity="other">Imported %d cards.</item>
+    </plurals>
+
+    <string name="day_today">Today</string>
+    <string name="day_tomorrow">Tomorrow</string>
+    <string name="day_today_in_sentence">today</string>
+    <string name="day_tomorrow_in_sentence">tomorrow</string>
+
+    <string name="archive_title">Archive</string>
+    <string name="archive_all">All</string>
+    <string name="archive_vouchers">Vouchers</string>
+    <string name="archive_trips">Trips</string>
+    <string name="archive_tickets">Tickets</string>
+    <string name="archive_kept_forever">Archived cards are kept until you delete them.</string>
+    <string name="archive_kept_for">Archived cards are deleted after %s.</string>
+    <string name="archive_empty">Used vouchers, expired cards and past tickets and flights appear here.</string>
+    <string name="archive_used">Used %s</string>
+    <string name="archive_expired">Expired %s</string>
+    <string name="archive_past">%s</string>
+
+    <string name="up_next_label">Up next</string>
+    <string name="up_next_flight">Flight</string>
+    <string name="up_next_event">Today</string>
+    <string name="up_next_expires">Expires soon</string>
+    <string name="up_next_departs">Departs %s</string>
+    <string name="up_next_event_at">%s</string>
+    <string name="up_next_expires_at">Expires %s</string>
+
+    <string name="widget_up_next_name">Up next</string>
+    <string name="widget_up_next_description">The card you need next: a flight, a ticket for today or a voucher that is about to expire.</string>
+    <string name="widget_favourites_name">Favourite cards</string>
+    <string name="widget_favourites_description">Your four most used cards, one tap from the home screen.</string>
+    <string name="widget_nothing_today">Nothing for today</string>
+    <string name="widget_no_cards">Add cards in Wallet</string>
+    <string name="tile_open">Open cards</string>
+
+    <string name="channel_today">Today</string>
+    <string name="channel_today_description">The card you need today, such as a boarding pass or an event ticket.</string>
+    <string name="channel_reminders">Reminders</string>
+    <string name="channel_reminders_description">A reminder the day before a voucher or card expires.</string>
+    <string name="notify_departs">Departs %s. Tap to show the boarding pass.</string>
+    <string name="notify_flight_today">Tap to show the boarding pass.</string>
+    <string name="notify_event_at">Today at %s. Tap to show the ticket.</string>
+    <string name="notify_event_today">Today. Tap to show the ticket.</string>
+    <string name="notify_expires_today_at">Expires today at %s.</string>
+    <string name="notify_expires_today">Expires today.</string>
+    <string name="notify_reminder_title">%s expires tomorrow</string>
+    <string name="notify_reminder_text">Tap to show the card.</string>
+
+    <string name="choose_code_title">Several codes found</string>
+    <string name="code_archived">In the archive</string>
+    <string name="code_balance">Balance</string>
+    <string name="code_pnr">Booking %s</string>
+    <string name="code_expires">Expires %s</string>
+    <string name="code_expired">Expired %s</string>
+    <string name="code_pin">PIN %s</string>
+    <string name="code_pin_hidden">PIN hidden</string>
+    <string name="code_used">Used</string>
+    <string name="code_past">Past</string>
+    <string name="detail_seat">Seat</string>
+
+    <string name="action_restore">Restore</string>
+    <string name="action_mark_used">Mark as used</string>
+    <string name="action_skip">Skip</string>
+    <string name="action_save_next">Save and next</string>
+    <string name="action_remove">Remove</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_ok">OK</string>
+
+    <plurals name="form_queue">
+        <item quantity="one">%d more screenshot after this one</item>
+        <item quantity="other">%d more screenshots after this one</item>
+    </plurals>
+    <string name="form_event">Date and time</string>
+    <string name="form_expires">Expires</string>
+    <string name="form_balance">Balance</string>
+    <string name="form_pin">PIN</string>
+    <string name="form_flight">Flight</string>
+    <string name="form_from">From</string>
+    <string name="form_to">To</string>
+    <string name="form_airline">Airline</string>
+    <string name="form_flight_number">Flight</string>
+    <string name="form_passenger">Passenger</string>
+    <string name="form_pnr">Booking</string>
+    <string name="form_departure">Departure</string>
+    <string name="form_details">Details</string>
+    <string name="form_detail_label">Label</string>
+    <string name="form_detail_value">Value</string>
+    <string name="form_add_detail">Add detail</string>
+    <string name="form_pick_date">Pick a date</string>
+    <string name="form_add_time">Add time</string>
+    <string name="form_change_time">Change time</string>
+    <string name="form_boarding_pass_read">Boarding pass read: flight details filled in</string>
+
+    <string name="scan_from_file">PDF or pass</string>
+
+    <string name="settings_google_wallet">Import Google Wallet screenshots</string>
+    <string name="settings_google_wallet_detail">Open each card in Google Wallet, take a screenshot of its barcode, then pick all the screenshots here. You name each card in turn.</string>
+    <string name="settings_pass_files">Import a pass or PDF</string>
+    <string name="settings_pass_files_detail">Apple Wallet .pkpass files and e-ticket or boarding pass PDFs.</string>
+    <string name="settings_notifications">Today and reminders</string>
+    <string name="settings_notifications_detail">Shows the card for today on the lock screen, and reminds you the day before a card expires.</string>
+    <string name="settings_retention">Keep archived cards</string>
+    <string name="retention_three_months">3 months</string>
+    <string name="retention_one_year">1 year</string>
+    <string name="retention_forever">Forever</string>
+
+    <string name="message_marked_used">%s marked as used</string>
+    <string name="message_file_unreadable">The file could not be read.</string>
+    <string name="message_no_code_in_file">No code found in this file.</string>
+    <plurals name="message_screenshots_without_code">
+        <item quantity="one">%d screenshot had no readable code.</item>
+        <item quantity="other">%d screenshots had no readable code.</item>
     </plurals>
 </resources>
