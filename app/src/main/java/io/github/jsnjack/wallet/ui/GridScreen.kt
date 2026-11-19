@@ -6,7 +6,10 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.drag
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,6 +60,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -66,7 +70,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -234,7 +242,6 @@ private fun FavouritesRail(cards: List<Card>, onOpen: (String) -> Unit, onMenu: 
     var order by remember(cards) { mutableStateOf(cards) }
     var dragged by remember { mutableStateOf<String?>(null) }
     var offset by remember { mutableFloatStateOf(0f) }
-    var moved by remember { mutableStateOf(false) }
     val step = with(LocalDensity.current) { (RAIL_TILE_WIDTH + RAIL_GAP).toPx() }
     val haptics = LocalHapticFeedback.current
     val moveRight = stringResource(R.string.rail_move_right)
@@ -273,17 +280,36 @@ private fun FavouritesRail(cards: List<Card>, onOpen: (String) -> Unit, onMenu: 
                         .width(RAIL_TILE_WIDTH)
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(14.dp))
+                        // Tap, long-press and drag in one handler: a separate click handler took the touch first,
+                        // so the drag never started. A tap opens the card; holding lifts the tile, which then
+                        // follows the finger; letting go without moving opens the menu.
                         .pointerInput(card.id) {
-                            detectDragGesturesAfterLongPress(
-                                onDragStart = {
-                                    dragged = card.id
-                                    offset = 0f
-                                    moved = false
-                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                },
-                                onDrag = { change, amount ->
+                            awaitEachGesture {
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                var tapped = false
+                                var cancelled = false
+                                withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                                    // Null when the strip scrolled sideways instead, which consumes the move.
+                                    val up = waitForUpOrCancellation()
+                                    if (up != null) {
+                                        up.consume()
+                                        tapped = true
+                                    } else {
+                                        cancelled = true
+                                    }
+                                }
+                                if (tapped) {
+                                    onOpen(card.id)
+                                    return@awaitEachGesture
+                                }
+                                if (cancelled) return@awaitEachGesture
+                                dragged = card.id
+                                offset = 0f
+                                var moved = false
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                val ended = drag(down.id) { change ->
+                                    offset += change.positionChange().x
                                     change.consume()
-                                    offset += amount.x
                                     if (abs(offset) > viewConfiguration.touchSlop) moved = true
                                     val index = order.indexOfFirst { it.id == card.id }
                                     // Half a tile past a neighbour swaps the two; the offset keeps the tile under the finger.
@@ -296,23 +322,21 @@ private fun FavouritesRail(cards: List<Card>, onOpen: (String) -> Unit, onMenu: 
                                         order = order.toMutableList().apply { add(target, removeAt(index)) }
                                         offset += if (target > index) step else -step
                                     }
-                                },
-                                onDragEnd = {
-                                    if (moved) onArrange(order.map { it.id }) else onMenu(card)
-                                    dragged = null
-                                    offset = 0f
-                                },
-                                onDragCancel = {
-                                    order = cards
-                                    dragged = null
-                                    offset = 0f
-                                },
-                            )
+                                }
+                                when {
+                                    !ended -> order = cards
+                                    moved -> onArrange(order.map { it.id })
+                                    else -> onMenu(card)
+                                }
+                                dragged = null
+                                offset = 0f
+                            }
                         }
-                        // The long press belongs to the drag above; this only opens the card on a tap.
-                        .combinedClickable(onClick = { onOpen(card.id) }, onLongClick = {}, hapticFeedbackEnabled = false)
                         .semantics {
                             val index = order.indexOfFirst { it.id == card.id }
+                            role = Role.Button
+                            onClick { onOpen(card.id); true }
+                            onLongClick { onMenu(card); true }
                             customActions = listOfNotNull(
                                 CustomAccessibilityAction(moveRight) { arrange(index, index - 1); true }.takeIf { index > 0 },
                                 CustomAccessibilityAction(moveLeft) { arrange(index, index + 1); true }.takeIf { index < order.lastIndex },
