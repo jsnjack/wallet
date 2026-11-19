@@ -11,5 +11,7 @@ class CodeChoiceTest {
             listOf("%TST/1234" to CodeFormat.QR, "other" to CodeFormat.EAN_13),
             CodeChoice.onePerText(codes, { it.first }, { it.second }),
         )
+        assertEquals(CodeFormat.CODE_39, CodeChoice.alternative(CodeFormat.QR, listOf(CodeFormat.CODE_39, CodeFormat.QR)))
+        assertEquals(null, CodeChoice.alternative(CodeFormat.QR, listOf(CodeFormat.QR)))
     }
 }

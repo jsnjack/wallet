@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.material3.TextButton
 import io.github.jsnjack.wallet.R
 import io.github.jsnjack.wallet.core.Agenda
 import io.github.jsnjack.wallet.core.Airports
@@ -195,6 +196,9 @@ private fun CodePage(
     val content = Color(CardLooks.contentColor(card.color))
     val context = LocalContext.current
     val flight = card.flight
+    // The QR code unless the user switched to the other format it was printed in; back to QR on the next visit.
+    var alternate by remember(card.id) { mutableStateOf(false) }
+    val other = if (alternate) card.format else card.altFormat
     val density = LocalDensity.current
     val closeAfter = with(density) { SWIPE_TO_CLOSE.toPx() }
     var pulled by remember { mutableFloatStateOf(0f) }
@@ -255,7 +259,7 @@ private fun CodePage(
             ) {
                 Box {
                     Column(Modifier.padding(horizontal = 8.dp, vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        CodeImage(card.code, card.format, if (showCode) Modifier else Modifier.blur(18.dp))
+                        CodeImage(card.code, card.altFormat?.takeIf { alternate } ?: card.format, if (showCode) Modifier else Modifier.blur(18.dp))
                         Spacer(Modifier.height(12.dp))
                         Text(
                             when {
@@ -275,6 +279,11 @@ private fun CodePage(
                         if (card.note.isNotEmpty()) {
                             Spacer(Modifier.height(6.dp))
                             Text(card.note, fontSize = 13.sp, color = colorResource(R.color.muted), textAlign = TextAlign.Center)
+                        }
+                        if (showCode && other != null) {
+                            TextButton(onClick = { alternate = !alternate }) {
+                                Text(if (other.linear) stringResource(R.string.code_show_barcode) else stringResource(R.string.code_show_format, other.label))
+                            }
                         }
                     }
                     if (!showCode) {

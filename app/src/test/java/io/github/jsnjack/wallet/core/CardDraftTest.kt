@@ -28,6 +28,14 @@ class CardDraftTest {
     }
 
     @Test
+    fun theSecondFormatGoesWhenItCanNoLongerDrawTheCode() {
+        val ticket = CardDraft(name = "Concert", code = "%TST/1234", format = CodeFormat.QR, formatChosen = true, altFormat = CodeFormat.CODE_39)
+        assertEquals(CodeFormat.CODE_39, ticket.toCard("t", 1).altFormat)
+        assertNull(ticket.copy(code = "Prijs €5").toCard("t", 1).altFormat)
+        assertNull(ticket.copy(format = CodeFormat.CODE_39).toCard("t", 1).altFormat)
+    }
+
+    @Test
     fun typingKeepsAChosenFormat() {
         val draft = CardDraft.scanned("ABC", CodeFormat.QR, LocalDate.of(2026, 11, 19)).withCode("4006381333931")
         assertEquals(CodeFormat.QR, draft.format)

@@ -28,10 +28,17 @@ internal class CardDatabase(context: Context) : SQLiteOpenHelper(context, NAME, 
         )
         db.execSQL("CREATE TABLE usage (card_id TEXT PRIMARY KEY, count INTEGER NOT NULL, last_used_at INTEGER NOT NULL)")
         addVersion2Columns(db)
+        addVersion3Columns(db)
     }
 
+    // Upgrades only add columns, so stored cards stay as they are.
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) addVersion2Columns(db)
+        if (oldVersion < 3) addVersion3Columns(db)
+    }
+
+    private fun addVersion3Columns(db: SQLiteDatabase) {
+        db.execSQL("ALTER TABLE cards ADD COLUMN alt_format TEXT")
     }
 
     private fun addVersion2Columns(db: SQLiteDatabase) {
@@ -105,6 +112,7 @@ internal class CardDatabase(context: Context) : SQLiteOpenHelper(context, NAME, 
         put("used_at", usedAt)
         put("details", CardJson.encodeDetails(details))
         put("flight", CardJson.encodeFlight(flight))
+        put("alt_format", altFormat?.name)
     }
 
     private fun Cursor.toCard(): Card? {
@@ -133,6 +141,7 @@ internal class CardDatabase(context: Context) : SQLiteOpenHelper(context, NAME, 
             usedAt = optLong("used_at"),
             details = CardJson.decodeDetails(optStr("details")),
             flight = CardJson.decodeFlight(optStr("flight")),
+            altFormat = optStr("alt_format")?.let { name -> CodeFormat.entries.firstOrNull { it.name == name } },
         )
     }
 
@@ -144,6 +153,6 @@ internal class CardDatabase(context: Context) : SQLiteOpenHelper(context, NAME, 
     companion object {
         /** Database file name; Android backup rules refer to it. */
         const val NAME = "wallet.db"
-        private const val VERSION = 2
+        private const val VERSION = 3
     }
 }

@@ -361,7 +361,7 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     private fun draftFor(code: ReadCode, nameHint: String?, pages: List<String?>, today: LocalDate): CardDraft {
         val file = pages.filterNotNull().joinToString("\n").ifBlank { null }
         val facts = TicketText.readPage(pages.getOrNull(code.page), file, today, code.text)
-        val scanned = CardDraft.scanned(code.text, code.format, today)
+        val scanned = CardDraft.scanned(code.text, code.format, today).copy(altFormat = code.altFormat)
             .let { draft -> facts?.let(draft::withTicket) ?: draft }
         val hint = nameHint?.lineSequence()?.firstOrNull()?.trim()?.take(MAX_NAME_HINT).orEmpty()
         return if (scanned.name.isBlank() && hint.isNotEmpty()) scanned.copy(name = hint) else scanned

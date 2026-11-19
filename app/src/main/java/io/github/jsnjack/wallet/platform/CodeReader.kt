@@ -17,9 +17,10 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * A code read from the camera, an image or a PDF, in a format the app can
- * draw again. [page] is where in the file it was found (0 for an image).
+ * draw again. [page] is where in the file it was found (0 for an image);
+ * [altFormat] is another format the same text was printed in there.
  */
-data class ReadCode(val text: String, val format: CodeFormat, val page: Int = 0)
+data class ReadCode(val text: String, val format: CodeFormat, val page: Int = 0, val altFormat: CodeFormat? = null)
 
 /** Outcome of reading an image or a PDF. */
 sealed interface FileReadResult {
@@ -109,7 +110,11 @@ class CodeReader(liveCamera: Boolean) {
         if (results.isEmpty()) return FileReadResult.Nothing
         val codes = results.mapNotNull { (page, r) -> r.format.toCodeFormat()?.let { ReadCode(r.text!!, it, page) } }.distinct()
         if (codes.isEmpty()) return FileReadResult.Unsupported
-        return FileReadResult.Found(CodeChoice.onePerText(codes, { it.text }, { it.format }), pages)
+        // A ticket prints its code as a QR code and a barcode: keep one, and remember the other format for the switch.
+        val formats = codes.groupBy({ it.text }, { it.format })
+        val kept = CodeChoice.onePerText(codes, { it.text }, { it.format })
+            .map { it.copy(altFormat = CodeChoice.alternative(it.format, formats.getValue(it.text))) }
+        return FileReadResult.Found(kept, pages)
     }
 
     private fun decode(context: Context, uri: Uri): Bitmap {

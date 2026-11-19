@@ -29,6 +29,7 @@ data class CardDraft(
     val balanceText: String = "",
     val details: List<Detail> = emptyList(),
     val flight: Flight? = null,
+    val altFormat: CodeFormat? = null,
     val usedAt: Long? = null,
 ) {
     /** The colour the card gets: the chosen one, the brand's, or one derived from the name. */
@@ -86,6 +87,8 @@ data class CardDraft(
         usedAt = usedAt,
         details = details.map { Detail(it.label.trim(), it.value.trim()) }.filter { it.label.isNotEmpty() || it.value.isNotEmpty() },
         flight = flight,
+        // An edited code or format can leave the second format unable to draw it.
+        altFormat = altFormat?.takeIf { it != format && CodeMatrix.canEncode(cleanCode, it) },
     )
 
     companion object {
@@ -130,6 +133,7 @@ data class CardDraft(
             details = card.details,
             flight = card.flight,
             usedAt = card.usedAt,
+            altFormat = card.altFormat,
         )
     }
 }

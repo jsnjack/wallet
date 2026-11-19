@@ -36,16 +36,17 @@ app/src/main/java/io/github/jsnjack/wallet/
     CardLooks.kt            Text contrast, palette, colour for a name, monograms, hex
     Brands.kt               Bundled shop list for name suggestions and colours
     CardList.kt             CardOrder (A–Z or most used), search, favourites, quick access (favourites then most used)
-    CodeChoice.kt           One code per text when a file repeats it (a ticket's QR and barcode), square codes first
+    CodeChoice.kt           One code per text when a file repeats it (a ticket's QR and barcode), square codes first;
+                            the other format becomes Card.altFormat
     TicketText.kt           E-ticket text (English, Dutch) → event name, date and time, door details, venue
     LiveFlight.kt           FlightRef (one flight on one day), LiveFlight, FlightCheck, LookupProblem
     AeroDataBox.kt          AeroDataBox flight status JSON → LiveFlight
     FlightLookups.kt        When to look a flight up, monthly allowance, changes worth an alert
     FlightProgress.kt       A flight's day as a 0–100 progress bar, and when to redraw it
-    CardJson.kt             Card format v2 (export bundle, database JSON columns)
+    CardJson.kt             Card format v3 (export bundle, database JSON columns)
     ExportCrypto.kt         Export file encryption: PBKDF2-HMAC-SHA256 + AES-256-GCM
   store/
-    CardDatabase.kt         SQLiteOpenHelper v2: cards and usage counts
+    CardDatabase.kt         SQLiteOpenHelper v3: cards and usage counts; upgrades only add columns
     CardStore.kt            In-memory cards with write-through, StateFlows for the UI
     AppSettings.kt          Archive retention, notifications, reminders already posted, flight-status key
     FlightStore.kt          Latest lookup per flight and this month's lookup count
@@ -116,8 +117,8 @@ External services:
 4. **Import a file.** Shared or picked files go to `WalletViewModel.importFile`,
    which sniffs the bytes: a zip is read by `Pkpass`, `%PDF` pages are
    rendered and read by `CodeReader.readPdf`, anything else is read as an
-   image. Codes with the same text count once (`CodeChoice`). Each
-   `ReadCode` knows its page; on Android
+   image. Codes with the same text count once (`CodeChoice`), keeping the
+   other format as `altFormat`. Each `ReadCode` knows its page; on Android
    15+ `readPdf` also returns each page's text, which `TicketText.readPage`
    turns into the form's name, date and details (`CardDraft.withTicket`).
    Several codes open a chooser with a picture of each; when every code is
@@ -257,6 +258,11 @@ because their messages quote the response.
   code printed four times). Each form is filled from its own page, so seats
   stay right; a single shared form was rejected because edits would apply
   to every ticket. The saved tickets group into one tile.
+- **The other code format is a switch, not a second code** (decided
+  2026-11-19). A ticket's QR code and barcode hold the same text, so only
+  the format is stored; QR is the default because camera scanners read it
+  more reliably from a screen, and "Show as barcode" covers scanners that
+  read only barcodes.
 - **Ticket details from PDF text, not image recognition** (decided
   2026-11-19). Android 15's `PdfRenderer.Page.getTextContents` reads
   e-ticket PDFs with no new library; text recognition for screenshots would
@@ -291,8 +297,9 @@ because their messages quote the response.
 - **Widgets use RemoteViews, not Glance.** Two small fixed layouts do not
   justify the Glance dependency; tiles are tinted with
   `setBackgroundTintList`.
-- **Card format v2 is additive.** New fields have defaults, so v1 export
-  files read fine.
+- **Card format and database grow additively.** New fields have defaults
+  and new columns are added with `ALTER TABLE`, so older export files read
+  fine and an upgrade keeps every stored card (v3 added `altFormat`).
 - **Brand list is approximate.** `Brands.ALL` holds names and approximate
   colours only, never number prefixes, so nothing guesses a shop from a
   number.
@@ -335,6 +342,8 @@ because their messages quote the response.
 - `Intent.setClipData` returns nothing, so it cannot be chained; the share
   intent sets the clip separately so the read grant reaches the app picked
   in the chooser.
+- ZXing's Code 39 writer switches to extended mode for lowercase, so
+  `canEncode` accepts lowercase text; only non-ASCII text fails.
 - RapidAPI answers HTTP 429 both for the monthly quota and for more than
   one request a second; `AeroDataBoxClient` treats only a body that
   mentions "quota" as a used-up allowance.

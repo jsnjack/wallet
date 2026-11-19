@@ -12,5 +12,8 @@ object CodeChoice {
     fun <T> onePerText(codes: List<T>, text: (T) -> String, format: (T) -> CodeFormat): List<T> =
         codes.groupBy(text).values.map { same -> same.minBy { rank(format(it)) } }
 
+    /** Another format among [printed] than the [kept] one, for switching to on the code screen; null when there is none. */
+    fun alternative(kept: CodeFormat, printed: List<CodeFormat>): CodeFormat? = printed.firstOrNull { it != kept }
+
     private fun rank(format: CodeFormat): Int = PREFERRED.indexOf(format).let { if (it < 0) PREFERRED.size else it }
 }

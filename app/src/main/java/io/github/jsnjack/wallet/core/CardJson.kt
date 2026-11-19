@@ -8,7 +8,7 @@ import kotlinx.serialization.json.Json
 
 /**
  * The card format inside export files. Version 2 added the fields after
- * `deleted`; version 1 cards read with their defaults.
+ * `deleted`, version 3 `altFormat`; older cards read with their defaults.
  */
 @Serializable
 data class CardDto(
@@ -32,6 +32,7 @@ data class CardDto(
     val usedAt: Long? = null,
     val details: List<DetailDto> = emptyList(),
     val flight: FlightDto? = null,
+    val altFormat: String? = null,
 )
 
 /** A [Detail] in the file format. */
@@ -61,7 +62,7 @@ private data class ExportBundle(
 /** Converts cards to and from the JSON in export files and in database columns. */
 object CardJson {
     /** Format version written into every card and export file. */
-    const val FORMAT_VERSION = 2
+    const val FORMAT_VERSION = 3
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -124,6 +125,7 @@ object CardJson {
         usedAt = usedAt,
         details = details.map { DetailDto(it.label, it.value) },
         flight = flight?.toDto(),
+        altFormat = altFormat?.name,
     )
 
     private fun CardDto.toCard(): Card? {
@@ -148,6 +150,7 @@ object CardJson {
             usedAt = usedAt,
             details = details.map { Detail(it.label, it.value) },
             flight = flight?.toFlight(),
+            altFormat = CodeFormat.entries.firstOrNull { it.name == altFormat },
         )
     }
 

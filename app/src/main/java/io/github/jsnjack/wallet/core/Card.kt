@@ -45,8 +45,10 @@ data class Flight(
  * One stored card. [code] is the exact text inside the barcode and [color]
  * an ARGB brand colour. [expires] ends a voucher's or membership's validity;
  * [event] is a ticket's or flight's date. A card with [usedAt] set is in the
- * archive. A deleted card stays as a blank tombstone, hidden everywhere;
- * undo saves the card again.
+ * archive. [altFormat] is a second format the same code was printed in,
+ * such as a ticket's barcode beside its QR code; the code screen can switch
+ * to it. A deleted card stays as a blank tombstone, hidden everywhere; undo
+ * saves the card again.
  */
 data class Card(
     val id: String,
@@ -69,6 +71,7 @@ data class Card(
     val usedAt: Long? = null,
     val details: List<Detail> = emptyList(),
     val flight: Flight? = null,
+    val altFormat: CodeFormat? = null,
 ) {
     /** The tombstone that replaces this card when it is deleted at [time]. */
     fun tombstone(time: Long) = Card(

@@ -71,6 +71,12 @@ class CardJsonTest {
     }
 
     @Test
+    fun version3KeepsTheSecondFormat() {
+        val ticket = card.copy(format = CodeFormat.QR, code = "%TST/1234", altFormat = CodeFormat.CODE_39)
+        assertEquals(ticket, roundTrip(ticket))
+    }
+
+    @Test
     fun version1CardReadsWithDefaults() {
         val v1 = """{"v":1,"id":"c1","name":"AH","code":"2620048511734","format":"EAN_13","kind":"LOYALTY",""" +
             """"color":"#00A0E2","note":"","pinned":false,"locked":false,"createdAt":1,"updatedAt":2,"deleted":false}"""
@@ -78,6 +84,7 @@ class CardJsonTest {
         assertEquals("", decoded.pin)
         assertNull(decoded.flight)
         assertEquals(emptyList<Detail>(), decoded.details)
+        assertNull(decoded.altFormat)
     }
 
     @Test
