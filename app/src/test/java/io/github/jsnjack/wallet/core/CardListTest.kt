@@ -59,6 +59,21 @@ class CardListTest {
     }
 
     @Test
+    fun arrangedFavouritesKeepTheirOrderAndNewOnesFollowAToZ() {
+        val cards = listOf(card("a", "A", pinned = true), card("b", "B", pinned = true), card("c", "C", pinned = true), card("d", "D", pinned = true))
+        // "x" was arranged once but is no longer a favourite; "b" and "d" were starred later.
+        assertEquals(listOf("c", "a", "b", "d"), CardList.favourites(cards, listOf("c", "x", "a")).map { it.id })
+        assertEquals(listOf("c", "a"), CardList.quickAccess(cards, emptyMap(), 2, listOf("c", "x", "a")).map { it.id })
+    }
+
+    @Test
+    fun movingAFavouriteShiftsTheOthers() {
+        assertEquals(listOf("b", "c", "a"), CardList.moved(listOf("a", "b", "c"), 0, 2))
+        assertEquals(listOf("c", "a", "b"), CardList.moved(listOf("a", "b", "c"), 2, 0))
+        assertEquals(listOf("a", "b"), CardList.moved(listOf("a", "b"), 0, 5))
+    }
+
+    @Test
     fun quickAccessPutsFavouritesFirstAndFillsWithMostUsed() {
         val cards = listOf(card("fav", "F", pinned = true), card("busy", "B"), card("quiet", "Q"), card("never", "N"))
         val usage = mapOf("busy" to Usage(9, 1), "quiet" to Usage(1, 1))

@@ -6,6 +6,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,6 +44,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -52,12 +54,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -65,12 +75,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.jsnjack.wallet.R
 import io.github.jsnjack.wallet.core.Card
 import io.github.jsnjack.wallet.core.CardDate
 import io.github.jsnjack.wallet.core.CardDates
 import io.github.jsnjack.wallet.core.CardKind
+import io.github.jsnjack.wallet.core.CardList
 import io.github.jsnjack.wallet.core.CardLooks
 import io.github.jsnjack.wallet.core.CardOrder
 import io.github.jsnjack.wallet.core.FlightCheck
@@ -82,6 +94,7 @@ import io.github.jsnjack.wallet.flight.FlightText
 import io.github.jsnjack.wallet.platform.Biometrics
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import kotlin.math.abs
 
 private val TILE_GAP = 8.dp
 
@@ -174,7 +187,7 @@ fun GridScreen(vm: WalletViewModel) {
                     NowBar(upNext, flightChecks, onOpen = vm::openCard)
                 }
             }
-            if (showRail) FavouritesRail(favourites, onOpen = vm::openCard, onMenu = { menuFor = it })
+            if (showRail) FavouritesRail(favourites, onOpen = vm::openCard, onMenu = { menuFor = it }, onArrange = vm::arrangeFavourites)
             BottomBar(
                 query = query,
                 onQuery = { vm.query.value = it },
@@ -211,38 +224,108 @@ private val NOW_BAR_HEIGHT = 52.dp + NOW_BAR_GAP
 /**
  * Favourites in a fixed strip just above the bottom bar: always one tap
  * away, even when the grid above is scrolled. Fills from the right and
- * scrolls sideways past four.
+ * scrolls sideways past four. Long-press and drag a tile sideways to move
+ * it; long-press and let go for its menu.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun FavouritesRail(cards: List<Card>, onOpen: (String) -> Unit, onMenu: (Card) -> Unit) {
+private fun FavouritesRail(cards: List<Card>, onOpen: (String) -> Unit, onMenu: (Card) -> Unit, onArrange: (List<String>) -> Unit) {
+    // The order shown while a tile is dragged; saved when the finger lifts.
+    var order by remember(cards) { mutableStateOf(cards) }
+    var dragged by remember { mutableStateOf<String?>(null) }
+    var offset by remember { mutableFloatStateOf(0f) }
+    var moved by remember { mutableStateOf(false) }
+    val step = with(LocalDensity.current) { (RAIL_TILE_WIDTH + RAIL_GAP).toPx() }
+    val haptics = LocalHapticFeedback.current
+    val moveRight = stringResource(R.string.rail_move_right)
+    val moveLeft = stringResource(R.string.rail_move_left)
+    val arrange = { from: Int, to: Int -> onArrange(CardList.moved(order.map { it.id }, from, to)) }
     Surface(
         shape = RoundedCornerShape(22.dp),
         color = MaterialTheme.colorScheme.surface,
         shadowElevation = 3.dp,
         modifier = Modifier.fillMaxWidth().padding(horizontal = SCREEN_PADDING).height(RAIL_HEIGHT - 8.dp),
     ) {
-        // Right to left like the grid: the first favourite sits by the right thumb.
+        // Right to left like the grid: the first favourite sits by the right thumb, so a higher index is further left.
         LazyRow(
             reverseLayout = true,
             contentPadding = PaddingValues(7.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
+            horizontalArrangement = Arrangement.spacedBy(RAIL_GAP, Alignment.End),
         ) {
-            items(cards, key = { it.id }) { card ->
+            items(order, key = { it.id }) { card ->
+                val lifted = card.id == dragged
                 MiniTile(
                     card.name,
                     card.color,
                     flight = card.kind == CardKind.BOARDING_PASS,
                     modifier = Modifier
+                        .then(
+                            if (lifted) {
+                                Modifier.zIndex(1f).graphicsLayer {
+                                    translationX = offset
+                                    scaleX = LIFTED_SCALE
+                                    scaleY = LIFTED_SCALE
+                                }
+                            } else {
+                                Modifier.animateItem()
+                            },
+                        )
                         .width(RAIL_TILE_WIDTH)
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(14.dp))
-                        .combinedClickable(onClick = { onOpen(card.id) }, onLongClick = { onMenu(card) }),
+                        .pointerInput(card.id) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = {
+                                    dragged = card.id
+                                    offset = 0f
+                                    moved = false
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                },
+                                onDrag = { change, amount ->
+                                    change.consume()
+                                    offset += amount.x
+                                    if (abs(offset) > viewConfiguration.touchSlop) moved = true
+                                    val index = order.indexOfFirst { it.id == card.id }
+                                    // Half a tile past a neighbour swaps the two; the offset keeps the tile under the finger.
+                                    val target = when {
+                                        offset < -step / 2 && index < order.lastIndex -> index + 1
+                                        offset > step / 2 && index > 0 -> index - 1
+                                        else -> index
+                                    }
+                                    if (target != index) {
+                                        order = order.toMutableList().apply { add(target, removeAt(index)) }
+                                        offset += if (target > index) step else -step
+                                    }
+                                },
+                                onDragEnd = {
+                                    if (moved) onArrange(order.map { it.id }) else onMenu(card)
+                                    dragged = null
+                                    offset = 0f
+                                },
+                                onDragCancel = {
+                                    order = cards
+                                    dragged = null
+                                    offset = 0f
+                                },
+                            )
+                        }
+                        // The long press belongs to the drag above; this only opens the card on a tap.
+                        .combinedClickable(onClick = { onOpen(card.id) }, onLongClick = {}, hapticFeedbackEnabled = false)
+                        .semantics {
+                            val index = order.indexOfFirst { it.id == card.id }
+                            customActions = listOfNotNull(
+                                CustomAccessibilityAction(moveRight) { arrange(index, index - 1); true }.takeIf { index > 0 },
+                                CustomAccessibilityAction(moveLeft) { arrange(index, index + 1); true }.takeIf { index < order.lastIndex },
+                            )
+                        },
                 )
             }
         }
     }
 }
+
+private val RAIL_GAP = 6.dp
+private const val LIFTED_SCALE = 1.08f
 
 private val RAIL_TILE_WIDTH = 86.dp
 

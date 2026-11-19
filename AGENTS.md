@@ -331,12 +331,15 @@ because their messages quote the response.
 - **Favourites rail plus favourites outside the app** (decided 2026-11-19
   from `docs/favourites.html`, ideas 2 + 4). Favourites reuse the `pinned`
   field, so the file format and database are unchanged. The rail sits above
-  the bottom bar, fills right to left like the grid, keeps favourites A–Z
-  so none changes place (the user disliked them moving by use), and hides
-  during a search; favourites also stay in the grid (the user prefers duplicates to
+  the bottom bar, fills right to left like the grid, and hides during a
+  search. Favourites never move by use (the user disliked that): they keep
+  the order the user dragged them into (long-press and drag in the rail;
+  long-press and let go opens the menu; TalkBack has "Move left/right"),
+  stored as card ids in `AppSettings.favouriteOrder`, and favourites not
+  arranged yet follow A–Z; favourites also stay in the grid (the user prefers duplicates to
   missing cards). Shortcuts, the favourites widget and the Quick Settings
   tile (when nothing is up next) use `CardList.quickAccess`: favourites
-  A–Z, then the most used cards.
+  in the rail's order, then the most used cards.
 - **Google Wallet import is by screenshot.** Google Wallet and Samsung
   Wallet offer no export to other apps; a screenshot of each card's barcode
   is read like any image, several at once.

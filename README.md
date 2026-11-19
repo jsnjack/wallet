@@ -26,9 +26,11 @@ Dutch and European shops and checks the check digit of EAN and UPC numbers.
 A typed number gets a guessed code type you can change; a scanned code keeps
 the type it was read with unless you tap "Change code type".
 
-Long-press a card to keep it at the top, pin it to the home screen, edit
-it, share it, require a fingerprint or screen lock before its code shows, or
-delete it. Long-pressing the app icon lists the three most used cards.
+Long-press a card to add it to your favourites, pin it to the home screen,
+edit it, share it, require a fingerprint or screen lock before its code
+shows, or delete it. Favourites sit in a strip above the search bar and stay
+where you put them: long-press one and drag it sideways to move it. The app
+icon's long-press menu and the widget list them in the same order.
 
 Share (in that menu or at the bottom of a code) sends a picture of the code
 with the card's name. Anyone can show the picture at a till; Wallet on

@@ -61,6 +61,8 @@
     <string name="action_allow_camera">Allow camera</string>
     <string name="action_open_settings">Open app settings</string>
     <string name="badge_favourite">Favourite</string>
+    <string name="rail_move_right">Move right</string>
+    <string name="rail_move_left">Move left</string>
     <string name="badge_locked">Locked</string>
     <string name="form_colour_brand">Brand colour</string>
     <string name="form_colour_number">Colour %d</string>

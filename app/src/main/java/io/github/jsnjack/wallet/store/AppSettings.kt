@@ -47,6 +47,17 @@ class AppSettings(context: Context) {
     /** How the grid orders cards; A–Z unless the user chose most used. */
     val order: StateFlow<CardOrder> = _order.asStateFlow()
 
+    private val _favouriteOrder = MutableStateFlow(prefs.getString(KEY_FAVOURITE_ORDER, null)?.split(',')?.filter { it.isNotEmpty() }.orEmpty())
+
+    /** Card ids of favourites in the order the user dragged them into; favourites not in it follow A–Z. */
+    val favouriteOrder: StateFlow<List<String>> = _favouriteOrder.asStateFlow()
+
+    /** Keeps [ids] as the favourites' order. */
+    fun setFavouriteOrder(ids: List<String>) {
+        prefs.edit { putString(KEY_FAVOURITE_ORDER, ids.joinToString(",")) }
+        _favouriteOrder.value = ids
+    }
+
     /** Changes how the grid orders cards. */
     fun setOrder(value: CardOrder) {
         prefs.edit { putString(KEY_ORDER, value.name) }
@@ -81,6 +92,7 @@ class AppSettings(context: Context) {
         const val KEY_NOTIFICATIONS = "notifications"
         const val KEY_POSTED_REMINDERS = "posted_reminders"
         const val KEY_LIVE_FLIGHTS = "live_flights"
+        const val KEY_FAVOURITE_ORDER = "favourite_order"
         const val KEY_OLD_FLIGHT_KEY = "flight_api_key"
     }
 }

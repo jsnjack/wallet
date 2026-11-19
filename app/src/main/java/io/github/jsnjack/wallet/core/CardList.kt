@@ -42,15 +42,27 @@ object CardList {
             card.code.filterNot(Char::isWhitespace).contains(compact)
     }
 
-    /** Favourites A–Z, for the favourites rail: each keeps its place, however often the others are used. */
-    fun favourites(cards: List<Card>): List<Card> = cards.filter { it.pinned }.sortedWith(byName)
+    /**
+     * Favourites in the order the user arranged them ([arranged], card ids),
+     * then any not arranged yet A–Z. None moves because of use.
+     */
+    fun favourites(cards: List<Card>, arranged: List<String> = emptyList()): List<Card> {
+        val rank = arranged.withIndex().associate { (index, id) -> id to index }
+        return cards.filter { it.pinned }.sortedWith(compareBy<Card> { rank[it.id] ?: Int.MAX_VALUE }.then(byName))
+    }
+
+    /** [ids] after dragging the one at [from] to [to]. */
+    fun moved(ids: List<String>, from: Int, to: Int): List<String> {
+        if (from !in ids.indices || to !in ids.indices) return ids
+        return ids.toMutableList().apply { add(to, removeAt(from)) }
+    }
 
     /**
      * Cards for surfaces outside the app (shortcuts, widget, tile): favourites
-     * A–Z first, then the most used other cards, so they are never empty.
+     * in their [arranged] order first, then the most used other cards, so they are never empty.
      */
-    fun quickAccess(cards: List<Card>, usage: Map<String, Usage>, limit: Int): List<Card> =
-        (favourites(cards) + mostUsed(cards.filterNot { it.pinned }, usage, limit)).take(limit)
+    fun quickAccess(cards: List<Card>, usage: Map<String, Usage>, limit: Int, arranged: List<String> = emptyList()): List<Card> =
+        (favourites(cards, arranged) + mostUsed(cards.filterNot { it.pinned }, usage, limit)).take(limit)
 
     /** The [limit] most used cards; cards never opened are left out. */
     fun mostUsed(cards: List<Card>, usage: Map<String, Usage>, limit: Int = 3): List<Card> =

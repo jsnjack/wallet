@@ -62,7 +62,7 @@ class Surfaces(
             ?.let { event -> live?.departureAt(zone) ?: event.time?.let { event.date.atTime(it).atZone(zone).toInstant() } }
         val progress = FlightProgress.of(departure, live?.arrivalAt(zone), live?.state, instant)
         Notifier.update(context, today, live, progress, agenda.remindersDue(cards, now), settings)
-        Widgets.update(context, agenda.upNext(shown, now).firstOrNull(), CardList.quickAccess(shown, store.usage.value, FAVOURITES))
+        Widgets.update(context, agenda.upNext(shown, now).firstOrNull(), CardList.quickAccess(shown, store.usage.value, FAVOURITES, settings.favouriteOrder.value))
         afterRefresh()
         // Last: when AgendaWorker runs this, replacing its own work cancels it.
         // Measured between instants, so a daylight saving change in between does not move the run by an hour.
@@ -77,7 +77,7 @@ class Surfaces(
         val now = LocalDateTime.now(zone)
         val agenda = agenda(zone)
         val shown = tiles(store.cards.value, agenda, now)
-        return agenda.upNext(shown, now).firstOrNull()?.card ?: CardList.quickAccess(shown, store.usage.value, FAVOURITES).firstOrNull()
+        return agenda.upNext(shown, now).firstOrNull()?.card ?: CardList.quickAccess(shown, store.usage.value, FAVOURITES, settings.favouriteOrder.value).firstOrNull()
     }
 
     // The agenda with the latest flight lookups, so a late flight stays until it has landed.

@@ -152,8 +152,8 @@ class WalletViewModel(app: Application, private val saved: SavedStateHandle) : A
     val groupSizes: StateFlow<Map<String, Int>> = current.map(CardGroups::sizes)
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
-    /** Favourites for the rail above the bottom bar, A–Z so none moves. */
-    val favourites: StateFlow<List<Card>> = cards.map(CardList::favourites)
+    /** Favourites for the rail above the bottom bar, in the order the user dragged them into. */
+    val favourites: StateFlow<List<Card>> = combine(cards, settings.favouriteOrder, CardList::favourites)
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** "Coming up" above the grid: tiles with an event ahead, or a start or end date within 30 days, soonest first. */
@@ -249,7 +249,9 @@ class WalletViewModel(app: Application, private val saved: SavedStateHandle) : A
             wallet.surfaces.refresh()
         }
         viewModelScope.launch {
-            combine(cards, store.usage) { current, usage -> CardList.quickAccess(current, usage, SHORTCUT_COUNT) to store.cards.value }
+            combine(cards, store.usage, settings.favouriteOrder) { current, usage, arranged ->
+                CardList.quickAccess(current, usage, SHORTCUT_COUNT, arranged) to store.cards.value
+            }
                 .debounce(SHORTCUT_DEBOUNCE_MS)
                 .collect { (top, all) -> withContext(Dispatchers.Default) { Shortcuts.update(app, top, all) } }
         }
@@ -635,6 +637,12 @@ class WalletViewModel(app: Application, private val saved: SavedStateHandle) : A
 
     /** Puts a used card back among the current ones. */
     fun restore(cardId: String) = changeCard(cardId) { it.copy(usedAt = null) }
+
+    /** Keeps the favourites in the order [ids], after a drag in the rail; widgets and shortcuts follow. */
+    fun arrangeFavourites(ids: List<String>) {
+        settings.setFavouriteOrder(ids)
+        refreshSurfaces()
+    }
 
     /** Makes [cardId] a favourite (the rail, shortcuts, widget and tile), or stops it being one. */
     fun togglePinned(cardId: String) = changeCard(cardId) { it.copy(pinned = !it.pinned) }
