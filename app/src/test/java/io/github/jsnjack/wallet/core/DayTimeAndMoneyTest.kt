@@ -54,4 +54,12 @@ class DayTimeAndMoneyTest {
         assertEquals(2550L, Money.parseCents(Money.editable(2550, arabic)))
         assertEquals(2550L, Money.parseCents("٢٥٫٥٠"))
     }
+
+    @Test
+    fun aDateAloneSortsBeforeMidnightOnTheSameDay() {
+        val day = DayTime(java.time.LocalDate.of(2026, 11, 20))
+        val midnight = DayTime(day.date, java.time.LocalTime.MIDNIGHT)
+        assertTrue(day < midnight)
+        assertEquals(0, day.compareTo(day.copy()))
+    }
 }

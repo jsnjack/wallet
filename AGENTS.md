@@ -36,6 +36,7 @@ app/src/main/java/io/github/jsnjack/wallet/
     CardLooks.kt            Text contrast, palette, colour for a name, monograms, hex
     Brands.kt               Bundled shop list for name suggestions and colours
     CardList.kt             CardOrder (A–Z or most used), search, favourites, quick access (favourites then most used)
+    CardVersions.kt         "Last changed" times on save, edit and delete; which imported copies are newer
     CodeChoice.kt           One code per text when a file repeats it (a ticket's QR and barcode), square codes first;
                             the other format becomes Card.altFormat
     TicketText.kt           E-ticket text (English, Dutch) → event name, date and time, door details, venue and address

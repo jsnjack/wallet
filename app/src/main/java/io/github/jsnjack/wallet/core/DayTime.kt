@@ -18,12 +18,15 @@ data class DayTime(val date: LocalDate, val time: LocalTime? = null) : Comparabl
     /** The moment it ends: the time, or the start of the next day. */
     val end: LocalDateTime get() = time?.let { date.atTime(it) } ?: date.plusDays(1).atStartOfDay()
 
-    override fun compareTo(other: DayTime): Int = start.compareTo(other.start)
+    // A date alone comes before the same date at 00:00, so only equal values compare as equal.
+    override fun compareTo(other: DayTime): Int = ORDER.compare(this, other)
 
     /** `2026-11-20` or `2026-11-20T07:05`, the stored form. */
     override fun toString(): String = time?.let { "${date}T${it.truncatedTo(ChronoUnit.MINUTES)}" } ?: date.toString()
 
     companion object {
+        private val ORDER = compareBy<DayTime>({ it.start }, { it.time != null })
+
         /** Parses the stored form; null for anything else. */
         fun parse(text: String?): DayTime? {
             if (text.isNullOrBlank()) return null
