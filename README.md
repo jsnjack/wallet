@@ -10,13 +10,15 @@ tablet up to date. The design and the plan for later versions are in
 ## Using it
 
 The grid shows every card in its brand colour, sorted by how often you use
-it. Tap a card to show its code; swipe sideways for the next card. Search
-and the add button sit at the bottom of the screen.
+it. Tap a card to show its code; swipe down to close it. Search and the add
+button sit at the bottom of the screen.
 
 The add button opens the camera, which reads the code as soon as it is in
 view. You can also pick a screenshot or photo, share an image to the app
 from another app, or type the number. The app suggests a colour for common
 Dutch and European shops and checks the check digit of EAN and UPC numbers.
+A typed number gets a guessed code type you can change; a scanned code keeps
+the type it was read with unless you tap "Change code type".
 
 Long-press a card to keep it at the top, pin it to the home screen, edit
 it, require a fingerprint or screen lock before its code shows, or delete
@@ -28,8 +30,10 @@ expired cards and past tickets and flights move there by themselves and are
 deleted after the period chosen in Settings (one year by default).
 
 Boarding passes fill themselves in from the barcode (IATA BCBP): flight,
-route with city names, seat and booking reference. Legs on one booking form
-a trip, which shows as one tile and swipes between legs. Apple Wallet
+route with city names, seat and booking reference. Passes for the same
+flight, such as yours and a travel companion's, share one tile ("2
+passengers"); on the code, swipe sideways from one passenger to the next.
+Tickets with the same name and time share a tile the same way. Apple Wallet
 `.pkpass` files and e-ticket PDFs can be shared to the app or picked with
 "PDF or pass" in the scanner.
 
