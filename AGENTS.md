@@ -294,9 +294,11 @@ because their messages quote the response.
   the format is stored; QR is the default because camera scanners read it
   more reliably from a screen, and "Show as barcode" covers scanners that
   read only barcodes.
-- **Maps through Google's documented search link.** The place chip opens
+- **Maps through Google's documented search link.** The Map button in the
+  code screen's bottom bar (in place of Copy) opens
   `https://www.google.com/maps/search/?api=1&query=…`, which the Maps app
-  handles and a browser falls back to; no Maps SDK or key.
+  handles and a browser falls back to; no Maps SDK or key. The venue shows
+  under the card's name as plain text, so nothing to tap sits at the top.
 - **Ticket details from PDF text, not image recognition** (decided
   2026-11-19). Android 15's `PdfRenderer.Page.getTextContents` reads
   e-ticket PDFs with no new library; text recognition for screenshots would
@@ -401,6 +403,12 @@ because their messages quote the response.
   Ticketmaster ticket the buyer's name shares a line with the venue's
   postcode. `TicketText` takes only the postcode and one-word city from such
   a line, never the rest of it.
+- `.pkpass` dates with a venue offset ("+01:00") keep their clock time; a
+  UTC date ("Z") says nothing about the venue and is read in the phone's
+  zone, or a show at 00:30 would be stored a day early.
+- A number typed in digit groups ("6012 3456 7890 1234") is stored without
+  the separators whatever its format (`CardDraft.codeTyped`); scanned text
+  is kept exactly as read.
 - ZXing's Code 39 writer switches to extended mode for lowercase, so
   `canEncode` accepts lowercase text; only non-ASCII text fails.
 - FlightStats answers an unknown flight, and one more than about a day

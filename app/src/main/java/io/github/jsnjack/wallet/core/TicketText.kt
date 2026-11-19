@@ -108,13 +108,16 @@ object TicketText {
         return TicketFacts(name, event, details, labelledDate(lines, VALID_FROM_LABELS), labelledDate(lines, VALID_UNTIL_LABELS))
     }
 
+    // "Label: value", but not a time such as "20:30" or a date with a colon: labels have no digits.
+    private fun labelMatch(line: String): MatchResult? = LABEL.find(line)?.takeUnless { it.groupValues[1].any(Char::isDigit) }
+
     // Pairs "Label:" lines with their value, inline or on the next line; the value line then counts as part of the label.
     private fun labelled(raw: List<String>): List<Line> {
         val out = mutableListOf<Line>()
         var i = 0
         while (i < raw.size) {
-            val match = LABEL.find(raw[i])
-            if (match == null || match.groupValues[1].any(Char::isDigit)) {
+            val match = labelMatch(raw[i])
+            if (match == null) {
                 out += Line(raw[i], null, null)
                 i++
                 continue
@@ -122,7 +125,7 @@ object TicketText {
             val label = match.groupValues[1].trim()
             val inline = match.groupValues[2].trim()
             val next = raw.getOrNull(i + 1)
-            if (inline.isEmpty() && next != null && LABEL.find(next) == null) {
+            if (inline.isEmpty() && next != null && labelMatch(next) == null) {
                 out += Line("$label: $next", label, next)
                 i += 2
             } else {

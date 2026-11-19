@@ -152,4 +152,12 @@ class TicketTextTest {
         assertNull(empty.event)
         assertEquals(emptyList<Detail>(), empty.details)
     }
+
+    @Test
+    fun aTimeOnTheLineAfterALabelIsTheLabelsValue() {
+        val ordered = TicketText.read("Besteld op:\n19-11-2026 14:32\nZaterdag 3 december 2026 20:00", today)
+        assertEquals(DayTime(LocalDate.of(2026, 12, 3), LocalTime.of(20, 0)), ordered.event)
+        val doors = TicketText.read("Zaterdag 3 december 2026 20:00\nDoors open:\n19:30", today)
+        assertEquals(listOf(Detail("Doors open", "19:30")), doors.details.filter { it.label == "Doors open" })
+    }
 }

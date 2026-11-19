@@ -11,6 +11,8 @@ import java.io.IOException
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeParseException
 import java.time.temporal.ChronoUnit
 import java.util.Locale
@@ -50,7 +52,7 @@ object Pkpass {
      * a readable pass or has no barcode the app can draw. [now] marks a voided
      * pass as used; [today] places a boarding pass date in its year.
      */
-    fun read(bytes: ByteArray, today: LocalDate, now: Long): CardDraft {
+    fun read(bytes: ByteArray, today: LocalDate, now: Long, zone: ZoneId): CardDraft {
         val pass = try {
             Json.parseToJsonElement(passJson(bytes).decodeToString()) as? JsonObject
         } catch (e: SerializationException) {
@@ -63,7 +65,7 @@ object Pkpass {
         val style = pass[styleKey] as? JsonObject
         val boarding = if (kind == CardKind.BOARDING_PASS) Bcbp.parse(code, today) else null
         val leg = boarding?.legs?.firstOrNull()
-        val relevant = dayTime(pass.string("relevantDate"))
+        val relevant = dayTime(pass.string("relevantDate"), zone)
         val event = when {
             leg != null -> DayTime(leg.date, relevant?.takeIf { it.date == leg.date }?.time)
             kind in Agenda.DATED_KINDS -> relevant
@@ -80,9 +82,9 @@ object Pkpass {
             formatChosen = true,
             kind = kind,
             color = color(pass.string("backgroundColor")),
-            expires = dayTime(pass.string("expirationDate")),
+            expires = dayTime(pass.string("expirationDate"), zone),
             event = event,
-            details = details(style) + listOfNotNull(location(pass)),
+            details = details(style, zone) + listOfNotNull(location(pass)),
             flight = leg?.flight,
             usedAt = if ((pass["voided"] as? JsonPrimitive)?.content == "true") now else null,
         )
@@ -118,19 +120,19 @@ object Pkpass {
         }
     }
 
-    private fun details(style: JsonObject?): List<Detail> = FIELD_GROUPS
+    private fun details(style: JsonObject?, zone: ZoneId): List<Detail> = FIELD_GROUPS
         .flatMap { (style?.get(it) as? JsonArray).orEmpty() }
         .mapNotNull { element ->
             val field = element as? JsonObject ?: return@mapNotNull null
-            val value = fieldValue(field["value"]) ?: return@mapNotNull null
+            val value = fieldValue(field["value"], zone) ?: return@mapNotNull null
             Detail(field.string("label").orEmpty().trim(), value)
         }
         .filter { it.value.isNotBlank() }
         .take(MAX_DETAILS)
 
-    private fun fieldValue(value: JsonElement?): String? {
+    private fun fieldValue(value: JsonElement?, zone: ZoneId): String? {
         val text = (value as? JsonPrimitive)?.content?.trim() ?: return null
-        return dayTime(text)?.let { it.time?.let { time -> "${it.date} $time" } ?: it.date.toString() } ?: text
+        return dayTime(text, zone)?.let { it.time?.let { time -> "${it.date} $time" } ?: it.date.toString() } ?: text
     }
 
     /** The colour for `rgb(r, g, b)` or `#RRGGBB`, or null. */
@@ -143,11 +145,15 @@ object Pkpass {
         return CardLooks.parseHex(text.trim())
     }
 
-    /** The wall-clock date and time in an ISO 8601 value, in the offset it was written with. */
-    internal fun dayTime(text: String?): DayTime? {
+    /**
+     * The wall-clock date and time in an ISO 8601 value. An offset other
+     * than zero is the venue's own, so its clock time is kept; a UTC time
+     * ("Z") says nothing about the venue and is read in [zone], the phone's.
+     */
+    internal fun dayTime(text: String?, zone: ZoneId): DayTime? {
         if (text.isNullOrBlank() || text.length < DATE_LENGTH || !text[0].isDigit()) return null
         val local: LocalDateTime = try {
-            OffsetDateTime.parse(text).toLocalDateTime()
+            OffsetDateTime.parse(text).let { if (it.offset == ZoneOffset.UTC) it.atZoneSameInstant(zone).toLocalDateTime() else it.toLocalDateTime() }
         } catch (e: DateTimeParseException) {
             try {
                 LocalDateTime.parse(text)

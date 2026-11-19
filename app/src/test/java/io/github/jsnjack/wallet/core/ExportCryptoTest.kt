@@ -38,4 +38,12 @@ class ExportCryptoTest {
         val file = ExportCrypto.encrypt(plain, "pw".toCharArray(), iterations)
         assertFalse(file.decodeToString(throwOnInvalidSequence = false).contains("cards"))
     }
+
+    @Test(expected = NotAnExportException::class)
+    fun aHeaderAskingForBillionsOfRoundsIsRejected() {
+        val file = ExportCrypto.encrypt("[]".encodeToByteArray(), "secret".toCharArray(), iterations = 1_000)
+        // The count follows the 4-byte magic and the version byte.
+        java.nio.ByteBuffer.wrap(file).putInt(5, Int.MAX_VALUE)
+        ExportCrypto.decrypt(file, "secret".toCharArray())
+    }
 }

@@ -59,4 +59,13 @@ class CodeNumbersTest {
         assertEquals("1234567", CodeNumbers.display("1234567"))
         assertEquals("BM-7Q4K-2291", CodeNumbers.display("BM-7Q4K-2291"))
     }
+
+    @Test
+    fun aNumberTypedInGroupsIsStoredWithoutTheSpaces() {
+        assertEquals("6012345678901234", CodeNumbers.clean("6012 3456 7890 1234", CodeFormat.CODE_128, typed = true))
+        assertEquals("6012345678901234", CardDraft().withCode("6012 3456 7890 1234").cleanCode)
+        // Scanned text is kept exactly, spaces and all; typed text with letters too.
+        assertEquals("6012 3456", CodeNumbers.clean("6012 3456", CodeFormat.CODE_128))
+        assertEquals("AB 12", CodeNumbers.clean("AB 12", CodeFormat.CODE_128, typed = true))
+    }
 }

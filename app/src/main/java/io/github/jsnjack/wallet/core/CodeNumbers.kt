@@ -10,6 +10,7 @@ object CodeNumbers {
     private const val GROUP_SIZE = 4
     private const val LONG_TEXT = 30
     private val SEPARATORS = Regex("[\\s-]")
+    private val DIGIT_GROUPS = Regex("\\d+(?:[\\s-]+\\d+)+")
 
     /** True when [digits] is an EAN-8, UPC-A or EAN-13 number with a correct GS1 check digit. */
     fun hasValidCheckDigit(digits: String): Boolean {
@@ -22,10 +23,13 @@ object CodeNumbers {
 
     /**
      * The code as stored: numeric formats drop the spaces and dashes that
-     * cards print between digit groups; other formats keep their text as is.
+     * cards print between digit groups, and so does a number [typed] in
+     * groups, such as "6012 3456 7890 1234", whatever its format: the
+     * barcode on the card holds the digits only. Other codes keep their text
+     * as read, because a scanned code must be drawn again exactly.
      */
-    fun clean(code: String, format: CodeFormat): String =
-        if (format in NUMERIC_FORMATS) code.replace(SEPARATORS, "") else code.trim()
+    fun clean(code: String, format: CodeFormat, typed: Boolean = false): String =
+        if (format in NUMERIC_FORMATS || typed && DIGIT_GROUPS.matches(code.trim())) code.replace(SEPARATORS, "") else code.trim()
 
     /** The format a typed code most likely uses. */
     fun guessFormat(typed: String): CodeFormat {

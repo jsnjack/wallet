@@ -47,4 +47,11 @@ class DayTimeAndMoneyTest {
         assertTrue(Money.display(2550, dutch).contains("25,50"))
         assertTrue(Money.display(2550, dutch).contains("€"))
     }
+
+    @Test
+    fun readsBackBalancesWrittenWithArabicDigits() {
+        val arabic = Locale.forLanguageTag("ar-EG")
+        assertEquals(2550L, Money.parseCents(Money.editable(2550, arabic)))
+        assertEquals(2550L, Money.parseCents("٢٥٫٥٠"))
+    }
 }

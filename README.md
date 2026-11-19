@@ -55,7 +55,8 @@ all"): one form per ticket, each filled from its own page, and the tickets
 then share one tile. When a ticket prints its code as a QR code and as a
 barcode, Wallet shows the QR code with a "Show as barcode" switch under it,
 for a scanner that only reads barcodes. A card with a venue, an address or
-an Apple Wallet location shows it under its name; a tap opens Google Maps.
+an Apple Wallet location shows it under its name, and "Map" at the bottom
+opens it in Google Maps.
 
 A boarding pass also shows its gate, terminal, departure time and status
 from flightstats.com, updated through the day of the flight, and after

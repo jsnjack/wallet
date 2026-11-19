@@ -59,6 +59,7 @@
     <string name="action_copy_number">Copy number</string>
     <string name="action_unlock">Unlock</string>
     <string name="action_allow_camera">Allow camera</string>
+    <string name="action_open_settings">Open app settings</string>
     <string name="action_torch">Torch</string>
     <string name="action_continue">Continue</string>
 

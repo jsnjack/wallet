@@ -4,6 +4,8 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.ZoneId
+import java.time.ZoneOffset
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import org.junit.Assert.assertEquals
@@ -35,7 +37,7 @@ class PkpassTest {
                 "backgroundColor":"rgb(0, 160, 226)","barcodes":[{"format":"PKBarcodeFormatCode128","message":"2620048511734",
                 "messageEncoding":"iso-8859-1"}],"storeCard":{"primaryFields":[{"key":"points","label":"Points","value":120}]}}""",
             ),
-            today, 0,
+            today, 0, ZoneOffset.UTC,
         )
         assertEquals("Market Bonus", draft.name)
         assertEquals(CardKind.LOYALTY, draft.kind)
@@ -54,7 +56,7 @@ class PkpassTest {
                 """{"formatVersion":1,"organizationName":"Venue","barcodes":[{"format":"PKBarcodeFormatQR","message":"T-1",
                 "messageEncoding":"iso-8859-1"}],"locations":[{"latitude":52.0917,"longitude":5.1131}],"eventTicket":{}}""",
             ),
-            today, 0,
+            today, 0, ZoneOffset.UTC,
         )
         assertEquals(Detail("Location", "52.09170, 5.11310"), draft.details.last())
     }
@@ -67,7 +69,7 @@ class PkpassTest {
                 "barcode":{"format":"PKBarcodeFormatAztec","message":"${BcbpTest.ONE_LEG}"},
                 "boardingPass":{"transitType":"PKTransitTypeAir","auxiliaryFields":[{"key":"gate","label":"Gate","value":"D7"}]}}""",
             ),
-            today, 0,
+            today, 0, ZoneOffset.UTC,
         )
         assertEquals(CardKind.BOARDING_PASS, draft.kind)
         assertEquals("KL 1691", draft.name)
@@ -83,7 +85,7 @@ class PkpassTest {
                 """{"organizationName":"Shop","voided":true,"expirationDate":"2026-12-31T23:59:00Z",
                 "barcodes":[{"format":"PKBarcodeFormatQR","message":"COUPON-1"}],"coupon":{}}""",
             ),
-            today, 42,
+            today, 42, ZoneOffset.UTC,
         )
         assertEquals(CardKind.VOUCHER, draft.kind)
         assertEquals(42L, draft.usedAt)
@@ -92,21 +94,30 @@ class PkpassTest {
 
     @Test(expected = IOException::class)
     fun passWithoutDrawableBarcodeIsRejected() {
-        Pkpass.read(pkpass("""{"organizationName":"Shop","generic":{}}"""), today, 0)
+        Pkpass.read(pkpass("""{"organizationName":"Shop","generic":{}}"""), today, 0, ZoneOffset.UTC)
     }
 
     @Test(expected = IOException::class)
     fun zipWithoutPassJsonIsRejected() {
         val out = ByteArrayOutputStream()
         ZipOutputStream(out).use { it.putNextEntry(ZipEntry("other.txt")); it.write(1) }
-        Pkpass.read(out.toByteArray(), today, 0)
+        Pkpass.read(out.toByteArray(), today, 0, ZoneOffset.UTC)
     }
 
     @Test(expected = IOException::class)
     fun zipWithLatin1FileNameIsRejectedAsUnreadable() {
         val out = ByteArrayOutputStream()
         ZipOutputStream(out, Charsets.ISO_8859_1).use { it.putNextEntry(ZipEntry("café.txt")); it.write(1) }
-        Pkpass.read(out.toByteArray(), today, 0)
+        Pkpass.read(out.toByteArray(), today, 0, ZoneOffset.UTC)
+    }
+
+    @Test
+    fun utcDatesAreReadInThePhonesZoneAndOtherOffsetsKeepTheirClock() {
+        val amsterdam = ZoneId.of("Europe/Amsterdam")
+        // A show at 00:30 on 21 Nov in Amsterdam, written in UTC: not 23:30 on the 20th.
+        assertEquals(DayTime(LocalDate.of(2026, 11, 21), LocalTime.of(0, 30)), Pkpass.dayTime("2026-11-20T23:30:00Z", amsterdam))
+        // A venue's own offset keeps the time printed on the ticket, wherever the phone is.
+        assertEquals(DayTime(LocalDate.of(2026, 11, 20), LocalTime.of(19, 30)), Pkpass.dayTime("2026-11-20T19:30:00-05:00", amsterdam))
     }
 
     @Test

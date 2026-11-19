@@ -447,7 +447,7 @@ class WalletViewModel(app: Application, private val saved: SavedStateHandle) : A
                 when {
                     Pkpass.looksLikePkpass(bytes) -> {
                         val draft = withContext(Dispatchers.Default) {
-                            Pkpass.read(bytes, LocalDate.now(zone), System.currentTimeMillis())
+                            Pkpass.read(bytes, LocalDate.now(zone), System.currentTimeMillis(), zone)
                         }
                         openFormFromOutside(draft)
                     }

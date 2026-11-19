@@ -1,12 +1,17 @@
 package io.github.jsnjack.wallet.ui
 
 import android.Manifest
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.util.Log
 import android.util.Size
 import android.view.HapticFeedbackConstants
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.Camera
@@ -56,12 +61,20 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.jsnjack.wallet.LOG_TAG
 import io.github.jsnjack.wallet.R
 import io.github.jsnjack.wallet.platform.CodeReader
 import io.github.jsnjack.wallet.platform.ReadCode
 import java.util.concurrent.Executors
+
+// The app's page in the system settings, where a permission denied twice can still be allowed.
+private fun openAppSettings(context: Context) {
+    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+    context.startActivity(intent)
+}
 
 /** Camera scanner; the code is taken as soon as it is in view. */
 @Composable
@@ -71,9 +84,17 @@ fun ScanScreen(vm: WalletViewModel) {
         mutableStateOf(context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
     }
     var asked by remember { mutableStateOf(false) }
+    // After a second "Don't allow", Android shows no dialog any more; only the app's settings page can grant it.
+    var blocked by remember { mutableStateOf(false) }
+    val activity = LocalActivity.current
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         granted = ok
         asked = true
+        blocked = !ok && activity?.shouldShowRequestPermissionRationale(Manifest.permission.CAMERA) == false
+    }
+    // Back from the settings page with the camera allowed.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        if (!granted) granted = context.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
     }
     val pickers = rememberImportPickers(vm)
     LaunchedEffect(Unit) { if (!granted) permission.launch(Manifest.permission.CAMERA) }
@@ -102,7 +123,11 @@ fun ScanScreen(vm: WalletViewModel) {
             ) {
                 Text(stringResource(R.string.scan_no_camera), color = Color.White, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(14.dp))
-                Button(onClick = { permission.launch(Manifest.permission.CAMERA) }) { Text(stringResource(R.string.action_allow_camera)) }
+                if (blocked) {
+                    Button(onClick = { openAppSettings(context) }) { Text(stringResource(R.string.action_open_settings)) }
+                } else {
+                    Button(onClick = { permission.launch(Manifest.permission.CAMERA) }) { Text(stringResource(R.string.action_allow_camera)) }
+                }
             }
         }
 

@@ -33,6 +33,7 @@ object DraftJson {
         val altFormat: String? = null,
         val validFrom: String? = null,
         val usedAt: Long? = null,
+        val codeTyped: Boolean = false,
     )
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -71,6 +72,7 @@ object DraftJson {
         altFormat = altFormat?.name,
         validFrom = validFrom?.toString(),
         usedAt = usedAt,
+        codeTyped = codeTyped,
     )
 
     private fun DraftDto.toDraft(): CardDraft? {
@@ -96,6 +98,7 @@ object DraftJson {
             altFormat = CodeFormat.entries.firstOrNull { it.name == altFormat },
             validFrom = DayTime.parse(validFrom),
             usedAt = usedAt,
+            codeTyped = codeTyped,
         )
     }
 }

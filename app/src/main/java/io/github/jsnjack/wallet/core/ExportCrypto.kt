@@ -33,6 +33,9 @@ object ExportCrypto {
     private const val TAG_BITS = 128
     private const val HEADER_BYTES = 4 + 1 + 4 + SALT_BYTES + IV_BYTES
 
+    // Room for later versions to raise the count tenfold.
+    private const val MAX_ITERATIONS = 10 * DEFAULT_ITERATIONS
+
     /** Encrypts [plain] with [password]; the result is a complete export file. */
     fun encrypt(
         plain: ByteArray,
@@ -59,7 +62,8 @@ object ExportCrypto {
         val version = buffer.get()
         if (version != FILE_VERSION) throw NotAnExportException("export file version $version is not supported")
         val iterations = buffer.getInt()
-        if (iterations <= 0) throw NotAnExportException("export file header is damaged")
+        // A damaged header could ask for billions of rounds, keeping the import busy for an hour.
+        if (iterations !in 1..MAX_ITERATIONS) throw NotAnExportException("export file header is damaged")
         val salt = ByteArray(SALT_BYTES).also { buffer.get(it) }
         val iv = ByteArray(IV_BYTES).also { buffer.get(it) }
         val sealed = ByteArray(buffer.remaining()).also { buffer.get(it) }

@@ -10,6 +10,7 @@ enum class DraftProblem { NAME_MISSING, CODE_MISSING, CODE_NOT_DRAWABLE, BALANCE
  * A card being added or edited. [formatChosen] is true once the format came
  * from a scan or a tap, so typing no longer re-guesses it; a null [color]
  * follows the brand list or the name. [balanceText] is the balance as typed.
+ * [codeTyped] is true once the code was typed rather than read from a code.
  */
 data class CardDraft(
     val editingId: String? = null,
@@ -32,13 +33,14 @@ data class CardDraft(
     val altFormat: CodeFormat? = null,
     val validFrom: DayTime? = null,
     val usedAt: Long? = null,
+    val codeTyped: Boolean = false,
 ) {
     /** The colour the card gets: the chosen one, the brand's, or one derived from the name. */
     val effectiveColor: Int
         get() = color ?: if (kind == CardKind.BOARDING_PASS) BOARDING_COLOR else Brands.exact(name)?.color ?: CardLooks.forName(name)
 
     /** The code as it will be stored. */
-    val cleanCode: String get() = CodeNumbers.clean(code, format)
+    val cleanCode: String get() = CodeNumbers.clean(code, format, typed = codeTyped)
 
     /** The first reason the draft cannot be saved, or null when it can. */
     fun problem(): DraftProblem? = when {
@@ -51,7 +53,7 @@ data class CardDraft(
 
     /** The draft after the user typed [typed] as the code. */
     fun withCode(typed: String): CardDraft =
-        copy(code = typed, format = if (formatChosen) format else CodeNumbers.guessFormat(typed))
+        copy(code = typed, format = if (formatChosen) format else CodeNumbers.guessFormat(typed), codeTyped = true)
 
     /**
      * The draft with what a ticket's text says, where the code said nothing:

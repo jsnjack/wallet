@@ -238,7 +238,8 @@ private fun KindFields(draft: CardDraft, balanceError: Boolean, update: ((CardDr
     if (draft.kind in STARTING_KINDS || draft.validFrom != null) {
         DayTimeField(stringResource(R.string.form_valid_from), draft.validFrom) { value -> update { it.copy(validFrom = value) } }
     }
-    if (draft.kind in EXPIRING_KINDS) {
+    // Any kind can carry an end date from a pass or an earlier kind; it archives the card, so it must be visible.
+    if (draft.kind in EXPIRING_KINDS || draft.expires != null) {
         DayTimeField(stringResource(R.string.form_expires), draft.expires) { value -> update { it.copy(expires = value) } }
     }
     if (draft.kind == CardKind.GIFT_CARD) {

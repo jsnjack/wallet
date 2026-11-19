@@ -348,7 +348,12 @@ private fun CodePage(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (showCode) BarAction(R.drawable.ic_edit, stringResource(R.string.menu_edit), content, onEdit)
-            if (showCode && flight == null) BarAction(R.drawable.ic_copy, stringResource(R.string.action_copy_number), content) { copy(context, card) }
+            // A card with a place gets Map here, at the thumb, instead of Copy: a ticket's long code is not worth copying.
+            val place = CardPlace.query(card)
+            when {
+                place != null -> BarAction(R.drawable.ic_place, stringResource(R.string.place_map), content) { openMap(context, place) }
+                showCode && flight == null -> BarAction(R.drawable.ic_copy, stringResource(R.string.action_copy_number), content) { copy(context, card) }
+            }
             if (showCode) BarAction(R.drawable.ic_share, stringResource(R.string.menu_share), content, onShare)
             Spacer(Modifier.weight(1f))
             when {
@@ -404,7 +409,7 @@ private fun CardHeader(card: Card, used: String?, content: Color) {
             Text(card.name, color = content, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 2)
             val subtitle = card.event?.let { dayTimeText(it) } ?: stringResource(kindLabel(card.kind))
             Text(listOfNotNull(subtitle, used).joinToString(" · "), color = content.copy(alpha = 0.8f), fontSize = 13.sp)
-            CardPlace.query(card)?.let { query -> PlaceChip(CardPlace.label(card) ?: stringResource(R.string.place_map), query, content) }
+            CardPlace.label(card)?.let { PlaceLabel(it, content) }
         }
         card.balanceCents?.let {
             Column(horizontalAlignment = Alignment.End) {
@@ -415,22 +420,13 @@ private fun CardHeader(card: Card, used: String?, content: Color) {
     }
 }
 
-/** Where the event is; a tap opens the place in Google Maps, or a browser without it. */
+/** Where the event is; the Map button in the bottom bar opens it, so nothing to tap sits at the top. */
 @Composable
-private fun PlaceChip(label: String, query: String, content: Color) {
-    val context = LocalContext.current
-    Row(
-        Modifier
-            .padding(top = 6.dp)
-            .clip(RoundedCornerShape(50))
-            .background(Color.Black.copy(alpha = 0.16f))
-            .clickable { openMap(context, query) }
-            .padding(horizontal = 10.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(painterResource(R.drawable.ic_place), contentDescription = null, tint = content, modifier = Modifier.size(15.dp))
+private fun PlaceLabel(label: String, content: Color) {
+    Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(painterResource(R.drawable.ic_place), contentDescription = null, tint = content.copy(alpha = 0.8f), modifier = Modifier.size(15.dp))
         Spacer(Modifier.width(4.dp))
-        Text(label, color = content, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(label, color = content.copy(alpha = 0.8f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -529,7 +525,7 @@ private fun Airport(code: String, city: String?, content: Color, alignment: Alig
 // Live facts come first and replace a pass's own field with the same label, such as a gate printed at check-in.
 @Composable
 private fun pageDetails(card: Card, live: LiveFlight?): List<Detail> {
-    // The place is shown as the map chip in the header, so its venue and coordinates are not repeated here.
+    // The place shows under the name and behind the Map button, so its venue and coordinates are not repeated here.
     val place = CardPlace.label(card)
     val flight = card.flight ?: return card.details.filterNot { it.label.equals(CardPlace.LOCATION, ignoreCase = true) || it.value.trim() == place }
     val facts = liveDetails(live)
