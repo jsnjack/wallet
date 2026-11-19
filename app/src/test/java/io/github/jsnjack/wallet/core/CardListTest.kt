@@ -53,10 +53,9 @@ class CardListTest {
     }
 
     @Test
-    fun favouritesAreTheStarredCardsByUse() {
-        val cards = listOf(card("a", "A", pinned = true), card("b", "B"), card("c", "C", pinned = true))
-        val usage = mapOf("c" to Usage(5, 1))
-        assertEquals(listOf("c", "a"), CardList.favourites(cards, usage).map { it.id })
+    fun favouritesAreTheStarredCardsAToZWhateverTheirUse() {
+        val cards = listOf(card("c", "C", pinned = true), card("b", "B"), card("a", "A", pinned = true))
+        assertEquals(listOf("a", "c"), CardList.favourites(cards).map { it.id })
     }
 
     @Test

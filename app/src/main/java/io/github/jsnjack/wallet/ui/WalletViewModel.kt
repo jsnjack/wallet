@@ -152,8 +152,8 @@ class WalletViewModel(app: Application, private val saved: SavedStateHandle) : A
     val groupSizes: StateFlow<Map<String, Int>> = current.map(CardGroups::sizes)
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
-    /** Favourites for the rail above the bottom bar, most used first. */
-    val favourites: StateFlow<List<Card>> = combine(cards, store.usage, CardList::favourites)
+    /** Favourites for the rail above the bottom bar, A–Z so none moves. */
+    val favourites: StateFlow<List<Card>> = cards.map(CardList::favourites)
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** "Coming up" above the grid: tiles with an event ahead, or a start or end date within 30 days, soonest first. */

@@ -42,15 +42,15 @@ object CardList {
             card.code.filterNot(Char::isWhitespace).contains(compact)
     }
 
-    /** Favourites in grid order (most used first), for the favourites rail. */
-    fun favourites(cards: List<Card>, usage: Map<String, Usage>): List<Card> = byUse(cards.filter { it.pinned }, usage)
+    /** Favourites A–Z, for the favourites rail: each keeps its place, however often the others are used. */
+    fun favourites(cards: List<Card>): List<Card> = cards.filter { it.pinned }.sortedWith(byName)
 
     /**
      * Cards for surfaces outside the app (shortcuts, widget, tile): favourites
-     * first, then the most used other cards, so they are never empty.
+     * A–Z first, then the most used other cards, so they are never empty.
      */
     fun quickAccess(cards: List<Card>, usage: Map<String, Usage>, limit: Int): List<Card> =
-        (favourites(cards, usage) + mostUsed(cards.filterNot { it.pinned }, usage, limit)).take(limit)
+        (favourites(cards) + mostUsed(cards.filterNot { it.pinned }, usage, limit)).take(limit)
 
     /** The [limit] most used cards; cards never opened are left out. */
     fun mostUsed(cards: List<Card>, usage: Map<String, Usage>, limit: Int = 3): List<Card> =
