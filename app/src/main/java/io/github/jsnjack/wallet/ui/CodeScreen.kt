@@ -100,7 +100,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.time.Duration
 import java.time.LocalDateTime
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
@@ -305,7 +304,7 @@ private fun CodePage(
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        MetaLine(card, showCode)
+                        MetaLine(card, showCode, archived)
                         if (card.note.isNotEmpty()) {
                             Spacer(Modifier.height(6.dp))
                             Text(card.note, fontSize = 13.sp, color = colorResource(R.color.muted), textAlign = TextAlign.Center)
@@ -541,7 +540,7 @@ private fun pageDetails(card: Card, live: LiveFlight?): List<Detail> {
 }
 
 @Composable
-private fun MetaLine(card: Card, showCode: Boolean) {
+private fun MetaLine(card: Card, showCode: Boolean, archived: Boolean) {
     val parts = buildList {
         card.validFrom?.takeIf { it.start.isAfter(LocalDateTime.now()) }?.let {
             add(stringResource(R.string.code_valid_from, dayTimeText(it, inSentence = true)))
@@ -552,7 +551,7 @@ private fun MetaLine(card: Card, showCode: Boolean) {
         }
         if (card.pin.isNotBlank()) add(if (showCode) stringResource(R.string.code_pin, card.pin) else stringResource(R.string.code_pin_hidden))
         if (card.usedAt != null) add(stringResource(R.string.code_used))
-        if (card.kind in Agenda.DATED_KINDS && card.event != null && Agenda(ZoneId.systemDefault()).isArchived(card, LocalDateTime.now())) {
+        if (card.kind in Agenda.DATED_KINDS && card.event != null && archived) {
             add(stringResource(R.string.code_past))
         }
     }

@@ -13,7 +13,9 @@ enum class FlightChange { GATE, TIME, CANCELED }
  * When to look a flight up, about a dozen times per flight so the service
  * that answers is not burdened: once the day before, every 30 minutes from four
  * hours before departure, every 15 minutes in the last hour, and once after
- * landing for the baggage belt. [zone] converts the stored lookup instants.
+ * landing for the baggage belt. Times are instants, because departure and
+ * landing are local at different airports; [zone] reads the pass's date and
+ * time, which are local at the departure airport, where the phone is too.
  */
 class FlightLookups(private val zone: ZoneId) {
 
@@ -22,20 +24,25 @@ class FlightLookups(private val zone: ZoneId) {
      * needed. [cardTime] is the departure time on the pass, if it has one;
      * [last] is the previous lookup.
      */
-    fun next(ref: FlightRef, cardTime: LocalTime?, last: FlightCheck?): LocalDateTime? {
+    fun next(ref: FlightRef, cardTime: LocalTime?, last: FlightCheck?): Instant? {
         val live = last?.flight
         if (live?.state?.final == true) return null
-        val checked = last?.let { local(it.checkedAt) }
-        // Not found, or found without a time: try once more early on the day itself.
-        if (checked != null && live?.departure == null) return ref.date.atTime(RETRY_TIME).takeIf { checked < it }
-        val departure = live?.departure ?: cardTime?.let { ref.date.atTime(it) }
-            ?: return ref.date.minusDays(1).atTime(FIRST_LOOKUP_TIME)
-        if (checked == null) return departure.minusHours(DAY_AHEAD_HOURS)
+        val checked = last?.let { Instant.ofEpochMilli(it.checkedAt) }
+        val onPass = cardTime?.let { at(ref.date.atTime(it)) }
+        val known = live?.departureAt(zone)
+        // Not found (the service knows flights about a day ahead), or found without a time: try once more,
+        // early on the day or four hours before a departure printed on the pass, whichever comes first.
+        if (checked != null && known == null) {
+            val retry = listOfNotNull(at(ref.date.atTime(RETRY_TIME)), onPass?.minus(POLL_FROM)).min()
+            return retry.takeIf { checked < it }
+        }
+        val departure = known ?: onPass ?: return at(ref.date.minusDays(1).atTime(FIRST_LOOKUP_TIME))
+        if (checked == null) return departure.minus(DAY_AHEAD)
         return when {
-            checked < departure.minusHours(POLL_FROM_HOURS) -> departure.minusHours(POLL_FROM_HOURS)
-            checked < departure.minusHours(1) -> checked.plusMinutes(SLOW_POLL_MINUTES)
-            checked < departure.plusMinutes(FAST_POLL_MINUTES) -> checked.plusMinutes(FAST_POLL_MINUTES)
-            else -> live?.arrival?.plusMinutes(AFTER_LANDING_MINUTES)?.takeIf { checked < it }
+            checked < departure.minus(POLL_FROM) -> departure.minus(POLL_FROM)
+            checked < departure.minus(LAST_HOUR) -> checked.plus(SLOW_POLL)
+            checked < departure.plus(FAST_POLL) -> checked.plus(FAST_POLL)
+            else -> live?.arrivalAt(zone)?.plus(AFTER_LANDING)?.takeIf { checked < it }
         }
     }
 
@@ -44,25 +51,26 @@ class FlightLookups(private val zone: ZoneId) {
      * is due, or it is the day's polling window and the last result is more
      * than ten minutes old.
      */
-    fun worthRefreshing(ref: FlightRef, cardTime: LocalTime?, last: FlightCheck?, now: LocalDateTime): Boolean {
+    fun worthRefreshing(ref: FlightRef, cardTime: LocalTime?, last: FlightCheck?, now: Instant): Boolean {
         val next = next(ref, cardTime, last) ?: return false
         if (!now.isBefore(next)) return true
-        val checked = last?.let { local(it.checkedAt) } ?: return false
-        val departure = last.flight?.departure ?: return false
-        return !now.isBefore(departure.minusHours(POLL_FROM_HOURS)) && Duration.between(checked, now).toMinutes() >= FRESH_MINUTES
+        val checked = last?.let { Instant.ofEpochMilli(it.checkedAt) } ?: return false
+        val departure = last.flight?.departureAt(zone) ?: return false
+        return !now.isBefore(departure.minus(POLL_FROM)) && Duration.between(checked, now) >= FRESH
     }
 
-    private fun local(epochMillis: Long): LocalDateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), zone)
+    private fun at(time: LocalDateTime): Instant = time.atZone(zone).toInstant()
 
     companion object {
         private val FIRST_LOOKUP_TIME: LocalTime = LocalTime.of(8, 0)
         private val RETRY_TIME: LocalTime = LocalTime.of(6, 0)
-        private const val DAY_AHEAD_HOURS = 24L
-        private const val POLL_FROM_HOURS = 4L
-        private const val SLOW_POLL_MINUTES = 30L
-        private const val FAST_POLL_MINUTES = 15L
-        private const val AFTER_LANDING_MINUTES = 10L
-        private const val FRESH_MINUTES = 10L
+        private val DAY_AHEAD: Duration = Duration.ofHours(24)
+        private val POLL_FROM: Duration = Duration.ofHours(4)
+        private val LAST_HOUR: Duration = Duration.ofHours(1)
+        private val SLOW_POLL: Duration = Duration.ofMinutes(30)
+        private val FAST_POLL: Duration = Duration.ofMinutes(15)
+        private val AFTER_LANDING: Duration = Duration.ofMinutes(10)
+        private val FRESH: Duration = Duration.ofMinutes(10)
         private const val TIME_CHANGE_MINUTES = 15L
 
         /** What changed between two lookups: a gate set or moved, departure moved by 15 minutes or more, or a cancellation. */

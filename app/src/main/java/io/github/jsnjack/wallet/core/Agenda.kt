@@ -1,5 +1,6 @@
 package io.github.jsnjack.wallet.core
 
+import java.time.Duration
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -17,18 +18,27 @@ enum class Retention(val days: Long?) { THREE_MONTHS(91), ONE_YEAR(365), FOREVER
 /**
  * Time-based rules: what is archived, what is "Up next", which reminders are
  * due and when any of that next changes. All times are local wall-clock
- * times; [zone] converts the stored "used at" instants.
+ * times; [zone] converts the stored "used at" instants. [flights] gives a
+ * boarding pass's latest flight lookup, so a late flight stays current
+ * until it has landed.
  */
-class Agenda(private val zone: ZoneId) {
+class Agenda(private val zone: ZoneId, private val flights: (Card) -> LiveFlight? = { null }) {
 
     /** When the card moved to the archive, or null while it is current. */
     fun archivedAt(card: Card, now: LocalDateTime): LocalDateTime? {
         card.usedAt?.let { return local(it) }
         card.expires?.end?.takeIf { !it.isAfter(now) }?.let { return it }
-        if (card.kind in DATED_KINDS) {
-            card.event?.date?.plusDays(1)?.atStartOfDay()?.takeIf { !it.isAfter(now) }?.let { return it }
-        }
+        if (card.kind in DATED_KINDS) datedEnd(card)?.takeIf { !it.isAfter(now) }?.let { return it }
         return null
+    }
+
+    // The day after the event; a flight delayed past midnight, or landing after it, two hours after it lands.
+    private fun datedEnd(card: Card): LocalDateTime? {
+        val dayAfter = card.event?.date?.plusDays(1)?.atStartOfDay() ?: return null
+        if (card.kind != CardKind.BOARDING_PASS) return dayAfter
+        val live = flights(card) ?: return dayAfter
+        val landed = (live.arrivalAt(zone) ?: live.departureAt(zone))?.plus(AFTER_FLIGHT) ?: return dayAfter
+        return maxOf(dayAfter, LocalDateTime.ofInstant(landed, zone))
     }
 
     /** True when the card belongs in the archive at [now]. */
@@ -67,6 +77,7 @@ class Agenda(private val zone: ZoneId) {
                 card.expires?.let { add(it.end); add(it.date.minusDays(1).atTime(REMINDER_TIME)) }
                 card.validFrom?.let { add(it.start) }
                 if (card.kind == CardKind.BOARDING_PASS) card.event?.let { add(flightWindowStart(it)) }
+                if (card.kind in DATED_KINDS) datedEnd(card)?.let(::add)
             }
         }
         return (moments.filter { it.isAfter(now) } + midnight).min()
@@ -102,5 +113,6 @@ class Agenda(private val zone: ZoneId) {
         val REMINDER_TIME: LocalTime = LocalTime.of(9, 0)
 
         private const val FLIGHT_LEAD_HOURS = 24L
+        private val AFTER_FLIGHT: Duration = Duration.ofHours(2)
     }
 }

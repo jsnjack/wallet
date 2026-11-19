@@ -63,9 +63,9 @@ class FlightUpdater(
     suspend fun runDue() {
         val looked = lock.withLock {
             if (!settings.liveFlights.value || System.currentTimeMillis() < flights.retryAfter) return@withLock false
-            val now = LocalDateTime.now(zone)
+            val now = Instant.now()
             val lookups = FlightLookups(zone)
-            val upcoming = upcoming(now)
+            val upcoming = upcoming()
             flights.keepOnly(upcoming.keys.map { it.id }.toSet())
             var any = false
             for ((ref, cards) in upcoming) {
@@ -86,21 +86,27 @@ class FlightUpdater(
         val looked = lock.withLock {
             if (!settings.liveFlights.value) return@withLock false
             val ref = store.get(cardId)?.let(FlightRef::of) ?: return@withLock false
-            val now = LocalDateTime.now(zone)
-            val cards = upcoming(now)[ref] ?: return@withLock false
+            val now = Instant.now()
+            val cards = upcoming()[ref] ?: return@withLock false
             if (!FlightLookups(zone).worthRefreshing(ref, departureOnPass(cards), flights.checks.value[ref.id], now)) return@withLock false
             lookUp(ref, cards)
         }
         if (looked) onUpdate()
     }
 
-    /** Schedules [FlightWorker] for the next due lookup, or cancels it when there is none or live flight info is off. */
+    /**
+     * Schedules [FlightWorker] for the next due lookup, or cancels it when
+     * there is none or live flight info is off. Skipped while a lookup runs:
+     * replacing the work would cancel a running [FlightWorker] mid-request,
+     * and the lookup schedules again when it is done.
+     */
     suspend fun schedule() {
+        if (lock.isLocked) return
         val work = WorkManager.getInstance(context)
-        val now = LocalDateTime.now(zone)
+        val now = Instant.now()
         val lookups = FlightLookups(zone)
         val next = if (settings.liveFlights.value) {
-            upcoming(now).mapNotNull { (ref, cards) -> lookups.next(ref, departureOnPass(cards), flights.checks.value[ref.id]) }.minOrNull()
+            upcoming().mapNotNull { (ref, cards) -> lookups.next(ref, departureOnPass(cards), flights.checks.value[ref.id]) }.minOrNull()
         } else {
             null
         }
@@ -108,7 +114,7 @@ class FlightUpdater(
             work.cancelUniqueWork(WORK_NAME)
             return
         }
-        val retry = LocalDateTime.ofInstant(Instant.ofEpochMilli(flights.retryAfter), zone)
+        val retry = Instant.ofEpochMilli(flights.retryAfter)
         val delayMs = Duration.between(now, maxOf(next, retry)).toMillis().coerceAtLeast(0L)
         val request = OneTimeWorkRequestBuilder<FlightWorker>()
             .setInitialDelay(delayMs, TimeUnit.MILLISECONDS)
@@ -127,7 +133,13 @@ class FlightUpdater(
             flights.retryAfter = System.currentTimeMillis() + RETRY_AFTER_FAILURE_MS
             return false
         }
-        val live = parse(body, ref)
+        val live = try {
+            FlightStats.parse(body, ref)
+        } catch (e: SerializationException) {
+            return failed(e)
+        } catch (e: IllegalArgumentException) {
+            return failed(e)
+        }
         // The state only: flight numbers and dates are the user's travel plans and stay out of logs.
         Log.i(LOG_TAG, "flight lookup: ${live?.state ?: "no such flight"}")
         flights.save(ref.id, FlightCheck(System.currentTimeMillis(), live))
@@ -137,28 +149,31 @@ class FlightUpdater(
         return true
     }
 
-    // Parser messages quote the response, which names the flight, so only the error type is logged.
-    private fun parse(body: String, ref: FlightRef): LiveFlight? = try {
-        FlightStats.parse(body, ref)
-    } catch (e: SerializationException) {
+    // A response that is not the expected JSON (an error page, a changed format) is a failure like a network error:
+    // the last good result stays and lookups pause. Parser messages quote the response, which names the flight,
+    // so only the error type is logged.
+    private fun failed(e: Exception): Boolean {
         Log.w(LOG_TAG, "unexpected flight lookup response (${e::class.simpleName})")
-        null
-    } catch (e: IllegalArgumentException) {
-        Log.w(LOG_TAG, "unexpected flight lookup response (${e::class.simpleName})")
-        null
+        flights.retryAfter = System.currentTimeMillis() + RETRY_AFTER_FAILURE_MS
+        return false
     }
 
     // A boarding pass barcode has the date only; the first lookup supplies the time.
+    // Changes the stored card, not the copy taken before the request: a pass deleted or renamed meanwhile stays so.
     private suspend fun fillDepartureTime(ref: FlightRef, cards: List<Card>, live: LiveFlight?) {
         val time = live?.scheduledDeparture?.takeIf { it.toLocalDate() == ref.date }?.toLocalTime() ?: return
-        cards.filter { it.event?.time == null }.forEach { card ->
-            store.save(card.copy(event = DayTime(ref.date, time), updatedAt = System.currentTimeMillis()))
+        cards.forEach { card ->
+            store.update(card.id, System.currentTimeMillis()) { stored ->
+                stored.takeIf { it.event?.time == null && FlightRef.of(it) == ref }?.copy(event = DayTime(ref.date, time))
+            }
         }
     }
 
-    private suspend fun upcoming(now: LocalDateTime): Map<FlightRef, List<Card>> {
+    // Current passes by flight; a late flight stays until it has landed.
+    private suspend fun upcoming(): Map<FlightRef, List<Card>> {
         store.load()
-        val agenda = Agenda(zone)
+        val agenda = Agenda(zone) { card -> FlightRef.of(card)?.let { flights.checks.value[it.id]?.flight } }
+        val now = LocalDateTime.now(zone)
         return store.cards.value.filterNot { agenda.isArchived(it, now) }
             .mapNotNull { card -> FlightRef.of(card)?.let { it to card } }
             .groupBy({ it.first }, { it.second })

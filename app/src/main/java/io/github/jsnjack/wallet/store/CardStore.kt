@@ -50,6 +50,20 @@ class CardStore(context: Context) {
         stamped
     }
 
+    /**
+     * Changes the stored card [id] under the lock, so a delete or an edit made
+     * since a copy was taken is not overwritten. [change] returns null to
+     * leave the card alone. Returns the saved card, or null when the card is
+     * deleted or unchanged.
+     */
+    suspend fun update(id: String, now: Long, change: (Card) -> Card?): Card? = mutex.withLock {
+        val current = all[id]?.takeUnless { it.deleted } ?: return@withLock null
+        val changed = change(current)?.takeIf { it != current } ?: return@withLock null
+        val stamped = changed.copy(updatedAt = maxOf(now, current.updatedAt + 1))
+        write(listOf(stamped))
+        stamped
+    }
+
     /** Replaces the card with a tombstone and returns the card as it was, for undo. */
     suspend fun delete(id: String, now: Long): Card? = mutex.withLock {
         val previous = all[id]?.takeUnless { it.deleted } ?: return@withLock null

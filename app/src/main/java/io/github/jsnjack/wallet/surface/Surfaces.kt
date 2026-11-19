@@ -22,6 +22,7 @@ import io.github.jsnjack.wallet.store.FlightStore
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.time.Duration
+import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.util.concurrent.TimeUnit
@@ -45,8 +46,9 @@ class Surfaces(
     suspend fun refresh() = lock.withLock {
         store.load()
         val zone = ZoneId.systemDefault()
-        val now = LocalDateTime.now(zone)
-        val agenda = Agenda(zone)
+        val instant = Instant.now()
+        val now = LocalDateTime.ofInstant(instant, zone)
+        val agenda = agenda(zone)
         val expired = agenda.beyondRetention(store.cards.value, now, settings.retention.value)
         if (expired.isNotEmpty()) {
             val removed = store.deleteAll(expired.map { it.id }, System.currentTimeMillis())
@@ -57,15 +59,16 @@ class Surfaces(
         val today = agenda.today(shown, now).firstOrNull()
         val live = today?.card?.let(FlightRef::of)?.let { flights.checks.value[it.id]?.flight }
         val departure = today?.takeIf { it.reason == UpNextReason.FLIGHT }?.card?.event
-            ?.let { event -> live?.departure ?: event.time?.let { event.date.atTime(it) } }
-        val progress = FlightProgress.of(departure, live?.arrival, live?.state, now)
+            ?.let { event -> live?.departureAt(zone) ?: event.time?.let { event.date.atTime(it).atZone(zone).toInstant() } }
+        val progress = FlightProgress.of(departure, live?.arrivalAt(zone), live?.state, instant)
         Notifier.update(context, today, live, progress, agenda.remindersDue(cards, now), settings)
         Widgets.update(context, agenda.upNext(shown, now).firstOrNull(), CardList.quickAccess(shown, store.usage.value, FAVOURITES))
         WalletTileService.requestUpdate(context)
         afterRefresh()
         // Last: when AgendaWorker runs this, replacing its own work cancels it.
-        val next = listOfNotNull(agenda.nextChange(cards, now), FlightProgress.nextUpdate(departure, progress, now)).min()
-        schedule(Duration.between(now, next))
+        // Measured between instants, so a daylight saving change in between does not move the run by an hour.
+        val next = listOfNotNull(agenda.nextChange(cards, now).atZone(zone).toInstant(), FlightProgress.nextUpdate(departure, progress, instant)).min()
+        schedule(Duration.between(instant, next))
     }
 
     /** The card the Quick Settings tile opens: the first "Up next" card, else the first favourite or most used card. */
@@ -73,10 +76,13 @@ class Surfaces(
         store.load()
         val zone = ZoneId.systemDefault()
         val now = LocalDateTime.now(zone)
-        val agenda = Agenda(zone)
+        val agenda = agenda(zone)
         val shown = tiles(store.cards.value, agenda, now)
         return agenda.upNext(shown, now).firstOrNull()?.card ?: CardList.quickAccess(shown, store.usage.value, FAVOURITES).firstOrNull()
     }
+
+    // The agenda with the latest flight lookups, so a late flight stays until it has landed.
+    private fun agenda(zone: ZoneId) = Agenda(zone) { card -> FlightRef.of(card)?.let { flights.checks.value[it.id]?.flight } }
 
     /** Current cards as the grid shows them: one card per group, such as all passengers on one flight. */
     private fun tiles(cards: List<Card>, agenda: Agenda, now: LocalDateTime): List<Card> =

@@ -6,8 +6,10 @@ import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.ZoneId
 
 /** One flight on one day. Every boarding pass for it shares this, so one lookup serves all passengers. */
 data class FlightRef(val carrier: String, val number: String, val from: String, val date: LocalDate) {
@@ -39,8 +41,10 @@ enum class FlightState {
 }
 
 /**
- * Live information about one flight. Times are wall-clock times at the
- * airport, like the card's dates; null means the service did not say.
+ * Live information about one flight. Times are wall-clock times at each
+ * airport, like the card's dates, for showing; the `Utc` ones are the same
+ * moments as instants, for anything that measures time across both
+ * airports. Null means the service did not say.
  */
 @Serializable
 data class LiveFlight(
@@ -55,12 +59,25 @@ data class LiveFlight(
     val baggageBelt: String? = null,
     @Serializable(with = LocalDateTimeText::class) val scheduledArrival: LocalDateTime? = null,
     @Serializable(with = LocalDateTimeText::class) val expectedArrival: LocalDateTime? = null,
+    @Serializable(with = InstantText::class) val scheduledDepartureUtc: Instant? = null,
+    @Serializable(with = InstantText::class) val expectedDepartureUtc: Instant? = null,
+    @Serializable(with = InstantText::class) val scheduledArrivalUtc: Instant? = null,
+    @Serializable(with = InstantText::class) val expectedArrivalUtc: Instant? = null,
 ) {
     /** The departure time to go by: the expected one, else the scheduled one. */
     val departure: LocalDateTime? get() = expectedDeparture ?: scheduledDeparture
 
     /** The arrival time to go by: the expected one, else the scheduled one. */
     val arrival: LocalDateTime? get() = expectedArrival ?: scheduledArrival
+
+    /**
+     * When the flight leaves, as an instant. A result stored before UTC
+     * times were kept falls back to its local time read in [zone].
+     */
+    fun departureAt(zone: ZoneId): Instant? = expectedDepartureUtc ?: scheduledDepartureUtc ?: departure?.atZone(zone)?.toInstant()
+
+    /** When the flight lands, as an instant; like [departureAt]. */
+    fun arrivalAt(zone: ZoneId): Instant? = expectedArrivalUtc ?: scheduledArrivalUtc ?: arrival?.atZone(zone)?.toInstant()
 }
 
 /** One lookup: when it ran ([checkedAt], epoch milliseconds) and what it found; null when the service knew no such flight. */
@@ -74,4 +91,13 @@ object LocalDateTimeText : KSerializer<LocalDateTime> {
     override fun serialize(encoder: Encoder, value: LocalDateTime) = encoder.encodeString(value.toString())
 
     override fun deserialize(decoder: Decoder): LocalDateTime = LocalDateTime.parse(decoder.decodeString())
+}
+
+/** Stores [Instant] as ISO text, such as "2026-11-20T13:10:00Z". */
+object InstantText : KSerializer<Instant> {
+    override val descriptor = PrimitiveSerialDescriptor("Instant", PrimitiveKind.STRING)
+
+    override fun serialize(encoder: Encoder, value: Instant) = encoder.encodeString(value.toString())
+
+    override fun deserialize(decoder: Decoder): Instant = Instant.parse(decoder.decodeString())
 }

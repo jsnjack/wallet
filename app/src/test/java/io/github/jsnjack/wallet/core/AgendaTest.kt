@@ -38,6 +38,23 @@ class AgendaTest {
     }
 
     @Test
+    fun aLateFlightStaysUntilTwoHoursAfterItLands() {
+        val pass = card("pass", CardKind.BOARDING_PASS, event = DayTime(today, LocalTime.of(21, 30)), flight = Flight("AMS", "LHR", "KL", "1001"))
+        val delayed = LiveFlight(
+            FlightState.DELAYED,
+            expectedDeparture = today.plusDays(1).atTime(0, 30),
+            expectedArrival = today.plusDays(1).atTime(1, 0),
+            expectedArrivalUtc = today.plusDays(1).atTime(1, 0).toInstant(ZoneOffset.UTC),
+        )
+        val withLive = Agenda(ZoneOffset.UTC) { delayed }
+        val afterMidnight = today.plusDays(1).atTime(0, 5)
+        assertTrue(agenda.isArchived(pass, afterMidnight))
+        assertFalse(withLive.isArchived(pass, afterMidnight))
+        assertEquals(today.plusDays(1).atTime(3, 0), withLive.archivedAt(pass, today.plusDays(1).atTime(4, 0)))
+        assertEquals(today.plusDays(1).atTime(3, 0), withLive.nextChange(listOf(pass), afterMidnight))
+    }
+
+    @Test
     fun archivedAtIsWhenItEnded() {
         assertEquals(today.atStartOfDay(), agenda.archivedAt(card("ticket", CardKind.TICKET, event = DayTime(today.minusDays(1))), now))
         assertNull(agenda.archivedAt(card("current"), now))

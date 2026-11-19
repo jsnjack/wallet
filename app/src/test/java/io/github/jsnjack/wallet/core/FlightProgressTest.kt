@@ -1,13 +1,29 @@
 package io.github.jsnjack.wallet.core
 
+import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
 class FlightProgressTest {
-    private val departs = LocalDate.of(2026, 11, 20).atTime(14, 0)
+    private val departs = LocalDate.of(2026, 11, 20).atTime(14, 0).toInstant(ZoneOffset.UTC)
     private val lands = departs.plusHours(2)
+
+    private fun Instant.plusHours(hours: Long) = plus(Duration.ofHours(hours))
+    private fun Instant.minusHours(hours: Long) = minus(Duration.ofHours(hours))
+    private fun Instant.plusMinutes(minutes: Long) = plus(Duration.ofMinutes(minutes))
+    private fun Instant.minusMinutes(minutes: Long) = minus(Duration.ofMinutes(minutes))
+
+    @Test
+    fun aFlightAcrossTimeZonesFillsTheBarByItsRealDuration() {
+        // AMS 10:00 to JFK 12:30 local is 8.5 hours in the air; three hours in, the flight part of the bar is about a third full.
+        val leaves = LocalDate.of(2026, 11, 20).atTime(9, 0).toInstant(ZoneOffset.UTC)
+        val arrives = leaves.plus(Duration.ofMinutes(510))
+        assertEquals(67, FlightProgress.of(leaves, arrives, FlightState.EN_ROUTE, leaves.plusHours(3)))
+    }
 
     @Test
     fun timeAloneFillsTheBarFromFourHoursBeforeToLanding() {

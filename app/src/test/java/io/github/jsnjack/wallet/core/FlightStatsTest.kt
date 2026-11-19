@@ -1,6 +1,7 @@
 package io.github.jsnjack.wallet.core
 
 import java.time.LocalDate
+import java.time.Instant
 import java.time.LocalDateTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -26,6 +27,7 @@ class FlightStatsTest {
         assertEquals("D6", live.departureGate)
         assertEquals("2", live.departureTerminal)
         assertEquals(LocalDateTime.of(2026, 11, 19, 7, 20), live.scheduledDeparture)
+        assertEquals(Instant.parse("2026-11-19T06:20:00Z"), live.scheduledDepartureUtc)
         assertEquals(LocalDateTime.of(2026, 11, 19, 7, 26), live.departure)
         assertEquals(LocalDateTime.of(2026, 11, 19, 7, 39), live.arrival)
         assertNull(live.arrivalGate)

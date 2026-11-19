@@ -143,7 +143,8 @@ External services:
    due, a second apart; `CodeScreen` calls `refreshOnOpen` for each page. A
    result goes to `FlightStore`, fills in a pass's missing departure time,
    posts an alert for a gate, time or cancellation change, and refreshes
-   the surfaces. A failed lookup makes background lookups wait 10 minutes.
+   the surfaces. A failed lookup, or a response that is not the expected
+   JSON, keeps the last result and makes background lookups wait 10 minutes.
    On Android 16 and
    newer the "today" notification for a flight carries a
    `Notification.ProgressStyle` bar from `FlightProgress`; `Surfaces`
@@ -326,7 +327,10 @@ because their messages quote the response.
   is read like any image, several at once.
 - **Archive is derived, not stored.** Only "used at" is stored; expiry and
   past events are computed from dates each time, so changing a date moves a
-  card in or out of the archive. Retention deletes create tombstones.
+  card in or out of the archive. Retention deletes create tombstones. A
+  boarding pass with a live lookup stays until two hours after the flight
+  lands (or leaves, without a landing time), so a flight delayed past
+  midnight keeps its alerts and its after-landing lookup.
 - **Widgets use RemoteViews, not Glance.** Two small fixed layouts do not
   justify the Glance dependency; tiles are tinted with
   `setBackgroundTintList`.
@@ -355,8 +359,11 @@ because their messages quote the response.
   before (or 08:00 the day before when the pass has no time), every 30
   minutes from 4 hours before departure, every 15 minutes in the last hour,
   once 10 minutes after the expected landing; a flight the service does not
-  know is tried once more at 06:00 on the day. About 12–15 lookups per
-  flight, shared by every passenger on it.
+  know is tried once more at 06:00 on the day, or 4 hours before the
+  departure on the pass if that is earlier. About 12–15 lookups per
+  flight, shared by every passenger on it. The schedule runs on instants
+  (`LiveFlight.departureAt`/`arrivalAt`), because departure and landing
+  are local times at different airports.
 
 ---
 
@@ -398,8 +405,12 @@ because their messages quote the response.
   `canEncode` accepts lowercase text; only non-ASCII text fails.
 - FlightStats answers an unknown flight, and one more than about a day
   ahead, with HTTP 200 and `{"data":{}}`; its times are local at each
-  airport ("2026-11-19T07:20:00.000") and its status codes are S, A, L, C,
-  D, R, NO, U and DN. It has no boarding or gate-closed status.
+  airport ("2026-11-19T07:20:00.000"), with the same moments in UTC in the
+  `…UTC` fields ("2026-11-19T06:20:00.000Z"), and its status codes are S,
+  A, L, C, D, R, NO, U and DN. It has no boarding or gate-closed status.
+- `FlightUpdater.schedule` does nothing while a lookup holds its lock:
+  REPLACE would cancel a running `FlightWorker` mid-request, and the
+  lookup schedules the next run itself when it is done.
 - `Notification.Builder.setRequestPromotedOngoing` is API 36.1: guard with
   `SDK_INT_FULL >= VERSION_CODES_FULL.BAKLAVA_1`, not `SDK_INT >= 36`.
 - `ProcessCameraProvider.awaitInstance` is an extension function; it needs

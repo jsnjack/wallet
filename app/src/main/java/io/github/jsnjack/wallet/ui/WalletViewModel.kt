@@ -25,6 +25,7 @@ import io.github.jsnjack.wallet.core.CardOrder
 import io.github.jsnjack.wallet.core.DraftJson
 import io.github.jsnjack.wallet.core.ExportCrypto
 import io.github.jsnjack.wallet.core.FlightCheck
+import io.github.jsnjack.wallet.core.FlightRef
 import io.github.jsnjack.wallet.core.NotAnExportException
 import io.github.jsnjack.wallet.core.Pkpass
 import io.github.jsnjack.wallet.core.Retention
@@ -107,7 +108,8 @@ class WalletViewModel(app: Application, private val saved: SavedStateHandle) : A
     private val store = wallet.store
     private val settings = wallet.settings
     private val zone: ZoneId = ZoneId.systemDefault()
-    private val agenda = Agenda(zone)
+    // With the latest flight lookups, so a late flight stays current until it has landed.
+    private val agenda = Agenda(zone) { card -> FlightRef.of(card)?.let { wallet.flights.checks.value[it.id]?.flight } }
 
     private val _ready = MutableStateFlow(false)
 
@@ -132,7 +134,9 @@ class WalletViewModel(app: Application, private val saved: SavedStateHandle) : A
     val allCards: StateFlow<List<Card>> = store.cards
 
     /** Current (not archived) cards, every member of a group included. */
-    private val current: StateFlow<List<Card>> = combine(store.cards, now) { all, time -> all.filterNot { agenda.isArchived(it, time) } }
+    private val current: StateFlow<List<Card>> = combine(store.cards, now, wallet.flights.checks) { all, time, _ ->
+        all.filterNot { agenda.isArchived(it, time) }
+    }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** How the grid orders cards. */
@@ -172,7 +176,7 @@ class WalletViewModel(app: Application, private val saved: SavedStateHandle) : A
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** Archived cards, most recently archived first. */
-    val archived: StateFlow<List<Pair<Card, LocalDateTime>>> = combine(store.cards, now) { all, time ->
+    val archived: StateFlow<List<Pair<Card, LocalDateTime>>> = combine(store.cards, now, wallet.flights.checks) { all, time, _ ->
         all.mapNotNull { card -> agenda.archivedAt(card, time)?.let { card to it } }.sortedByDescending { it.second }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
@@ -622,7 +626,8 @@ class WalletViewModel(app: Application, private val saved: SavedStateHandle) : A
         // The code screen may have opened at another ticket of the same show; it closes either way.
         val group = CardGroups.members(card, current.value).map { it.id }.toSet() + cardId
         viewModelScope.launch {
-            store.save(card.copy(usedAt = System.currentTimeMillis(), updatedAt = System.currentTimeMillis()))
+            val now = System.currentTimeMillis()
+            store.update(cardId, now) { it.copy(usedAt = now) }
             _stack.value = _stack.value.filterNot { it is Screen.Code && it.cardId in group }
             events.send(UiEvent.MarkedUsed(card))
         }
@@ -638,8 +643,7 @@ class WalletViewModel(app: Application, private val saved: SavedStateHandle) : A
     fun toggleLocked(cardId: String) = changeCard(cardId) { it.copy(locked = !it.locked) }
 
     private fun changeCard(cardId: String, change: (Card) -> Card) {
-        val card = store.get(cardId) ?: return
-        viewModelScope.launch { store.save(change(card).copy(updatedAt = System.currentTimeMillis())) }
+        viewModelScope.launch { store.update(cardId, System.currentTimeMillis(), change) }
     }
 
     /** Shares [cardId] as a picture of its code with its name, through the system share sheet. */

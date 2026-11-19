@@ -103,7 +103,8 @@ object Notifier {
         val card = item.card
         val airborne = live != null && FlightText.airborne(live.state)
         val time = when (item.reason) {
-            UpNextReason.FLIGHT -> (if (airborne) live?.arrival else live?.departure)?.toLocalTime() ?: card.event?.time
+            // In the air, only a landing time will do: the pass's departure time would read as "Arrives".
+            UpNextReason.FLIGHT -> if (airborne) live?.arrival?.toLocalTime() else live?.departure?.toLocalTime() ?: card.event?.time
             UpNextReason.EVENT_TODAY -> card.event?.time
             UpNextReason.STARTS_TODAY -> card.validFrom?.time
             UpNextReason.EXPIRES_SOON -> card.expires?.time

@@ -2,6 +2,7 @@ package io.github.jsnjack.wallet.core
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.time.Instant
 import java.time.LocalDateTime
 import java.time.format.DateTimeParseException
 
@@ -29,13 +30,17 @@ object FlightStats {
     @Serializable
     private data class StatusDto(val statusCode: String? = null)
 
-    // Times are local at each airport, like "2026-11-19T07:20:00.000".
+    // Times are local at each airport, like "2026-11-19T07:20:00.000"; the UTC ones end in "Z".
     @Serializable
     private data class ScheduleDto(
         val scheduledDeparture: String? = null,
+        val scheduledDepartureUTC: String? = null,
         val estimatedActualDeparture: String? = null,
+        val estimatedActualDepartureUTC: String? = null,
         val scheduledArrival: String? = null,
+        val scheduledArrivalUTC: String? = null,
         val estimatedActualArrival: String? = null,
+        val estimatedActualArrivalUTC: String? = null,
     )
 
     @Serializable
@@ -71,7 +76,20 @@ object FlightStats {
             baggageBelt = arrival?.baggage.clean(),
             scheduledArrival = time(schedule?.scheduledArrival),
             expectedArrival = time(schedule?.estimatedActualArrival),
+            scheduledDepartureUtc = instant(schedule?.scheduledDepartureUTC),
+            expectedDepartureUtc = instant(schedule?.estimatedActualDepartureUTC),
+            scheduledArrivalUtc = instant(schedule?.scheduledArrivalUTC),
+            expectedArrivalUtc = instant(schedule?.estimatedActualArrivalUTC),
         )
+    }
+
+    /** A UTC time such as "2026-11-19T06:20:00.000Z", or null when missing or unreadable. */
+    fun instant(text: String?): Instant? = text?.let {
+        try {
+            Instant.parse(it)
+        } catch (e: DateTimeParseException) {
+            null
+        }
     }
 
     /** A local time such as "2026-11-19T07:20:00.000", or null when missing or unreadable. */
