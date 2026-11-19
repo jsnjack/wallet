@@ -90,13 +90,15 @@ private val CHECKED_FORMATS = setOf(CodeFormat.EAN_13, CodeFormat.EAN_8, CodeFor
 fun CardFormScreen(vm: WalletViewModel) {
     val draft by vm.draft.collectAsStateWithLifecycle()
     val queued by vm.queued.collectAsStateWithLifecycle()
+    val formKey by vm.formKey.collectAsStateWithLifecycle()
     val current = draft ?: return
     val editing = current.editingId != null
     val problem = current.problem()
-    var showProblem by remember { mutableStateOf(false) }
+    // Each card in the form starts without error marks and with its code type closed, also the next one in an import.
+    var showProblem by remember(formKey) { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     // A scanned, imported or saved code keeps its type unless asked; a typed number shows the picker to fix the guess.
-    var pickFormat by remember(current.editingId) { mutableStateOf(false) }
+    var pickFormat by remember(formKey) { mutableStateOf(false) }
     val context = LocalContext.current
     val update: ((CardDraft) -> CardDraft) -> Unit = vm::updateDraft
     val save = { if (problem == null) vm.saveDraft() else showProblem = true }

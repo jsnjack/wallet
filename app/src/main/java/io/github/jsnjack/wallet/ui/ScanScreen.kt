@@ -8,7 +8,6 @@ import android.util.Log
 import android.util.Size
 import android.view.HapticFeedbackConstants
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
@@ -76,12 +75,7 @@ fun ScanScreen(vm: WalletViewModel) {
         granted = ok
         asked = true
     }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(MAX_SCREENSHOTS)) { uris ->
-        if (uris.isNotEmpty()) vm.importScreenshots(uris, fromShare = false)
-    }
-    val files = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) vm.importFile(uri, fromShare = false)
-    }
+    val pickers = rememberImportPickers(vm)
     LaunchedEffect(Unit) { if (!granted) permission.launch(Manifest.permission.CAMERA) }
     var torch by remember { mutableStateOf(false) }
     var camera by remember { mutableStateOf<Camera?>(null) }
@@ -130,10 +124,10 @@ fun ScanScreen(vm: WalletViewModel) {
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             SourceButton(R.drawable.ic_image, stringResource(R.string.scan_from_image), Modifier.weight(1f)) {
-                picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                pickers.pickScreenshots()
             }
             SourceButton(R.drawable.ic_file, stringResource(R.string.scan_from_file), Modifier.weight(1f)) {
-                files.launch(IMPORT_TYPES)
+                pickers.pickFile()
             }
             SourceButton(R.drawable.ic_keyboard, stringResource(R.string.scan_type_number), Modifier.weight(1f)) { vm.startTyping() }
         }

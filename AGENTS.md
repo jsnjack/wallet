@@ -46,6 +46,7 @@ app/src/main/java/io/github/jsnjack/wallet/
     FlightLookups.kt        When to look a flight up, changes worth an alert
     FlightProgress.kt       A flight's day as a 0–100 progress bar, and when to redraw it
     CardJson.kt             Card format v4 (export bundle, database JSON columns)
+    DraftJson.kt            Form drafts as JSON for the app's saved state (never in files)
     ExportCrypto.kt         Export file encryption: PBKDF2-HMAC-SHA256 + AES-256-GCM
   store/
     CardDatabase.kt         SQLiteOpenHelper v4: cards and usage counts; upgrades only add columns
@@ -72,6 +73,7 @@ app/src/main/java/io/github/jsnjack/wallet/
   ui/
     WalletViewModel.kt      Screen stack, actions, imports, snackbar events, export/import
     WalletRoot.kt           Shows the top screen, snackbar, code chooser, notification permission request
+    ImportPickers.kt        Screenshot and pass/PDF pickers, remembered by a screen that stays open
     GridScreen.kt           Bottom-up grid, favourites rail, Now Bar, ⋯ and long-press sheets
     CodeScreen.kt, ScanScreen.kt, CardFormScreen.kt
     ArchiveScreen.kt, SettingsScreen.kt   Full-height bottom sheets (ArchiveSheet, SettingsSheet)
@@ -372,6 +374,19 @@ because their messages quote the response.
 - `Surfaces.refresh` schedules `AgendaWorker` with REPLACE last, after
   `FlightUpdater.schedule`: when AgendaWorker runs the refresh, the REPLACE
   cancels it, and any later suspending call would not run.
+- A picker registered with `rememberLauncherForActivityResult` inside a
+  sheet that closes as the picker opens never gets its result: the sheet's
+  callback is gone when the picker returns. `ImportPickers` are remembered
+  by the screen under the sheet.
+- `PdfRenderer` needs a seekable descriptor; a PDF shared as a stream is
+  not one. `CodeReader.readPdf` writes the bytes already read to the cache
+  and renders one page at a time.
+- A deleted card's pinned shortcut is disabled, and `requestPinShortcut`
+  throws for a disabled ID; `Shortcuts` enables restored cards' shortcuts
+  before updating them and before a pin request.
+- `WalletViewModel` keeps the screen stack, the form and the import queue
+  in its `SavedStateHandle` (`DraftJson`), restored after the cards load so
+  a restored code screen finds its card; the code chooser is not kept.
 - `Intent.setClipData` returns nothing, so it cannot be chained; the share
   intent sets the clip separately so the read grant reaches the app picked
   in the chooser.

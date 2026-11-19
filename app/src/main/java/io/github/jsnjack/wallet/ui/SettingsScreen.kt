@@ -2,7 +2,6 @@ package io.github.jsnjack.wallet.ui
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -70,12 +69,7 @@ fun SettingsSheet(vm: WalletViewModel) {
             passwordFor = PasswordFor.IMPORT
         }
     }
-    val screenshots = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(MAX_SCREENSHOTS)) { uris ->
-        if (uris.isNotEmpty()) vm.importScreenshots(uris, fromShare = false)
-    }
-    val passFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) vm.importFile(uri, fromShare = false)
-    }
+    val pickers = rememberImportPickers(vm)
     val retention by vm.retention.collectAsStateWithLifecycle()
     val order by vm.order.collectAsStateWithLifecycle()
     val notifications by vm.notifications.collectAsStateWithLifecycle()
@@ -91,14 +85,14 @@ fun SettingsSheet(vm: WalletViewModel) {
                     stringResource(R.string.settings_google_wallet),
                     stringResource(R.string.settings_google_wallet_detail),
                     icon = R.drawable.ic_image,
-                    onClick = { screenshots.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                    onClick = pickers::pickScreenshots,
                 )
                 GroupDivider()
                 GroupRow(
                     stringResource(R.string.settings_pass_files),
                     stringResource(R.string.settings_pass_files_detail),
                     icon = R.drawable.ic_file,
-                    onClick = { passFiles.launch(IMPORT_TYPES) },
+                    onClick = pickers::pickFile,
                 )
             }
             Group {

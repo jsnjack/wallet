@@ -89,17 +89,22 @@ object Pkpass {
     }
 
     private fun passJson(bytes: ByteArray): ByteArray {
-        ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
-            var entries = 0
-            while (true) {
-                val entry = zip.nextEntry ?: break
-                if (++entries > MAX_ENTRIES) throw IOException("pass has too many files")
-                if (entry.name == PASS_JSON) {
-                    val data = zip.readNBytes(MAX_PASS_JSON_BYTES + 1)
-                    if (data.size > MAX_PASS_JSON_BYTES) throw IOException("pass.json is too large")
-                    return data
+        try {
+            ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
+                var entries = 0
+                while (true) {
+                    val entry = zip.nextEntry ?: break
+                    if (++entries > MAX_ENTRIES) throw IOException("pass has too many files")
+                    if (entry.name == PASS_JSON) {
+                        val data = zip.readNBytes(MAX_PASS_JSON_BYTES + 1)
+                        if (data.size > MAX_PASS_JSON_BYTES) throw IOException("pass.json is too large")
+                        return data
+                    }
                 }
             }
+        } catch (e: IllegalArgumentException) {
+            // ZipInputStream throws this for a file name that is not UTF-8, as in zips made by older Windows tools.
+            throw IOException("zip has an unreadable file name", e)
         }
         throw IOException("file has no pass.json")
     }

@@ -2,9 +2,6 @@ package io.github.jsnjack.wallet.ui
 
 import android.text.format.DateUtils
 import androidx.activity.compose.LocalActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -189,7 +186,9 @@ fun GridScreen(vm: WalletViewModel) {
         }
     }
 
-    if (more) MoreSheet(vm, onDismiss = { more = false })
+    // The pickers live here, not in the sheet: the sheet closes as a picker opens and would take the result with it.
+    val pickers = rememberImportPickers(vm)
+    if (more) MoreSheet(vm, pickers, onDismiss = { more = false })
     menuFor?.let { card -> CardMenuSheet(card, vm, onDelete = { confirmDelete = card }, onDismiss = { menuFor = null }) }
     confirmDelete?.let { card ->
         val count = groupSizes[card.id] ?: 1
@@ -440,18 +439,10 @@ private fun CardMenuSheet(card: Card, vm: WalletViewModel, onDelete: () -> Unit,
 
 /** Everything that used to sit in the top bar, now one thumb-tap away. */
 @Composable
-private fun MoreSheet(vm: WalletViewModel, onDismiss: () -> Unit) {
-    val screenshots = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(MAX_SCREENSHOTS)) { uris ->
-        if (uris.isNotEmpty()) vm.importScreenshots(uris, fromShare = false)
-    }
-    val files = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) vm.importFile(uri, fromShare = false)
-    }
+private fun MoreSheet(vm: WalletViewModel, pickers: ImportPickers, onDismiss: () -> Unit) {
     WalletSheet(onDismiss) {
-        SheetRow(stringResource(R.string.settings_google_wallet), R.drawable.ic_image) {
-            onDismiss(); screenshots.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-        }
-        SheetRow(stringResource(R.string.settings_pass_files), R.drawable.ic_file) { onDismiss(); files.launch(IMPORT_TYPES) }
+        SheetRow(stringResource(R.string.settings_google_wallet), R.drawable.ic_image) { onDismiss(); pickers.pickScreenshots() }
+        SheetRow(stringResource(R.string.settings_pass_files), R.drawable.ic_file) { onDismiss(); pickers.pickFile() }
         SheetRow(stringResource(R.string.archive_title), R.drawable.ic_archive) { onDismiss(); vm.openArchive() }
         SheetRow(stringResource(R.string.settings_title), R.drawable.ic_settings) { onDismiss(); vm.openSettings() }
     }

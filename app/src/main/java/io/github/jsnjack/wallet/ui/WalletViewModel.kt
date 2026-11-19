@@ -6,7 +6,10 @@ import android.net.Uri
 import android.util.Log
 import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
+import android.os.Bundle
+import androidx.core.os.bundleOf
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import io.github.jsnjack.wallet.LOG_TAG
 import io.github.jsnjack.wallet.R
@@ -19,6 +22,7 @@ import io.github.jsnjack.wallet.core.CardGroups
 import io.github.jsnjack.wallet.core.CardJson
 import io.github.jsnjack.wallet.core.CardList
 import io.github.jsnjack.wallet.core.CardOrder
+import io.github.jsnjack.wallet.core.DraftJson
 import io.github.jsnjack.wallet.core.ExportCrypto
 import io.github.jsnjack.wallet.core.FlightCheck
 import io.github.jsnjack.wallet.core.NotAnExportException
@@ -33,6 +37,7 @@ import io.github.jsnjack.wallet.platform.CodeReader
 import io.github.jsnjack.wallet.platform.FileReadResult
 import io.github.jsnjack.wallet.platform.ReadCode
 import io.github.jsnjack.wallet.platform.Shortcuts
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.Channel
@@ -97,7 +102,7 @@ sealed interface UiEvent {
 
 /** State and actions for every screen. */
 @OptIn(FlowPreview::class)
-class WalletViewModel(app: Application) : AndroidViewModel(app) {
+class WalletViewModel(app: Application, private val saved: SavedStateHandle) : AndroidViewModel(app) {
     private val wallet = app as WalletApplication
     private val store = wallet.store
     private val settings = wallet.settings
@@ -188,7 +193,13 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     /** The card in the form, or null outside it. */
     val draft = MutableStateFlow<CardDraft?>(null)
 
-    /** Screenshots still waiting in the import queue after the current form. */
+    /** Changes whenever the form shows another card, so its error marks and pickers start afresh. */
+    val formKey = MutableStateFlow(0)
+
+    // True while a save runs, so a quick second tap on Save does nothing.
+    private var saving = false
+
+    /** Cards still waiting in the import queue after the current form. */
     val queued = MutableStateFlow(0)
     private val queue = ArrayDeque<CardDraft>()
 
@@ -225,8 +236,11 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     val notificationPermissionRequests: Flow<Unit> = permission.receiveAsFlow()
 
     init {
+        saved.setSavedStateProvider(KEY_STATE) { saveState() }
         viewModelScope.launch {
             store.load()
+            // After the cards load, so a restored code screen finds its card.
+            restoreState(saved.get<Bundle>(KEY_STATE))
             _ready.value = true
             wallet.surfaces.refresh()
         }
@@ -241,6 +255,41 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
                 .debounce(SURFACE_DEBOUNCE_MS)
                 .collect { wallet.surfaces.refresh() }
         }
+    }
+
+    // Saved state: the screens, the form and the import queue, for when Android stops the app in the background.
+
+    private fun saveState(): Bundle = bundleOf(
+        KEY_STACK to _stack.value.map(::screenKey).toTypedArray(),
+        KEY_DRAFTS to DraftJson.encode(listOfNotNull(draft.value) + queue),
+    )
+
+    private fun restoreState(state: Bundle?) {
+        val screens = state?.getStringArray(KEY_STACK)?.mapNotNull(::screenFor).orEmpty()
+        if (screens.firstOrNull() != Screen.Grid) return
+        val drafts = DraftJson.decode(state?.getString(KEY_DRAFTS))
+        if (Screen.Form in screens && drafts.isNotEmpty()) {
+            present(drafts.first())
+            queue.addAll(drafts.drop(1))
+            queued.value = queue.size
+            _stack.value = screens
+        } else {
+            _stack.value = screens.filterNot { it == Screen.Form }
+        }
+    }
+
+    private fun screenKey(screen: Screen): String = when (screen) {
+        Screen.Grid -> "grid"
+        is Screen.Code -> "code:" + screen.cardId
+        Screen.Scan -> "scan"
+        Screen.Form -> "form"
+        Screen.Archive -> "archive"
+        Screen.Settings -> "settings"
+    }
+
+    private fun screenFor(key: String): Screen? = when {
+        key.startsWith("code:") -> Screen.Code(key.removePrefix("code:"))
+        else -> listOf(Screen.Grid, Screen.Scan, Screen.Form, Screen.Archive, Screen.Settings).firstOrNull { screenKey(it) == key }
     }
 
     // Navigation
@@ -277,7 +326,7 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             ready.first { it }
             query.value = ""
-            _stack.value = listOf(Screen.Grid, Screen.Code(cardId))
+            resetTo(Screen.Code(cardId))
         }
     }
 
@@ -285,8 +334,16 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     fun openScanFromShortcut() {
         viewModelScope.launch {
             ready.first { it }
-            _stack.value = listOf(Screen.Grid, Screen.Scan)
+            resetTo(Screen.Scan)
         }
+    }
+
+    // A new start from outside the app: an open form, its import queue and a code chooser are left behind.
+    private fun resetTo(screen: Screen) {
+        draft.value = null
+        clearQueue()
+        dismissChoices()
+        _stack.value = listOf(Screen.Grid, screen)
     }
 
     /** Opens the scanner. */
@@ -301,9 +358,11 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     /** Replaces the scanner with an empty form for typing a number. */
     fun startTyping() = showForm(CardDraft(), replaceTop = true)
 
-    /** Opens the form for [cardId]. */
+    /** Opens the form for [cardId]; from a code screen, Save or Cancel comes back to that card's page. */
     fun edit(cardId: String) {
-        store.get(cardId)?.let { showForm(CardDraft.editing(it, Locale.getDefault()), replaceTop = false) }
+        val card = store.get(cardId) ?: return
+        if (_stack.value.lastOrNull() is Screen.Code) replaceTop(Screen.Code(cardId))
+        showForm(CardDraft.editing(card, Locale.getDefault()), replaceTop = false)
     }
 
     private fun push(screen: Screen) {
@@ -315,7 +374,7 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun showForm(initial: CardDraft, replaceTop: Boolean) {
-        draft.value = initial
+        present(initial)
         if (_stack.value.lastOrNull() == Screen.Form) return
         if (replaceTop) replaceTop(Screen.Form) else push(Screen.Form)
     }
@@ -388,7 +447,7 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
                         }
                         openFormFromOutside(draft)
                     }
-                    isPdf(bytes) -> handleRead(withContext(Dispatchers.Default) { CodeReader(liveCamera = false).readPdf(context, uri) }, nameHint)
+                    isPdf(bytes) -> handleRead(withContext(Dispatchers.IO) { CodeReader(liveCamera = false).readPdf(context, bytes) }, nameHint)
                     else -> handleRead(withContext(Dispatchers.Default) { CodeReader(liveCamera = false).readImage(context, uri) }, nameHint)
                 }
             } catch (e: IOException) {
@@ -397,6 +456,12 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
             } catch (e: SecurityException) {
                 // A share without a read grant, or a grant that has expired.
                 Log.w(LOG_TAG, "file import not allowed: ${e.message}")
+                events.send(UiEvent.Message(R.string.message_file_unreadable))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Whatever an odd file makes a decoder throw: a message, not a crash. The type only, as messages can quote the file.
+                Log.w(LOG_TAG, "file import failed: ${e::class.simpleName}")
                 events.send(UiEvent.Message(R.string.message_file_unreadable))
             } finally {
                 busy.value = false
@@ -424,6 +489,11 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
                         null
                     } catch (e: SecurityException) {
                         Log.w(LOG_TAG, "screenshot import not allowed for one image: ${e.message}")
+                        null
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Log.w(LOG_TAG, "screenshot import skipped one image: ${e::class.simpleName}")
                         null
                     }
                     (result as? FileReadResult.Found)?.codes?.first()?.let { CardDraft.scanned(it.text, it.format, today) }
@@ -454,12 +524,22 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun openFormFromOutside(draft: CardDraft) {
+    private fun openFormFromOutside(incoming: CardDraft) {
         val top = _stack.value.lastOrNull()
-        when {
-            top == Screen.Scan || top == Screen.Form -> showForm(draft, replaceTop = true)
-            else -> showForm(draft, replaceTop = false)
+        // A form already open, such as an unsaved edit, waits behind the new card instead of being lost.
+        if (top == Screen.Form) {
+            draft.value?.let { interrupted ->
+                queue.addLast(interrupted)
+                queued.value = queue.size
+            }
         }
+        showForm(incoming, replaceTop = top == Screen.Scan || top == Screen.Form)
+    }
+
+    // Shows [next] in the form.
+    private fun present(next: CardDraft) {
+        draft.value = next
+        formKey.value++
     }
 
     private fun clearQueue() {
@@ -480,20 +560,25 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     fun skipDraft() {
         val next = queue.removeFirstOrNull()
         queued.value = queue.size
-        if (next != null) draft.value = next else back()
+        if (next != null) present(next) else back()
     }
 
     /** Saves the form: a new card opens on its code screen, an edited one returns, a queued import moves on. */
     fun saveDraft() {
         val current = draft.value ?: return
-        if (current.problem() != null) return
+        if (current.problem() != null || saving) return
+        saving = true
         viewModelScope.launch {
-            val saved = store.save(current.toCard(UUID.randomUUID().toString(), System.currentTimeMillis()))
+            val saved = try {
+                store.save(current.toCard(UUID.randomUUID().toString(), System.currentTimeMillis()))
+            } finally {
+                saving = false
+            }
             if (saved.expires != null || saved.event != null) permission.trySend(Unit)
             val next = queue.removeFirstOrNull()
             queued.value = queue.size
             when {
-                next != null -> draft.value = next
+                next != null -> present(next)
                 current.editingId == null -> {
                     draft.value = null
                     replaceTop(Screen.Code(saved.id))
@@ -520,6 +605,7 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
             val removed = ids.mapNotNull { store.delete(it, System.currentTimeMillis()) }
             if (removed.isEmpty()) return@launch
             draft.value = null
+            clearQueue()
             _stack.value = _stack.value.filterNot { it == Screen.Form || it is Screen.Code && it.cardId in ids }
             events.send(UiEvent.Deleted(removed))
         }
@@ -533,9 +619,11 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     /** Moves a voucher or ticket to the archive; the snackbar offers undo. */
     fun markUsed(cardId: String) {
         val card = store.get(cardId) ?: return
+        // The code screen may have opened at another ticket of the same show; it closes either way.
+        val group = CardGroups.members(card, current.value).map { it.id }.toSet() + cardId
         viewModelScope.launch {
             store.save(card.copy(usedAt = System.currentTimeMillis(), updatedAt = System.currentTimeMillis()))
-            _stack.value = _stack.value.filterNot { it == Screen.Code(cardId) }
+            _stack.value = _stack.value.filterNot { it is Screen.Code && it.cardId in group }
             events.send(UiEvent.MarkedUsed(card))
         }
     }
@@ -684,6 +772,9 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private companion object {
+        const val KEY_STATE = "wallet"
+        const val KEY_STACK = "stack"
+        const val KEY_DRAFTS = "drafts"
         const val SHORTCUT_DEBOUNCE_MS = 2_000L
         const val SHORTCUT_COUNT = 3
         const val SURFACE_DEBOUNCE_MS = 1_000L

@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -125,7 +126,8 @@ fun WalletRoot(vm: WalletViewModel) {
                 val base = if (top in SHEET_SCREENS) stack.dropLast(1).lastOrNull() ?: Screen.Grid else top
                 when (base) {
                     Screen.Grid -> GridScreen(vm)
-                    is Screen.Code -> CodeScreen(vm, base.cardId)
+                    // Keyed by card, so opening another card straight from a notification starts a fresh pager.
+                    is Screen.Code -> key(base.cardId) { CodeScreen(vm, base.cardId) }
                     Screen.Scan -> ScanScreen(vm)
                     Screen.Form -> CardFormScreen(vm)
                     Screen.Archive, Screen.Settings -> GridScreen(vm)

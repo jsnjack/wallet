@@ -243,8 +243,8 @@
     <string name="action_ok">OK</string>
 
     <plurals name="form_queue">
-        <item quantity="one">%d more screenshot after this one</item>
-        <item quantity="other">%d more screenshots after this one</item>
+        <item quantity="one">%d more card after this one</item>
+        <item quantity="other">%d more cards after this one</item>
     </plurals>
     <string name="form_event">Date and time</string>
     <string name="form_expires">Expires</string>

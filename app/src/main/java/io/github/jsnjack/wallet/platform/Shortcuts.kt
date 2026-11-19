@@ -38,23 +38,43 @@ object Shortcuts {
     fun update(context: Context, top: List<Card>, all: List<Card>) {
         val manager = context.getSystemService(ShortcutManager::class.java) ?: return
         try {
-            manager.dynamicShortcuts = top.mapIndexed { rank, card -> info(context, card, rank) }
             val byId = all.associateBy { ID_PREFIX + it.id }
             val pinned = manager.pinnedShortcuts.filter { it.id.startsWith(ID_PREFIX) }
             val (live, gone) = pinned.partition { it.id in byId }
-            if (live.isNotEmpty()) manager.updateShortcuts(live.map { info(context, byId.getValue(it.id), 0) })
+            // A card restored after a delete gets its greyed-out home-screen icon back.
+            val restored = live.filterNot { it.isEnabled }.map { it.id }
+            if (restored.isNotEmpty()) manager.enableShortcuts(restored)
+            // Both return false when the launcher's rate limit for background apps is hit; the next change retries.
+            if (!manager.setDynamicShortcuts(top.mapIndexed { rank, card -> info(context, card, rank) })) {
+                Log.i(LOG_TAG, "shortcut update skipped: rate limited")
+            }
+            if (live.isNotEmpty() && !manager.updateShortcuts(live.map { info(context, byId.getValue(it.id), rank = null) })) {
+                Log.i(LOG_TAG, "pinned shortcut update skipped: rate limited")
+            }
             if (gone.isNotEmpty()) manager.disableShortcuts(gone.map { it.id })
         } catch (e: IllegalStateException) {
-            // Thrown when the launcher's rate limit is hit; the next change retries.
+            // Thrown while the phone is locked after a restart.
             Log.w(LOG_TAG, "shortcut update skipped: ${e.message}")
+        } catch (e: IllegalArgumentException) {
+            Log.w(LOG_TAG, "shortcut update refused: ${e.message}")
         }
     }
 
-    /** Asks the launcher to pin [card] to the home screen; false when it does not support pinning. */
+    /** Asks the launcher to pin [card] to the home screen; false when it does not support pinning or refuses. */
     fun requestPin(context: Context, card: Card): Boolean {
         val manager = context.getSystemService(ShortcutManager::class.java) ?: return false
         if (!manager.isRequestPinShortcutSupported) return false
-        return manager.requestPinShortcut(info(context, card, 0), null)
+        return try {
+            // The launcher refuses to pin a shortcut that was disabled when the card was deleted, so enable it first.
+            manager.enableShortcuts(listOf(ID_PREFIX + card.id))
+            manager.requestPinShortcut(info(context, card, rank = null), null)
+        } catch (e: IllegalArgumentException) {
+            Log.w(LOG_TAG, "pin request refused: ${e.message}")
+            false
+        } catch (e: IllegalStateException) {
+            Log.w(LOG_TAG, "pin request refused: ${e.message}")
+            false
+        }
     }
 
     /** Tells the launcher [cardId] was used, which improves its own suggestions. */
@@ -62,17 +82,18 @@ object Shortcuts {
         context.getSystemService(ShortcutManager::class.java)?.reportShortcutUsed(ID_PREFIX + cardId)
     }
 
-    private fun info(context: Context, card: Card, rank: Int): ShortcutInfo {
+    // A null [rank] leaves a pinned shortcut where it is in the launcher's long-press menu.
+    private fun info(context: Context, card: Card, rank: Int?): ShortcutInfo {
         val intent = Intent(context, MainActivity::class.java)
             .setAction(ACTION_SHOW_CARD)
             .putExtra(EXTRA_CARD_ID, card.id)
-        return ShortcutInfo.Builder(context, ID_PREFIX + card.id)
+        val builder = ShortcutInfo.Builder(context, ID_PREFIX + card.id)
             .setShortLabel(card.name)
             .setLongLabel(card.name)
             .setIcon(Icon.createWithAdaptiveBitmap(icon(card)))
             .setIntent(intent)
-            .setRank(rank)
-            .build()
+        if (rank != null) builder.setRank(rank)
+        return builder.build()
     }
 
     private fun icon(card: Card): Bitmap {

@@ -102,6 +102,13 @@ class PkpassTest {
         Pkpass.read(out.toByteArray(), today, 0)
     }
 
+    @Test(expected = IOException::class)
+    fun zipWithLatin1FileNameIsRejectedAsUnreadable() {
+        val out = ByteArrayOutputStream()
+        ZipOutputStream(out, Charsets.ISO_8859_1).use { it.putNextEntry(ZipEntry("café.txt")); it.write(1) }
+        Pkpass.read(out.toByteArray(), today, 0)
+    }
+
     @Test
     fun recognisesZipHeaderAndColours() {
         assertTrue(Pkpass.looksLikePkpass(pkpass("{}")))
