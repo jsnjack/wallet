@@ -91,6 +91,7 @@ docs/style-storybook.html          Five visual styles compared; One UI 9 was cho
 docs/one-hand.html                 One-handed layouts and tile styles compared
 docs/favourites.html               Favourites ideas compared
 docs/flight-info.html              Live flight info: services compared, FlightStats (no key) chosen
+docs/icons.html                    Ten app icon ideas; Big-type W chosen
 ```
 
 External services:
@@ -318,6 +319,11 @@ because their messages quote the response.
   of a booking are separate tiles. Up next, the notification, widgets and
   tile show one card per group; deleting a grouped tile from the grid
   deletes the whole group, while Edit → Delete removes one card.
+- **App icon: Big-type W** (decided 2026-11-19 from `docs/icons.html`,
+  idea 1, replacing the ticket icon). The launcher icon is the app's own
+  card tile: teal gradient, a name line at the top left and a giant W
+  cropped by the launcher's mask at the bottom right. The monochrome layer
+  has the same shapes for themed icons.
 - **Big-type tiles** (decided 2026-11-19): brand colour, the name at the
   top, a giant monogram or plane bleeding off the bottom-right. Usage
   ("Used 3×, last 2 days ago") shows on the code screen, measured before the

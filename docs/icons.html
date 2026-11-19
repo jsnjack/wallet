@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wallet icon ideas</title>
+<link rel="stylesheet" href="bunk-present://assets/bunk-doc.css">
+<script src="bunk-present://assets/bunk-doc.js" defer></script>
+<style>
+  body { background: var(--bunk-bg); color: var(--bunk-fg); }
+  .shape-bar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: .75rem 0 1.25rem; }
+  .shape-bar button { border: 1px solid var(--bunk-border); background: transparent; color: var(--bunk-fg);
+    border-radius: 999px; padding: .3rem .9rem; cursor: pointer; font: inherit; }
+  .shape-bar button[aria-pressed="true"] { background: var(--bunk-accent); border-color: var(--bunk-accent); color: var(--bunk-bg); }
+  .wall { border-radius: 16px; padding: 16px 8px 10px; display: flex; flex-wrap: wrap; gap: 14px 4px; justify-content: center; margin-bottom: .75rem; }
+  .wall.light { background: linear-gradient(160deg, #cfe3f5, #f3e1ea); }
+  .wall.dark { background: linear-gradient(160deg, #1d2533, #3a2a3c); }
+  .app { display: flex; flex-direction: column; align-items: center; width: 70px; font: 11px/1.3 system-ui, sans-serif; text-align: center; }
+  .wall.light .app { color: #1b1b1b; }
+  .wall.dark .app { color: #f2f2f2; }
+  .app svg { width: 54px; height: 54px; filter: drop-shadow(0 1px 2px rgba(0,0,0,.25)); margin-bottom: 4px; }
+  .ideas { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
+  .idea { border: 1px solid var(--bunk-border); border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; }
+  .idea h3 { margin: 0 0 .5rem; }
+  .idea .row { display: flex; gap: 14px; align-items: flex-start; }
+  .idea .big svg { width: 116px; height: 116px; filter: drop-shadow(0 2px 4px rgba(0,0,0,.25)); }
+  .minis { display: grid; grid-template-columns: repeat(2, 50px); gap: 6px; }
+  .mini { width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+  .mini svg { width: 36px; height: 36px; }
+  .mini.l { background: linear-gradient(160deg, #cfe3f5, #f3e1ea); }
+  .mini.d { background: linear-gradient(160deg, #1d2533, #3a2a3c); }
+  .idea p { margin: .6rem 0 0; }
+  .idea .why { color: var(--bunk-muted); font-size: .92em; }
+  .idea .pick { margin-top: auto; padding-top: .8rem; }
+  .idea .pick button { border: 1px solid var(--bunk-accent); background: transparent; color: var(--bunk-accent);
+    border-radius: 999px; padding: .3rem 1rem; cursor: pointer; font: inherit; }
+  .current { display: flex; gap: 16px; align-items: center; }
+  .current svg { width: 84px; height: 84px; flex: none; filter: drop-shadow(0 2px 4px rgba(0,0,0,.25)); }
+  .legend { color: var(--bunk-muted); font-size: .9em; }
+</style>
+</head>
+<body>
+<article id="bunk-doc">
+<h1 id="icon-ideas">Wallet icon ideas</h1>
+
+<div class="current">
+  <span id="current-icon"></span>
+  <p>Today's icon is a white ticket with a QR corner and a row of perforation dots on a teal gradient.
+  Below are ten other directions, my favourite first. Each is drawn as an Android adaptive icon:
+  the shape switch shows how a launcher crops it, and the small tiles show it on a light and a dark
+  wallpaper, and as a themed icon (Android's one-colour icons, light and dark).</p>
+</div>
+
+<div class="shape-bar" role="group" aria-label="Icon shape">
+  <span class="legend">Launcher shape:</span>
+  <button data-shape="squircle" aria-pressed="true">One UI squircle</button>
+  <button data-shape="circle" aria-pressed="false">Circle</button>
+  <button data-shape="rounded" aria-pressed="false">Rounded square</button>
+</div>
+
+<h2 id="lineup">All ten at home-screen size</h2>
+<div class="wall light" id="lineup-light"></div>
+<div class="wall dark" id="lineup-dark"></div>
+
+<h2 id="ideas">The ten ideas</h2>
+<p class="legend">Small tiles: light wallpaper, dark wallpaper, themed light, themed dark.
+Pick one with its button, or tell me which parts to mix (for example the W tile in the pocket's colours).</p>
+<div class="ideas" id="ideas-grid"></div>
+</article>
+
+<script>
+const THEMED = {
+  tl: { bg: '#D6E7E2', fg: '#1E4C44' },
+  td: { bg: '#24302D', fg: '#A9E1D5' },
+};
+
+function superellipse(n, steps) {
+  const pts = [];
+  for (let i = 0; i < steps; i++) {
+    const t = (i / steps) * 2 * Math.PI;
+    const c = Math.cos(t), s = Math.sin(t);
+    const x = 54 + 36 * Math.sign(c) * Math.pow(Math.abs(c), 2 / n);
+    const y = 54 + 36 * Math.sign(s) * Math.pow(Math.abs(s), 2 / n);
+    pts.push(x.toFixed(2) + ' ' + y.toFixed(2));
+  }
+  return 'M' + pts.join(' L') + 'Z';
+}
+
+const MASKS = {
+  squircle: superellipse(4.6, 160),
+  circle: 'M54 18a36 36 0 1 1 0 72a36 36 0 1 1 0-72z',
+  rounded: 'M35 18h38a17 17 0 0 1 17 17v38a17 17 0 0 1-17 17h-38a17 17 0 0 1-17-17v-38a17 17 0 0 1 17-17z',
+};
+
+function star(cx, cy, R, r) {
+  const pts = [];
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    const d = i % 2 ? r : R;
+    pts.push((cx + d * Math.cos(a)).toFixed(2) + ',' + (cy + d * Math.sin(a)).toFixed(2));
+  }
+  return pts.join(' ');
+}
+
+// Material Symbols "flight" (Apache 2.0), 24 x 24.
+const PLANE = 'M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z';
+const TICKET_V = 'M36,36h36a6,6 0 0 1 6,6v7a5,5 0 0 0 0,10v7a6,6 0 0 1 -6,6h-36a6,6 0 0 1 -6,-6v-7a5,5 0 0 0 0,-10v-7a6,6 0 0 1 6,-6z';
+
+function miniQr(x, y, size, ink, strokeW) {
+  // Three finder squares of a QR code inside a size x size square at x, y.
+  const f = size * 0.42, inner = f * 0.42;
+  const finder = (fx, fy) =>
+    `<rect x="${fx + strokeW / 2}" y="${fy + strokeW / 2}" width="${f - strokeW}" height="${f - strokeW}" rx="${f * 0.22}" fill="none" stroke="${ink}" stroke-width="${strokeW}"/>` +
+    `<rect x="${fx + (f - inner) / 2}" y="${fy + (f - inner) / 2}" width="${inner}" height="${inner}" rx="${inner * 0.25}" fill="${ink}"/>`;
+  const m = size * 0.13, bx = x + size - f, by = y + size - f;
+  const mods = [[0, 0], [1.6, 0], [0, 1.6], [2.4, 1.6], [1.2, 2.6], [2.6, 2.8]]
+    .map(([i, j]) => `<rect x="${bx + i * m}" y="${by + j * m}" width="${m}" height="${m}" rx="${m * 0.25}" fill="${ink}"/>`).join('');
+  return finder(x, y) + finder(x + size - f, y) + finder(x, y + size - f) + mods;
+}
+
+const CURRENT = {
+  name: 'Current',
+  pal: { bgA: '#2BD9BC', bgB: '#077A69', fg: '#FFFFFF', on: '#0A9C86' },
+  draw: (p) => `
+    ${p.mono ? '' : '<ellipse cx="54" cy="24" rx="44" ry="20" fill="#fff" opacity=".16"/>'}
+    ${p.mono ? '' : `<path d="${TICKET_V}" fill="#05463C" opacity=".28" transform="translate(1.6 2.4)"/>`}
+    <path d="${TICKET_V}" fill="${p.fg}"/>
+    ${[41, 46, 51, 56, 61, 66].map((y) => `<circle cx="62" cy="${y}" r="1.1" fill="${p.on}"/>`).join('')}
+    <rect x="40.2" y="48.2" width="11.6" height="11.6" rx="3.4" fill="none" stroke="${p.on}" stroke-width="3.2"/>
+    <rect x="44.4" y="52.4" width="3.2" height="3.2" rx="1" fill="${p.on}"/>
+    <circle cx="70" cy="54" r="3.3" fill="${p.on}"/>`,
+};
+
+const IDEAS = [
+  {
+    name: 'Big-type W',
+    idea: 'The app\'s own card tile: teal, a name line at the top and a giant W running off the bottom-right corner.',
+    why: 'Bold and readable at any size, and it looks like the tiles inside the app. A letter says "W" rather than "cards", though.',
+    pal: { bgA: '#2BD9BC', bgB: '#077A69', fg: '#FFFFFF' },
+    draw: (p) => `
+      <rect x="29" y="29" width="25" height="5.5" rx="2.75" fill="${p.fg}"/>
+      <rect x="29" y="38.5" width="15" height="4" rx="2" fill="${p.fg}" opacity="${p.mono ? 1 : 0.7}"/>
+      <path d="M45 51 L57 94 L69 66 L81 94 L93 51" fill="none" stroke="${p.fg}" stroke-width="11" stroke-linejoin="miter" stroke-miterlimit="12"/>`,
+  },
+  {
+    name: 'Card grid',
+    idea: 'Six brand-coloured cards laid out like the app\'s grid; the bottom-right one carries a favourite star.',
+    why: 'Says "many cards" and echoes the grid and favourites. Busier than the others at 48 px.',
+    pal: { bgA: '#FFFFFF', bgB: '#E4EDEA', a1: '#3B7BEA', a2: '#FFB547', a3: '#FF6B5B', a4: '#8E6CEF', a5: '#22B573', a6: '#0A9C86', on: '#FFFFFF' },
+    draw: (p) => {
+      const cols = [p.a1, p.a2, p.a3, p.a4, p.a5, p.a6];
+      let out = '';
+      [32, 49, 66].forEach((y, r) => [32, 56].forEach((x, c) => {
+        out += `<rect x="${x}" y="${y}" width="20" height="13" rx="3.5" fill="${cols[r * 2 + c]}"/>`;
+      }));
+      return out + `<polygon points="${star(66, 72.6, 4.6, 2)}" fill="${p.on}"/>`;
+    },
+  },
+  {
+    name: 'Card fan',
+    idea: 'Three cards fanned out like a hand of cards: amber, coral and a white card in front.',
+    why: 'Reads as "cards" at a glance, and the dark ground makes the colours pop. It could pass for a bank or payment app.',
+    pal: { bgA: '#15493F', bgB: '#072822', a1: '#FFB547', a2: '#FF6B5B', fg: '#FFFFFF', on: '#0A9C86', gap: '#0C342D' },
+    draw: (p) => {
+      const card = (fill, rot) => `<rect x="32" y="43" width="44" height="29" rx="5" fill="${fill}" stroke="${p.gap}" stroke-width="2" transform="rotate(${rot} 54 82)"/>`;
+      return '<g transform="translate(4 -3)">' + card(p.a1, -24) + card(p.a2, -9) + `
+        <g transform="rotate(7 54 82)">
+          <rect x="32" y="43" width="44" height="29" rx="5" fill="${p.fg}" stroke="${p.gap}" stroke-width="2"/>
+          <circle cx="39.5" cy="50.5" r="3.6" fill="${p.on}"/>
+          <rect x="46" y="48.5" width="16" height="4" rx="2" fill="${p.on}" opacity="${p.mono ? 1 : 0.45}"/>
+          <rect x="37" y="61" width="30" height="4.5" rx="2.25" fill="${p.on}"/>
+        </g></g>`;
+    },
+  },
+  {
+    name: 'Pocket',
+    idea: 'Coloured cards sticking out of a teal pocket with a stitched edge.',
+    why: 'The classic wallet picture, friendly and clear. Wallet apps use pockets often, so the colours have to set it apart.',
+    pal: { bgA: '#EAF8F4', bgB: '#CBEDE4', a1: '#3B7BEA', a2: '#FFB547', a3: '#FF6B5B', fg: '#0A9C86', on: '#8BE8D6', gap: '#DCF3ED' },
+    draw: (p) => `
+      <rect x="34" y="29" width="40" height="28" rx="5" fill="${p.a1}" stroke="${p.gap}" stroke-width="2" transform="rotate(-10 54 56)"/>
+      <rect x="35" y="32" width="40" height="28" rx="5" fill="${p.a2}" stroke="${p.gap}" stroke-width="2" transform="rotate(7 54 56)"/>
+      <rect x="34" y="37" width="40" height="28" rx="5" fill="${p.a3}" stroke="${p.gap}" stroke-width="2" transform="rotate(-2 54 56)"/>
+      <path d="M29 51 Q54 61 79 51 V74 Q79 81 72 81 H36 Q29 81 29 74 Z" fill="${p.fg}" stroke="${p.gap}" stroke-width="2"/>
+      <path d="M33 56.5 Q54 65 75 56.5" fill="none" stroke="${p.on}" stroke-width="1.7" stroke-dasharray="3 2.4" stroke-linecap="round"/>`,
+  },
+  {
+    name: 'QR corners',
+    idea: 'A QR code reduced to its three corner squares, with one amber square where the data would be.',
+    why: 'The cleanest of the ten: crisp at any size and as a themed icon. It says "QR scanner" more than "wallet".',
+    pal: { bgA: '#2BD9BC', bgB: '#077A69', fg: '#FFFFFF', a1: '#FFC23D' },
+    draw: (p) => {
+      const finder = (x, y) => `<rect x="${x + 2}" y="${y + 2}" width="14" height="14" rx="4.5" fill="none" stroke="${p.fg}" stroke-width="4"/>
+        <rect x="${x + 6.5}" y="${y + 6.5}" width="5" height="5" rx="1.6" fill="${p.fg}"/>`;
+      return finder(32, 32) + finder(58, 32) + finder(32, 58) + `<rect x="61" y="61" width="12" height="12" rx="3.5" fill="${p.a1}"/>`;
+    },
+  },
+  {
+    name: 'Ticket and plane',
+    idea: 'A tilted ticket with a tear-off line and a plane, on warm coral.',
+    why: 'Covers tickets and boarding passes, and coral stands out among teal and blue icons. It reads as a travel app, while loyalty cards are the daily use.',
+    pal: { bgA: '#FF9472', bgB: '#E3473A', fg: '#FFFFFF', on: '#E3473A' },
+    draw: (p) => `
+      <g transform="rotate(-12 54 54)">
+        <path d="M31 37h46a5 5 0 0 1 5 5v7a5 5 0 0 0 0 10v7a5 5 0 0 1 -5 5h-46a5 5 0 0 1 -5 -5v-7a5 5 0 0 0 0 -10v-7a5 5 0 0 1 5 -5z" fill="${p.fg}"/>
+        <line x1="64" y1="40.5" x2="64" y2="67.5" stroke="${p.on}" stroke-width="1.8" stroke-dasharray="2.6 2.6" stroke-linecap="round"/>
+        <g transform="translate(45 54) rotate(90) translate(-12 -12)"><path d="${PLANE}" fill="${p.on}"/></g>
+        <rect x="69" y="47" width="8" height="2.6" rx="1.3" fill="${p.on}" opacity="${p.mono ? 1 : 0.55}"/>
+        <rect x="69" y="52.7" width="8" height="2.6" rx="1.3" fill="${p.on}" opacity="${p.mono ? 1 : 0.55}"/>
+        <rect x="69" y="58.4" width="5" height="2.6" rx="1.3" fill="${p.on}" opacity="${p.mono ? 1 : 0.55}"/>
+      </g>`,
+  },
+  {
+    name: 'Key fob',
+    idea: 'A loyalty key-fob tag on a ring, with a small barcode: the plastic tag this app replaces.',
+    why: 'Unusual and a little playful. The barcode and the hole get small at 48 px.',
+    pal: { bgA: '#2BD9BC', bgB: '#077A69', fg: '#FFFFFF', on: '#0F2A26', a1: '#FFC23D', gap: '#14A891' },
+    draw: (p) => {
+      const widths = [1.6, 0.8, 1.2, 0.8, 2, 0.8, 1.2, 1.6, 0.8, 1.2];
+      let x = 45.5, bars = '';
+      widths.forEach((w) => { bars += `<rect x="${x.toFixed(2)}" y="58" width="${w}" height="15" fill="${p.on}"/>`; x += w + 0.9; });
+      return `
+        <g transform="rotate(-28 54 60)">
+          <circle cx="54" cy="34" r="8.5" fill="none" stroke="${p.a1}" stroke-width="3.4"/>
+          <rect x="41" y="40" width="26" height="42" rx="10" fill="${p.fg}"/>
+          <circle cx="54" cy="47" r="3.6" fill="${p.gap}"/>
+          ${bars}
+        </g>`;
+    },
+  },
+  {
+    name: 'Scan line',
+    idea: 'A code on a white card with a red scanner line across it: the moment at the till.',
+    why: 'Shows what the app is for. It could be mistaken for a code scanner app.',
+    pal: { bgA: '#1D3E39', bgB: '#0B1A18', fg: '#FFFFFF', on: '#0F2A26', a1: '#FF4D4D', gap: '#122826' },
+    defs: (p, id) => `<filter id="${id}b" x="-20%" y="-200%" width="140%" height="500%"><feGaussianBlur stdDeviation="2.4"/></filter>`,
+    draw: (p, id) => `
+      <rect x="32" y="32" width="44" height="44" rx="9" fill="${p.fg}"/>
+      ${miniQr(37, 37, 34, p.on, 2.2)}
+      ${p.mono ? '' : `<rect x="22" y="50" width="64" height="8" rx="4" fill="${p.a1}" opacity=".5" filter="url(#${id}b)"/>`}
+      <rect x="23" y="52.4" width="62" height="3.2" rx="1.6" fill="${p.a1}" stroke="${p.gap}" stroke-width="${p.mono ? 2 : 0}"/>`,
+  },
+  {
+    name: 'Barcode W',
+    idea: 'Barcode bars whose tops trace a W.',
+    why: 'Two meanings in one shape. Thin bars blur on a phone screen, and the W is easy to miss.',
+    pal: { bgA: '#FFFFFF', bgB: '#E0F0EC', fg: '#0A9C86' },
+    draw: (p) => {
+      const widths = [3.4, 1.6, 2.6, 1.6, 4, 1.6, 2.6, 3.4, 1.6, 2.6, 1.6, 4, 2.6, 1.6, 3.4];
+      const gap = 1.5;
+      const total = widths.reduce((a, b) => a + b, 0) + gap * (widths.length - 1);
+      const W = [[0, 30], [0.25, 62], [0.5, 40], [0.75, 62], [1, 30]];
+      const top = (f) => {
+        for (let i = 1; i < W.length; i++) {
+          if (f <= W[i][0]) {
+            const [f0, y0] = W[i - 1], [f1, y1] = W[i];
+            return y0 + ((f - f0) / (f1 - f0)) * (y1 - y0);
+          }
+        }
+        return 30;
+      };
+      let x = 54 - total / 2, out = '';
+      widths.forEach((w) => {
+        const f = (x + w / 2 - (54 - total / 2)) / total;
+        const y = top(f);
+        out += `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w}" height="${(78 - y).toFixed(2)}" fill="${p.fg}"/>`;
+        x += w + gap;
+      });
+      return out;
+    },
+  },
+  {
+    name: 'Bright code',
+    idea: 'A code in the middle of sun rays: the screen at full brightness at the till.',
+    why: 'Warm, unusual and true to the app. The rays can read as a brightness or weather app.',
+    pal: { bgA: '#FFD166', bgB: '#FF9616', fg: '#FFFFFF', on: '#3A2810' },
+    draw: (p) => {
+      let rays = '';
+      for (let i = 0; i < 8; i++) {
+        const a = (i * Math.PI) / 4;
+        const x1 = 54 + 23 * Math.cos(a), y1 = 54 + 23 * Math.sin(a);
+        const x2 = 54 + 30 * Math.cos(a), y2 = 54 + 30 * Math.sin(a);
+        rays += `<line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" stroke="${p.fg}" stroke-width="4" stroke-linecap="round"/>`;
+      }
+      return rays + `<rect x="39" y="39" width="30" height="30" rx="7" fill="${p.fg}"/>` + miniQr(43.5, 43.5, 21, p.on, 1.8);
+    },
+  },
+];
+
+let uid = 0;
+let shape = 'squircle';
+
+function svg(icon, mode) {
+  const id = 'i' + uid++;
+  let p = icon.pal;
+  if (mode !== 'color') {
+    const t = THEMED[mode];
+    p = {};
+    for (const k of Object.keys(icon.pal)) p[k] = ['bgA', 'bgB', 'on', 'gap'].includes(k) ? t.bg : t.fg;
+    p.mono = true;
+  }
+  return `<svg viewBox="18 18 72 72" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${icon.name}">
+    <defs>
+      <clipPath id="${id}m"><path d="${MASKS[shape]}"/></clipPath>
+      <linearGradient id="${id}g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${p.bgA}"/><stop offset="1" stop-color="${p.bgB}"/></linearGradient>
+      ${icon.defs ? icon.defs(p, id) : ''}
+    </defs>
+    <g clip-path="url(#${id}m)">
+      <rect x="0" y="0" width="108" height="108" fill="url(#${id}g)"/>
+      ${icon.draw(p, id)}
+    </g>
+  </svg>`;
+}
+
+function render() {
+  uid = 0;
+  document.getElementById('current-icon').innerHTML = svg(CURRENT, 'color');
+  const all = [CURRENT, ...IDEAS];
+  const app = (icon, i) => `<div class="app">${svg(icon, 'color')}${i === 0 ? 'Current' : i + '. ' + icon.name}</div>`;
+  document.getElementById('lineup-light').innerHTML = all.map(app).join('');
+  document.getElementById('lineup-dark').innerHTML = all.map(app).join('');
+  document.getElementById('ideas-grid').innerHTML = IDEAS.map((icon, i) => `
+    <section class="idea">
+      <h3 id="idea-${i + 1}">${i + 1}. ${icon.name}</h3>
+      <div class="row">
+        <div class="big">${svg(icon, 'color')}</div>
+        <div class="minis">
+          <div class="mini l" title="Light wallpaper">${svg(icon, 'color')}</div>
+          <div class="mini d" title="Dark wallpaper">${svg(icon, 'color')}</div>
+          <div class="mini l" title="Themed icon, light">${svg(icon, 'tl')}</div>
+          <div class="mini d" title="Themed icon, dark">${svg(icon, 'td')}</div>
+        </div>
+      </div>
+      <p>${icon.idea}</p>
+      <p class="why">${icon.why}</p>
+      <div class="pick"><button data-bunk-reply="Icon: go with ${i + 1}. ${icon.name}">Choose ${icon.name}</button></div>
+    </section>`).join('');
+}
+
+document.querySelectorAll('.shape-bar button').forEach((b) => b.addEventListener('click', () => {
+  shape = b.dataset.shape;
+  document.querySelectorAll('.shape-bar button').forEach((o) => o.setAttribute('aria-pressed', String(o === b)));
+  render();
+}));
+render();
+</script>
+</body>
+</html>

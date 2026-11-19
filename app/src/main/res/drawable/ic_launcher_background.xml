@@ -18,9 +18,4 @@
             </gradient>
         </aapt:attr>
     </path>
-    <!-- Soft gloss across the top, as on One UI 7+ app icons. -->
-    <path
-        android:fillAlpha="0.16"
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M10,24a44,20 0 1,0 88,0a44,20 0 1,0 -88,0z" />
 </vector>

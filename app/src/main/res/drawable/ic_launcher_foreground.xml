@@ -1,18 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Big-type W (docs/icons.html, idea 1): the app's own card tile. A name line
+    at the top left and a giant W running off the bottom-right corner, which
+    the launcher's mask crops like the monogram on a card tile.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <group android:translateX="1.6" android:translateY="2.4">
-        <path android:fillColor="@color/launcher_shadow" android:pathData="M36,36h36a6,6 0 0 1 6,6v7a5,5 0 0 0 0,10v7a6,6 0 0 1 -6,6h-36a6,6 0 0 1 -6,-6v-7a5,5 0 0 0 0,-10v-7a6,6 0 0 1 6,-6z" />
-    </group>
-    <path android:fillColor="#FFFFFFFF" android:pathData="M36,36h36a6,6 0 0 1 6,6v7a5,5 0 0 0 0,10v7a6,6 0 0 1 -6,6h-36a6,6 0 0 1 -6,-6v-7a5,5 0 0 0 0,-10v-7a6,6 0 0 1 6,-6z" />
-    <path android:fillColor="@color/launcher_teal" android:pathData="M62,41m-1.1,0a1.1,1.1 0 1,0 2.2,0a1.1,1.1 0 1,0 -2.2,0zM62,46m-1.1,0a1.1,1.1 0 1,0 2.2,0a1.1,1.1 0 1,0 -2.2,0zM62,51m-1.1,0a1.1,1.1 0 1,0 2.2,0a1.1,1.1 0 1,0 -2.2,0zM62,56m-1.1,0a1.1,1.1 0 1,0 2.2,0a1.1,1.1 0 1,0 -2.2,0zM62,61m-1.1,0a1.1,1.1 0 1,0 2.2,0a1.1,1.1 0 1,0 -2.2,0zM62,66m-1.1,0a1.1,1.1 0 1,0 2.2,0a1.1,1.1 0 1,0 -2.2,0z" />
     <path
-        android:pathData="M42,46.6h8a3.4,3.4 0 0 1 3.4,3.4v8a3.4,3.4 0 0 1 -3.4,3.4h-8a3.4,3.4 0 0 1 -3.4,-3.4v-8a3.4,3.4 0 0 1 3.4,-3.4z"
-        android:strokeWidth="3.2"
-        android:strokeColor="@color/launcher_teal" />
-    <path android:fillColor="@color/launcher_teal" android:pathData="M44.6,51h2.8a1.6,1.6 0 0 1 1.6,1.6v2.8a1.6,1.6 0 0 1 -1.6,1.6h-2.8a1.6,1.6 0 0 1 -1.6,-1.6v-2.8a1.6,1.6 0 0 1 1.6,-1.6z" />
-    <path android:fillColor="@color/launcher_teal" android:pathData="M70,50.7a3.3,3.3 0 1,0 0,6.6a3.3,3.3 0 1,0 0,-6.6z" />
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M31.75,29h19.5a2.75,2.75 0 0 1 0,5.5h-19.5a2.75,2.75 0 0 1 0,-5.5z" />
+    <path
+        android:fillAlpha="0.7"
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M31,38.5h11a2,2 0 0 1 0,4h-11a2,2 0 0 1 0,-4z" />
+    <path
+        android:pathData="M45,51L57,94L69,66L81,94L93,51"
+        android:strokeWidth="11"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineJoin="miter"
+        android:strokeMiterLimit="12" />
 </vector>
