@@ -103,25 +103,3 @@ class Agenda(private val zone: ZoneId) {
         private const val FLIGHT_LEAD_HOURS = 24L
     }
 }
-
-/** Boarding passes on one booking reference form a trip. */
-object Trips {
-    /** The grid shows one card per trip: the earliest leg; other cards pass through. */
-    fun collapse(cards: List<Card>): List<Card> {
-        val firstLeg = cards.filter { tripKey(it) != null }
-            .groupBy { tripKey(it) }
-            .mapValues { (_, legs) -> legs.minWith(legOrder).id }
-        return cards.filter { card -> tripKey(card)?.let { firstLeg[it] == card.id } ?: true }
-    }
-
-    /** Every leg on [card]'s booking in flight order, or just [card] when it is not part of a trip. */
-    fun legs(card: Card, cards: List<Card>): List<Card> {
-        val key = tripKey(card) ?: return listOf(card)
-        return cards.filter { tripKey(it) == key }.sortedWith(legOrder)
-    }
-
-    private fun tripKey(card: Card): String? =
-        card.flight?.pnr?.takeIf { card.kind == CardKind.BOARDING_PASS && it.isNotBlank() }?.uppercase()
-
-    private val legOrder = compareBy<Card>({ it.event?.start ?: LocalDateTime.MAX }, { it.flight?.passenger.orEmpty() }, { it.id })
-}

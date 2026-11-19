@@ -6,6 +6,14 @@
         <item quantity="one">%d card</item>
         <item quantity="other">%d cards</item>
     </plurals>
+    <plurals name="tile_passengers">
+        <item quantity="one">%d passenger</item>
+        <item quantity="other">%d passengers</item>
+    </plurals>
+    <plurals name="tile_tickets">
+        <item quantity="one">%d ticket</item>
+        <item quantity="other">%d tickets</item>
+    </plurals>
 
     <string name="shortcut_scan_short">Scan</string>
     <string name="shortcut_scan_long">Scan a new card</string>
@@ -33,6 +41,10 @@
 
     <string name="delete_title">Delete %s?</string>
     <string name="delete_body">The card is removed from this phone and from your other devices.</string>
+    <plurals name="delete_group_body">
+        <item quantity="one">The card is removed from this phone and from your other devices.</item>
+        <item quantity="other">All %d cards on this tile are removed from this phone and from your other devices.</item>
+    </plurals>
 
     <string name="action_delete">Delete</string>
     <string name="action_cancel">Cancel</string>

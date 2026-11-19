@@ -95,6 +95,7 @@ fun GridScreen(vm: WalletViewModel) {
     val archivedMatches by vm.archivedMatches.collectAsStateWithLifecycle()
     val upNext by vm.upNext.collectAsStateWithLifecycle()
     val favourites by vm.favourites.collectAsStateWithLifecycle()
+    val groupSizes by vm.groupSizes.collectAsStateWithLifecycle()
     val query by vm.query.collectAsStateWithLifecycle()
     val sync by vm.syncStatus.collectAsStateWithLifecycle()
     var menuFor by remember { mutableStateOf<Card?>(null) }
@@ -130,7 +131,7 @@ fun GridScreen(vm: WalletViewModel) {
                         }
                         items(visible, key = { it.id }) { card ->
                             CompositionLocalProvider(LocalLayoutDirection provides ltr) {
-                                GridTile(card, vm, onMenu = { menuFor = card })
+                                GridTile(card, groupSizes[card.id] ?: 1, vm, onMenu = { menuFor = card })
                             }
                         }
                         if (archivedMatches.isNotEmpty()) {
@@ -158,11 +159,12 @@ fun GridScreen(vm: WalletViewModel) {
     if (more) MoreSheet(vm, onDismiss = { more = false })
     menuFor?.let { card -> CardMenuSheet(card, vm, onDelete = { confirmDelete = card }, onDismiss = { menuFor = null }) }
     confirmDelete?.let { card ->
+        val count = groupSizes[card.id] ?: 1
         ConfirmSheet(
             title = stringResource(R.string.delete_title, card.name),
-            body = stringResource(R.string.delete_body),
+            body = if (count > 1) pluralStringResource(R.plurals.delete_group_body, count, count) else stringResource(R.string.delete_body),
             confirm = stringResource(R.string.action_delete),
-            onConfirm = { vm.delete(card.id); confirmDelete = null },
+            onConfirm = { vm.deleteTile(card.id); confirmDelete = null },
             onDismiss = { confirmDelete = null },
         )
     }
@@ -329,9 +331,10 @@ fun CardRow(card: Card, detail: String, onClick: () -> Unit) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun GridTile(card: Card, vm: WalletViewModel, onMenu: () -> Unit) {
+private fun GridTile(card: Card, count: Int, vm: WalletViewModel, onMenu: () -> Unit) {
     CardTile(
         name = card.name,
+        count = count,
         color = card.color,
         kind = card.kind,
         pinned = card.pinned,

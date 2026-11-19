@@ -92,14 +92,4 @@ class AgendaTest {
         assertEquals(today.atTime(21, 0), agenda.nextChange(listOf(voucher), now))
         assertEquals(today.plusDays(1).atStartOfDay(), agenda.nextChange(emptyList(), now))
     }
-
-    @Test
-    fun tripsCollapseToTheFirstLegAndListAllLegs() {
-        val out = card("out", CardKind.BOARDING_PASS, event = DayTime(today.plusDays(1)), flight = Flight("AMS", "LIS", "KL", "1", pnr = "ABC"))
-        val back = card("back", CardKind.BOARDING_PASS, event = DayTime(today.plusDays(7)), flight = Flight("LIS", "AMS", "KL", "2", pnr = "abc"))
-        val other = card("other")
-        assertEquals(listOf("out", "other"), Trips.collapse(listOf(back, out, other)).map { it.id })
-        assertEquals(listOf("out", "back"), Trips.legs(back, listOf(back, other, out)).map { it.id })
-        assertEquals(listOf("other"), Trips.legs(other, listOf(back, other, out)).map { it.id })
-    }
 }

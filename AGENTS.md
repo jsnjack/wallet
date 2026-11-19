@@ -29,7 +29,8 @@ app/src/main/java/io/github/jsnjack/wallet/
     Bcbp.kt                 IATA boarding pass barcode text → passenger and legs
     Pkpass.kt               Apple Wallet .pkpass zip → CardDraft
     Airports.kt             IATA code → city table parsing
-    Agenda.kt               Archive, retention, "Up next", reminders, next change; Trips (one tile per booking)
+    Agenda.kt               Archive, retention, "Up next", reminders, next change
+    CardGroups.kt           Passes for one flight and tickets for one show: one tile, swipe between them
     CodeNumbers.kt          GS1 check digits, format guess for typed numbers, display grouping
     CodeMatrix.kt           ZXing: code → BitMatrix with no quiet zone
     CardLooks.kt            Text contrast, palette, colour for a name, monograms, hex
@@ -88,9 +89,10 @@ External services:
 ## Key Flows
 
 1. **Open a card.** `WalletViewModel` loads `CardStore` on start; the first
-   frame waits for it. A tap pushes `Screen.Code`; `CodeScreen` fixes the
-   page order when it opens, sets full brightness and keeps the screen on,
-   and counts a use after one second on a page.
+   frame waits for it. A tap pushes `Screen.Code`; `CodeScreen` fixes its
+   pages when it opens (the card's group from `CardGroups`, or the card
+   alone), sets full brightness and keeps the screen on, and counts a use
+   after one second on a page.
 2. **Add a card.** ＋ opens `ScanScreen` (CameraX + zxing-cpp). The first
    drawable code replaces the scanner with the form (`CardDraft.scanned`).
    Picked or shared images go through `CodeReader.readImage`; "Type number"
@@ -211,6 +213,15 @@ never the code.
   the code screen closes with a swipe down (nested-scroll overscroll) or
   Done; the form has Cancel/Skip and Save at the bottom; the scanner's close
   and torch are at the bottom.
+- **Groups instead of swiping through everything** (decided 2026-11-19).
+  Boarding passes with the same airline, flight number, departure airport
+  and date form one tile ("2 passengers"), whatever their booking
+  reference; tickets with the same name and event date and time form one
+  tile too. The code screen swipes only within a group, so a loyalty card
+  opens alone and nobody slides to the wrong card at a till. Other flights
+  of a booking are separate tiles. Up next, the notification, widgets and
+  tile show one card per group; deleting a grouped tile from the grid
+  deletes the whole group, while Edit → Delete removes one card.
 - **Big-type tiles** (decided 2026-11-19): brand colour, the name at the
   top, a giant monogram or plane bleeding off the bottom-right. Usage
   ("Used 3×, last 2 days ago") shows on the code screen, measured before the

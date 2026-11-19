@@ -86,11 +86,11 @@ fun WalletRoot(vm: WalletViewModel) {
                 is UiEvent.Deleted -> {
                     // With an action Material keeps a snackbar until dismissed; Long lets it go after about 10 s.
                     val result = snackbar.showSnackbar(
-                        resources.getString(R.string.message_deleted, event.card.name),
+                        resources.getString(R.string.message_deleted, event.cards.first().name),
                         actionLabel = resources.getString(R.string.action_undo),
                         duration = SnackbarDuration.Long,
                     )
-                    if (result == SnackbarResult.ActionPerformed) vm.undoDelete(event.card)
+                    if (result == SnackbarResult.ActionPerformed) vm.undoDelete(event.cards)
                 }
                 is UiEvent.MarkedUsed -> {
                     val result = snackbar.showSnackbar(

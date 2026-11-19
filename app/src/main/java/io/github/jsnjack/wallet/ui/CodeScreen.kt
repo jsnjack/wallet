@@ -90,7 +90,7 @@ private const val USE_AFTER_MS = 1_000L
 private const val MAX_DOTS = 7
 private val MARKABLE = setOf(CardKind.VOUCHER, CardKind.GIFT_CARD, CardKind.TICKET)
 
-/** Full-screen codes; swipe sideways for the next card or the next leg of a trip. */
+/** Full-screen codes; swipe sideways between the passengers on one flight or the tickets for one show. */
 @Composable
 fun CodeScreen(vm: WalletViewModel, startId: String) {
     val all by vm.allCards.collectAsStateWithLifecycle()

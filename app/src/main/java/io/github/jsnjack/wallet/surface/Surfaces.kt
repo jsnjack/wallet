@@ -11,8 +11,8 @@ import io.github.jsnjack.wallet.LOG_TAG
 import io.github.jsnjack.wallet.WalletApplication
 import io.github.jsnjack.wallet.core.Agenda
 import io.github.jsnjack.wallet.core.Card
+import io.github.jsnjack.wallet.core.CardGroups
 import io.github.jsnjack.wallet.core.CardList
-import io.github.jsnjack.wallet.core.Trips
 import io.github.jsnjack.wallet.store.AppSettings
 import io.github.jsnjack.wallet.store.CardStore
 import kotlinx.coroutines.sync.Mutex
@@ -43,9 +43,9 @@ class Surfaces(private val context: Context, private val store: CardStore, priva
             Log.i(LOG_TAG, "archive clean-up deleted $removed cards")
         }
         val cards = store.cards.value
-        val upNext = agenda.upNext(cards, now)
-        Notifier.update(context, agenda.today(cards, now).firstOrNull(), agenda.remindersDue(cards, now), settings)
-        Widgets.update(context, upNext.firstOrNull(), favourites(cards, agenda, now))
+        val shown = tiles(cards, agenda, now)
+        Notifier.update(context, agenda.today(shown, now).firstOrNull(), agenda.remindersDue(cards, now), settings)
+        Widgets.update(context, agenda.upNext(shown, now).firstOrNull(), CardList.quickAccess(shown, store.usage.value, FAVOURITES))
         WalletTileService.requestUpdate(context)
         schedule(Duration.between(now, agenda.nextChange(cards, now)))
     }
@@ -56,11 +56,13 @@ class Surfaces(private val context: Context, private val store: CardStore, priva
         val zone = ZoneId.systemDefault()
         val now = LocalDateTime.now(zone)
         val agenda = Agenda(zone)
-        return agenda.upNext(store.cards.value, now).firstOrNull()?.card ?: favourites(store.cards.value, agenda, now).firstOrNull()
+        val shown = tiles(store.cards.value, agenda, now)
+        return agenda.upNext(shown, now).firstOrNull()?.card ?: CardList.quickAccess(shown, store.usage.value, FAVOURITES).firstOrNull()
     }
 
-    private fun favourites(cards: List<Card>, agenda: Agenda, now: LocalDateTime): List<Card> =
-        CardList.quickAccess(Trips.collapse(cards.filterNot { agenda.isArchived(it, now) }), store.usage.value, FAVOURITES)
+    /** Current cards as the grid shows them: one card per group, such as all passengers on one flight. */
+    private fun tiles(cards: List<Card>, agenda: Agenda, now: LocalDateTime): List<Card> =
+        CardGroups.collapse(cards.filterNot { agenda.isArchived(it, now) })
 
     private fun schedule(delay: Duration) {
         val request = OneTimeWorkRequestBuilder<AgendaWorker>()

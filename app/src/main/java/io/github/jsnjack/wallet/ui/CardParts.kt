@@ -74,6 +74,7 @@ fun CardTile(
     pinned: Boolean = false,
     locked: Boolean = false,
     large: Boolean = false,
+    count: Int = 1,
 ) {
     val content = Color(CardLooks.contentColor(color))
     val ghost = if (content == Color.White) Color.White.copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.16f)
@@ -106,16 +107,21 @@ fun CardTile(
             )
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = if (large) 16.dp else 12.dp, vertical = if (large) 14.dp else 10.dp), verticalAlignment = Alignment.Top) {
-            Text(
-                name,
-                color = content,
-                fontSize = if (large) 17.sp else 13.5.sp,
-                fontWeight = FontWeight.ExtraBold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                lineHeight = if (large) 20.sp else 16.sp,
-                modifier = Modifier.weight(1f),
-            )
+            Column(Modifier.weight(1f)) {
+                Text(
+                    name,
+                    color = content,
+                    fontSize = if (large) 17.sp else 13.5.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = if (large) 20.sp else 16.sp,
+                )
+                if (count > 1) {
+                    val members = if (kind == CardKind.BOARDING_PASS) R.plurals.tile_passengers else R.plurals.tile_tickets
+                    Text(pluralStringResource(members, count, count), color = content.copy(alpha = 0.8f), fontSize = 12.sp, maxLines = 1)
+                }
+            }
             if (pinned) Badge(R.drawable.ic_star_filled, content)
             if (locked) Badge(R.drawable.ic_lock_filled, content)
         }

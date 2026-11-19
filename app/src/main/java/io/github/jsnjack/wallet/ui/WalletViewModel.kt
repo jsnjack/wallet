@@ -16,13 +16,14 @@ import io.github.jsnjack.wallet.WalletApplication
 import io.github.jsnjack.wallet.core.Agenda
 import io.github.jsnjack.wallet.core.Card
 import io.github.jsnjack.wallet.core.CardDraft
+import io.github.jsnjack.wallet.core.CardGroups
 import io.github.jsnjack.wallet.core.CardJson
 import io.github.jsnjack.wallet.core.CardList
+import io.github.jsnjack.wallet.core.ConnectProblem
 import io.github.jsnjack.wallet.core.ExportCrypto
 import io.github.jsnjack.wallet.core.NotAnExportException
 import io.github.jsnjack.wallet.core.Pkpass
 import io.github.jsnjack.wallet.core.Retention
-import io.github.jsnjack.wallet.core.Trips
 import io.github.jsnjack.wallet.core.UpNext
 import io.github.jsnjack.wallet.core.Usage
 import io.github.jsnjack.wallet.core.WrongPasswordException
@@ -47,6 +48,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -56,7 +58,6 @@ import java.net.UnknownHostException
 import java.net.SocketTimeoutException
 import java.net.ConnectException
 import io.github.jsnjack.wallet.drive.DriveException
-import io.github.jsnjack.wallet.core.ConnectProblem
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -101,8 +102,8 @@ sealed interface ConnectState {
 
 /** One-off messages for the snackbar. */
 sealed interface UiEvent {
-    /** [card] was deleted and can be restored. */
-    data class Deleted(val card: Card) : UiEvent
+    /** [cards] were deleted (one card, or a tile's whole group) and can be restored. */
+    data class Deleted(val cards: List<Card>) : UiEvent
 
     /** [card] was marked as used and can be put back. */
     data class MarkedUsed(val card: Card) : UiEvent
@@ -143,20 +144,29 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     /** How often each card was shown on this device, for tile info lines. */
     val usage: StateFlow<Map<String, Usage>> = store.usage
 
-    /** Every card that is not deleted, archived ones and every trip leg included. */
+    /** Every card that is not deleted, archived ones and every member of a group included. */
     val allCards: StateFlow<List<Card>> = store.cards
 
-    /** Current (not archived) cards in grid order, one card per trip. */
-    val cards: StateFlow<List<Card>> = combine(store.cards, store.usage, now) { all, usage, time ->
-        CardList.sorted(Trips.collapse(all.filterNot { agenda.isArchived(it, time) }), usage)
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    /** Current (not archived) cards, every member of a group included. */
+    private val current: StateFlow<List<Card>> = combine(store.cards, now) { all, time -> all.filterNot { agenda.isArchived(it, time) } }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Current cards in grid order, one tile per group (passengers on one flight, tickets for one show). */
+    val cards: StateFlow<List<Card>> = combine(current, store.usage) { list, usage -> CardList.sorted(CardGroups.collapse(list), usage) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** How many cards each grouped tile stands for, by the id of the card it shows. */
+    val groupSizes: StateFlow<Map<String, Int>> = current.map(CardGroups::sizes)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
     /** Favourites for the rail above the bottom bar, most used first. */
     val favourites: StateFlow<List<Card>> = combine(cards, store.usage, CardList::favourites)
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    /** Cards in the grid that match the search; favourites appear here as well as in the rail. */
-    val visible: StateFlow<List<Card>> = combine(cards, query) { all, q -> all.filter { CardList.matches(it, q) } }
+    /** Tiles that match the search through any card in their group; favourites appear here as well as in the rail. */
+    val visible: StateFlow<List<Card>> = combine(cards, current, query) { shown, list, q ->
+        if (q.isBlank()) shown else shown.filter { tile -> CardGroups.members(tile, list).any { CardList.matches(it, q) } }
+    }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** Archived cards, most recently archived first. */
@@ -170,7 +180,7 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** Cards suggested in the "Up next" row. */
-    val upNext: StateFlow<List<UpNext>> = combine(store.cards, now) { all, time -> agenda.upNext(all, time) }
+    val upNext: StateFlow<List<UpNext>> = combine(cards, now) { shown, time -> agenda.upNext(shown, time) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val _stack = MutableStateFlow<List<Screen>>(listOf(Screen.Grid))
@@ -259,19 +269,15 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     fun openCard(cardId: String) = push(Screen.Code(cardId))
 
     /**
-     * The page order for a code screen opened at [cardId]: the legs of its
-     * trip, the grid's results, or the archive, whichever holds it.
+     * The pages of a code screen opened at [cardId]: its group (every
+     * passenger on one flight, every ticket for one show), or the card alone.
+     * An archived card pages through the archived members only.
      */
     fun pagesFor(cardId: String): List<String> {
         val card = store.get(cardId) ?: return emptyList()
-        val trip = Trips.legs(card, store.cards.value)
-        return when {
-            trip.size > 1 -> trip
-            visible.value.any { it.id == cardId } -> visible.value
-            favourites.value.any { it.id == cardId } -> favourites.value
-            archived.value.any { it.first.id == cardId } -> archived.value.map { it.first }
-            else -> listOf(card)
-        }.map { it.id }
+        val time = now.value
+        val archived = agenda.isArchived(card, time)
+        return CardGroups.members(card, store.cards.value.filter { agenda.isArchived(it, time) == archived }).map { it.id }
     }
 
     /** Opens a card from a launcher shortcut, widget or notification, on top of the grid. */
@@ -475,18 +481,27 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Deletes [cardId]; the snackbar offers undo. */
-    fun delete(cardId: String) {
+    fun delete(cardId: String) = delete(listOf(cardId))
+
+    /** Deletes a grid tile: the card and the rest of its group, such as every passenger's pass for one flight. */
+    fun deleteTile(cardId: String) {
+        val card = store.get(cardId) ?: return
+        delete(CardGroups.members(card, current.value).map { it.id })
+    }
+
+    private fun delete(ids: List<String>) {
         viewModelScope.launch {
-            val removed = store.delete(cardId, System.currentTimeMillis()) ?: return@launch
+            val removed = ids.mapNotNull { store.delete(it, System.currentTimeMillis()) }
+            if (removed.isEmpty()) return@launch
             draft.value = null
-            _stack.value = _stack.value.filterNot { it == Screen.Form || it == Screen.Code(cardId) }
+            _stack.value = _stack.value.filterNot { it == Screen.Form || it is Screen.Code && it.cardId in ids }
             events.send(UiEvent.Deleted(removed))
         }
     }
 
-    /** Restores a card deleted moments ago. */
-    fun undoDelete(card: Card) {
-        viewModelScope.launch { store.save(card.copy(deleted = false, updatedAt = System.currentTimeMillis())) }
+    /** Restores cards deleted moments ago. */
+    fun undoDelete(cards: List<Card>) {
+        viewModelScope.launch { cards.forEach { store.save(it.copy(deleted = false, updatedAt = System.currentTimeMillis())) } }
     }
 
     /** Moves a voucher or ticket to the archive; the snackbar offers undo. */
