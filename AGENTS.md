@@ -35,6 +35,7 @@ app/src/main/java/io/github/jsnjack/wallet/
     CardLooks.kt            Text contrast, palette, colour for a name, monograms, hex
     Brands.kt               Bundled shop list for name suggestions and colours
     CardList.kt             Grid order, search, favourites, quick access (favourites then most used)
+    ConnectProblem.kt       Google status codes → why turning on sync failed
     SyncPlan.kt             SyncRules: file names, newer-wins plan, duplicate files
     CardJson.kt             Card file format v2 (sync files, export bundle, database JSON columns)
     ExportCrypto.kt         Export file encryption: PBKDF2-HMAC-SHA256 + AES-256-GCM
@@ -217,10 +218,16 @@ never the code.
 - **Favourites rail plus favourites outside the app** (decided 2026-11-19
   from `docs/favourites.html`, ideas 2 + 4). Favourites reuse the `pinned`
   field, so the file format and database are unchanged. The rail sits above
-  the bottom bar and hides during a search; favourites leave the grid while
-  it shows them. Shortcuts, the favourites widget and the Quick Settings
+  the bottom bar, fills right to left like the grid, and hides during a
+  search; favourites also stay in the grid (the user prefers duplicates to
+  missing cards). Shortcuts, the favourites widget and the Quick Settings
   tile (when nothing is up next) use `CardList.quickAccess`: favourites,
   then the most used cards.
+- **Turning on sync explains itself.** `WalletViewModel.connect` tracks the
+  attempt; Settings and the first-run screen show "Connecting to Google…"
+  or the reason Google refused (`ConnectProblem`: not registered, Drive API
+  off, no network, other with Google's status code). Cancelling shows
+  nothing.
 - **Google Wallet import is by screenshot.** Google Wallet and Samsung
   Wallet offer no export to other apps; a screenshot of each card's barcode
   is read like any image, several at once.
@@ -262,3 +269,9 @@ never the code.
   runs from the ViewModel and logs and skips when the limit is hit.
 - HttpURLConnection has no PATCH; Drive updates use POST with
   `X-HTTP-Method-Override: PATCH`.
+- A Material snackbar with an action defaults to `Indefinite`; Undo
+  snackbars pass `SnackbarDuration.Long`.
+- A `ModalBottomSheet` is its own window and hides the screen's snackbar;
+  `WalletSheet` shows `LocalSnackbar` inside the sheet.
+- The phone used for testing holds the user's real cards: install with
+  `adb install -r` only, never uninstall or clear data.

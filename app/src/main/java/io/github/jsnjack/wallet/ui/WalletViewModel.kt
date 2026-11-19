@@ -9,7 +9,6 @@ import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.android.gms.common.api.CommonStatusCodes
 import com.google.android.gms.common.api.ApiException
 import io.github.jsnjack.wallet.LOG_TAG
 import io.github.jsnjack.wallet.R
@@ -53,6 +52,11 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
+import java.net.UnknownHostException
+import java.net.SocketTimeoutException
+import java.net.ConnectException
+import io.github.jsnjack.wallet.drive.DriveException
+import io.github.jsnjack.wallet.core.ConnectProblem
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -81,6 +85,18 @@ sealed interface Screen {
 
     /** Restore from Drive or start fresh. */
     data object FirstRun : Screen
+}
+
+/** Progress and outcome of turning on Drive sync. */
+sealed interface ConnectState {
+    /** Nothing in progress, or the user cancelled. */
+    data object Idle : ConnectState
+
+    /** Waiting for Google: the account picker, consent or the first sync. */
+    data object Connecting : ConnectState
+
+    /** Google refused or could not be reached; [code] is Google's status code, when there is one. */
+    data class Failed(val problem: ConnectProblem, val code: Int?) : ConnectState
 }
 
 /** One-off messages for the snackbar. */
@@ -139,10 +155,9 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     val favourites: StateFlow<List<Card>> = combine(cards, store.usage, CardList::favourites)
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    /** Cards in the grid: without a search the favourites live in the rail instead; a search covers every card. */
-    val visible: StateFlow<List<Card>> = combine(cards, query) { all, q ->
-        all.filter { CardList.matches(it, q) && (q.isNotBlank() || !it.pinned) }
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    /** Cards in the grid that match the search; favourites appear here as well as in the rail. */
+    val visible: StateFlow<List<Card>> = combine(cards, query) { all, q -> all.filter { CardList.matches(it, q) } }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** Archived cards, most recently archived first. */
     val archived: StateFlow<List<Pair<Card, LocalDateTime>>> = combine(store.cards, now) { all, time ->
@@ -181,6 +196,11 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Whether "today" notifications and reminders are on. */
     val notifications: StateFlow<Boolean> = settings.notifications
+
+    private val _connect = MutableStateFlow<ConnectState>(ConnectState.Idle)
+
+    /** Progress and outcome of turning on Drive sync, shown where the user turned it on. */
+    val connect: StateFlow<ConnectState> = _connect.asStateFlow()
 
     /** True while a restore, import or file read runs in the foreground. */
     val busy = MutableStateFlow(false)
@@ -521,11 +541,12 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Starts Drive access; may ask the activity to show Google's consent screen. */
     fun connectDrive() {
+        _connect.value = ConnectState.Connecting
         viewModelScope.launch {
             try {
                 handleAuth(DriveAuth.authorize(getApplication()))
             } catch (e: IOException) {
-                reportAuthFailure(e)
+                reportConnectFailure(e)
             }
         }
     }
@@ -536,15 +557,21 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 handleAuth(DriveAuth.afterConsent(getApplication(), data))
             } catch (e: IOException) {
-                reportAuthFailure(e)
+                reportConnectFailure(e)
             }
         }
     }
 
-    private suspend fun reportAuthFailure(e: IOException) {
-        Log.w(LOG_TAG, "Drive access not granted: ${e.message}")
-        val cancelled = (e.cause as? ApiException)?.statusCode == CommonStatusCodes.CANCELED
-        if (!cancelled) events.send(UiEvent.Message(R.string.message_drive_connect_failed))
+    private fun reportConnectFailure(e: IOException) {
+        Log.w(LOG_TAG, "Drive sync not turned on: ${e.message}")
+        val auth = e.cause as? ApiException
+        val problem = when {
+            auth != null -> ConnectProblem.fromAuthStatus(auth.statusCode)
+            e is DriveException -> ConnectProblem.fromHttpStatus(e.status)
+            e is UnknownHostException || e is ConnectException || e is SocketTimeoutException -> ConnectProblem.NETWORK
+            else -> ConnectProblem.OTHER
+        }
+        _connect.value = problem?.let { ConnectState.Failed(it, auth?.statusCode ?: (e as? DriveException)?.status) } ?: ConnectState.Idle
     }
 
     private suspend fun handleAuth(outcome: AuthOutcome) {
@@ -554,9 +581,10 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
                 busy.value = true
                 try {
                     sync.enable(outcome.token)
+                    _connect.value = ConnectState.Idle
                     if (_stack.value.lastOrNull() == Screen.FirstRun) finishFirstRun()
                 } catch (e: IOException) {
-                    events.send(UiEvent.Message(R.string.message_sync_failed))
+                    reportConnectFailure(e)
                 } finally {
                     busy.value = false
                 }

@@ -25,6 +25,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarData
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -33,6 +35,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -218,9 +221,16 @@ fun WalletSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Un
         shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp),
         containerColor = MaterialTheme.colorScheme.background,
     ) {
-        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = SCREEN_PADDING).padding(bottom = 8.dp), content = content)
+        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = SCREEN_PADDING).padding(bottom = 8.dp)) {
+            content()
+            // A sheet is its own window and covers the screen's snackbar, so it shows messages itself.
+            SnackbarHost(LocalSnackbar.current) { ToastSnackbar(it) }
+        }
     }
 }
+
+/** The app's snackbar, so sheets can show messages above themselves. */
+val LocalSnackbar = staticCompositionLocalOf { SnackbarHostState() }
 
 /** A full-width row in a sheet: an easy target for the thumb. */
 @Composable

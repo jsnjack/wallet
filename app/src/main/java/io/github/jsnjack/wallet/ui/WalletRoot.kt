@@ -19,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -26,6 +27,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -82,9 +84,11 @@ fun WalletRoot(vm: WalletViewModel) {
         vm.messages.collect { event ->
             when (event) {
                 is UiEvent.Deleted -> {
+                    // With an action Material keeps a snackbar until dismissed; Long lets it go after about 10 s.
                     val result = snackbar.showSnackbar(
                         resources.getString(R.string.message_deleted, event.card.name),
                         actionLabel = resources.getString(R.string.action_undo),
+                        duration = SnackbarDuration.Long,
                     )
                     if (result == SnackbarResult.ActionPerformed) vm.undoDelete(event.card)
                 }
@@ -92,6 +96,7 @@ fun WalletRoot(vm: WalletViewModel) {
                     val result = snackbar.showSnackbar(
                         resources.getString(R.string.message_marked_used, event.card.name),
                         actionLabel = resources.getString(R.string.action_undo),
+                        duration = SnackbarDuration.Long,
                     )
                     if (result == SnackbarResult.ActionPerformed) vm.restore(event.card.id)
                 }
@@ -102,32 +107,34 @@ fun WalletRoot(vm: WalletViewModel) {
     }
     BackHandler(enabled = stack.size > 1) { vm.back() }
 
-    Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
-        Box(Modifier.fillMaxSize()) {
-            // Settings and the archive are sheets: the screen below stays visible under them.
-            val top = stack.last()
-            val base = if (top in SHEET_SCREENS) stack.dropLast(1).lastOrNull() ?: Screen.Grid else top
-            when (base) {
-                Screen.Grid -> GridScreen(vm)
-                is Screen.Code -> CodeScreen(vm, base.cardId)
-                Screen.Scan -> ScanScreen(vm)
-                Screen.Form -> CardFormScreen(vm)
-                Screen.FirstRun -> FirstRunScreen(vm)
-                Screen.Archive, Screen.Settings -> GridScreen(vm)
+    CompositionLocalProvider(LocalSnackbar provides snackbar) {
+        Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxSize()) {
+                // Settings and the archive are sheets: the screen below stays visible under them.
+                val top = stack.last()
+                val base = if (top in SHEET_SCREENS) stack.dropLast(1).lastOrNull() ?: Screen.Grid else top
+                when (base) {
+                    Screen.Grid -> GridScreen(vm)
+                    is Screen.Code -> CodeScreen(vm, base.cardId)
+                    Screen.Scan -> ScanScreen(vm)
+                    Screen.Form -> CardFormScreen(vm)
+                    Screen.FirstRun -> FirstRunScreen(vm)
+                    Screen.Archive, Screen.Settings -> GridScreen(vm)
+                }
+                if (top == Screen.Settings) SettingsSheet(vm)
+                if (top == Screen.Archive) ArchiveSheet(vm)
+                if (busy && stack.last() != Screen.FirstRun) {
+                    CircularProgressIndicator(Modifier.align(Alignment.Center))
+                }
+                SnackbarHost(
+                    snackbar,
+                    Modifier.align(Alignment.BottomCenter).navigationBarsPadding().imePadding().padding(bottom = 68.dp),
+                ) { ToastSnackbar(it) }
             }
-            if (top == Screen.Settings) SettingsSheet(vm)
-            if (top == Screen.Archive) ArchiveSheet(vm)
-            if (busy && stack.last() != Screen.FirstRun) {
-                CircularProgressIndicator(Modifier.align(Alignment.Center))
-            }
-            SnackbarHost(
-                snackbar,
-                Modifier.align(Alignment.BottomCenter).navigationBarsPadding().imePadding().padding(bottom = 68.dp),
-            ) { ToastSnackbar(it) }
         }
-    }
 
-    choices?.let { codes -> CodeChooser(codes, onPick = vm::onScanned, onDismiss = vm::dismissChoices) }
+        choices?.let { codes -> CodeChooser(codes, onPick = vm::onScanned, onDismiss = vm::dismissChoices) }
+    }
 }
 
 private val SHEET_SCREENS = setOf(Screen.Settings, Screen.Archive)

@@ -172,7 +172,8 @@ private val RAIL_HEIGHT = 82.dp
 
 /**
  * Favourites in a fixed strip just above the bottom bar: always one tap
- * away, even when the grid above is scrolled. Scrolls sideways past four.
+ * away, even when the grid above is scrolled. Fills from the right and
+ * scrolls sideways past four.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -183,9 +184,11 @@ private fun FavouritesRail(cards: List<Card>, onOpen: (String) -> Unit, onMenu: 
         shadowElevation = 3.dp,
         modifier = Modifier.fillMaxWidth().padding(horizontal = SCREEN_PADDING).height(RAIL_HEIGHT - 8.dp),
     ) {
+        // Right to left like the grid: the first favourite sits by the right thumb.
         LazyRow(
+            reverseLayout = true,
             contentPadding = PaddingValues(7.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
         ) {
             items(cards, key = { it.id }) { card ->
                 MiniTile(

@@ -82,6 +82,12 @@
     <string name="sync_title">Sync with Google Drive</string>
     <string name="sync_off_body">Your cards are kept in a hidden folder in your Google Drive that only this app can see, so a new phone or a tablet gets them too.</string>
     <string name="sync_turn_on">Turn on sync</string>
+    <string name="sync_connecting">Connecting to Google…</string>
+    <string name="sync_problem_not_registered">Google refused access because this app is not registered for Google Drive yet. Set up its OAuth client as described in the README, then try again.</string>
+    <string name="sync_problem_api_disabled">Google refused access because the Drive API is switched off in this app\'s Google Cloud project.</string>
+    <string name="sync_problem_network">Google could not be reached. Check the connection and try again.</string>
+    <string name="sync_problem_other">Google returned an error. Try again later.</string>
+    <string name="sync_problem_code">Google status %d</string>
     <string name="sync_running">Syncing…</string>
     <string name="sync_done">Synced %s</string>
     <string name="sync_waiting">Waiting to sync</string>
@@ -121,8 +127,6 @@
     <string name="message_pin_unsupported">Your launcher cannot pin shortcuts.</string>
     <string name="message_no_screen_lock">Set up a screen lock or fingerprint first.</string>
     <string name="message_unlock_failed">The card could not be unlocked.</string>
-    <string name="message_drive_connect_failed">Could not connect to Google Drive.</string>
-    <string name="message_sync_failed">Connected, but the first sync failed. It will try again.</string>
     <string name="message_export_failed">The export could not be written.</string>
     <string name="message_import_failed">The file could not be read.</string>
     <string name="message_wrong_password">Wrong password.</string>

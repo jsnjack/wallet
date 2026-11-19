@@ -6,7 +6,11 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -41,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.jsnjack.wallet.R
+import io.github.jsnjack.wallet.core.ConnectProblem
 import io.github.jsnjack.wallet.core.Retention
 import io.github.jsnjack.wallet.drive.SyncProblem
 import io.github.jsnjack.wallet.drive.SyncStatus
@@ -56,6 +61,7 @@ private enum class PasswordFor { EXPORT, IMPORT }
 fun SettingsSheet(vm: WalletViewModel) {
     val sync by vm.syncStatus.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
+    val connect by vm.connect.collectAsStateWithLifecycle()
     var passwordFor by remember { mutableStateOf<PasswordFor?>(null) }
     var target by remember { mutableStateOf<Uri?>(null) }
     val context = LocalContext.current
@@ -88,7 +94,7 @@ fun SettingsSheet(vm: WalletViewModel) {
             Modifier.verticalScroll(rememberScrollState()).padding(bottom = 8.dp),
             verticalArrangement = Arrangement.spacedBy(GROUP_GAP),
         ) {
-            SyncGroup(sync, busy, vm)
+            SyncGroup(sync, busy, connect, vm)
             Group {
                 GroupRow(
                     stringResource(R.string.settings_google_wallet),
@@ -157,6 +163,39 @@ fun SettingsSheet(vm: WalletViewModel) {
     }
 }
 
+/**
+ * What happened after "Turn on sync": a spinner while Google is asked, or a
+ * plain explanation when it refused. Nothing when idle or cancelled.
+ */
+@Composable
+fun ConnectStatus(state: ConnectState) {
+    when (state) {
+        ConnectState.Idle -> Unit
+        ConnectState.Connecting -> Row(verticalAlignment = Alignment.CenterVertically) {
+            CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(10.dp))
+            Text(stringResource(R.string.sync_connecting), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        is ConnectState.Failed -> Column {
+            Text(
+                stringResource(
+                    when (state.problem) {
+                        ConnectProblem.NOT_REGISTERED -> R.string.sync_problem_not_registered
+                        ConnectProblem.API_DISABLED -> R.string.sync_problem_api_disabled
+                        ConnectProblem.NETWORK -> R.string.sync_problem_network
+                        ConnectProblem.OTHER -> R.string.sync_problem_other
+                    },
+                ),
+                fontSize = 14.sp,
+                color = colorResource(R.color.danger),
+            )
+            state.code?.let {
+                Text(stringResource(R.string.sync_problem_code, it), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
 /** The label for an archive retention choice. */
 fun retentionLabel(value: Retention): Int = when (value) {
     Retention.THREE_MONTHS -> R.string.retention_three_months
@@ -165,13 +204,14 @@ fun retentionLabel(value: Retention): Int = when (value) {
 }
 
 @Composable
-private fun SyncGroup(sync: SyncStatus, busy: Boolean, vm: WalletViewModel) {
+private fun SyncGroup(sync: SyncStatus, busy: Boolean, connect: ConnectState, vm: WalletViewModel) {
     if (!sync.enabled) {
         Group {
             Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.sync_title), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                 Text(stringResource(R.string.sync_off_body), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
-                Button(onClick = vm::connectDrive, enabled = !busy) { Text(stringResource(R.string.sync_turn_on)) }
+                Button(onClick = vm::connectDrive, enabled = !busy && connect != ConnectState.Connecting) { Text(stringResource(R.string.sync_turn_on)) }
+                ConnectStatus(connect)
             }
         }
         return
@@ -184,6 +224,9 @@ private fun SyncGroup(sync: SyncStatus, busy: Boolean, vm: WalletViewModel) {
         else -> stringResource(R.string.sync_waiting) to colorResource(R.color.muted)
     }
     Group {
+        if (connect is ConnectState.Failed) {
+            Box(Modifier.padding(start = 18.dp, end = 18.dp, top = 14.dp)) { ConnectStatus(connect) }
+        }
         GroupRow(title, sync.account ?: stringResource(R.string.sync_account_unknown), titleColor = tint) {
             if (sync.running || busy) CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
         }

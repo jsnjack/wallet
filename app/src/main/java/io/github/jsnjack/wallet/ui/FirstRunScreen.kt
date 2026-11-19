@@ -37,6 +37,7 @@ import io.github.jsnjack.wallet.core.Brands
 @Composable
 fun FirstRunScreen(vm: WalletViewModel) {
     val busy by vm.busy.collectAsStateWithLifecycle()
+    val connect by vm.connect.collectAsStateWithLifecycle()
     val examples = listOf("Albert Heijn", "Jumbo", "IKEA Family").mapNotNull(Brands::exact)
     Column(
         Modifier
@@ -97,6 +98,7 @@ fun FirstRunScreen(vm: WalletViewModel) {
             ) {
                 Text(stringResource(R.string.first_run_fresh))
             }
+            ConnectStatus(connect)
             Text(
                 stringResource(R.string.first_run_later),
                 fontSize = 12.sp,
