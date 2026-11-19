@@ -2,9 +2,8 @@
 
 An Android app for loyalty cards, vouchers, tickets and boarding passes.
 Cards are stored on the phone and open in one tap, with the code at full
-screen brightness.
-Sync through a hidden folder in your Google Drive keeps a second phone or a
-tablet up to date. The design and the plan for later versions are in
+screen brightness. Your phone's Google backup keeps a copy, with nothing to
+set up. The design and the plan for later versions are in
 `docs/design-options.html`.
 
 ## Using it
@@ -62,8 +61,18 @@ card in Google Wallet, take a screenshot of its barcode, then use Settings →
 "Import Google Wallet screenshots" (or share the screenshots to Wallet). The
 form opens for each card in turn so you can name it.
 
-Settings turns on Google Drive sync and exports or imports all cards as one
-file encrypted with a password.
+Settings exports or imports all cards as one file encrypted with a password.
+
+## Backup
+
+Your phone's Google backup includes Wallet with no setup: the cards and
+settings go to your Google account about once a day (when the phone is idle,
+charging and on Wi-Fi) and come back by themselves when you set up a new
+phone or reinstall Wallet. `adb shell bmgr backupnow io.github.jsnjack.wallet`
+runs it at once. A backup only restores into a Wallet signed with the same
+key, so keep a copy of the signing key (`~/.android/debug.keystore` for local
+builds). An export gives an extra copy you can keep anywhere, and moves cards
+to a build signed with another key: export, uninstall, install, import.
 
 ## Building
 
@@ -86,39 +95,17 @@ sdkmanager 'platform-tools' 'platforms;android-37.0' 'build-tools;37.0.0'
 
 The app supports Android 13 and newer (`minSdk` 33) and is built for a
 Galaxy phone on One UI 9 (Android 17). It asks for the camera, to scan
-cards, and uses the network only for Google Drive sync.
+cards, and uses the network only for live flight info, when you add a key.
 
 ```bash
 make check     # build, unit tests and Android lint
 make install   # build bin/wallet.apk and install it over adb
-make logs      # sync and error log lines
+make logs      # the app's log lines (counts and errors, no card data)
 make airports  # refresh the bundled airport table from OurAirports
 ```
 
 The app asks for the notification permission the first time you save a card
 with a date, for the "today" notification and reminders.
-
-## Google Drive sync setup
-
-Drive access needs a Google Cloud project that identifies the app. This is
-a one-off step:
-
-1. Create a project in the Google Cloud console and enable the Google Drive API.
-2. Configure the OAuth consent screen as External, with only the
-   `https://www.googleapis.com/auth/drive.appdata` scope.
-3. Create an Android OAuth client with the package name
-   `io.github.jsnjack.wallet` and the SHA-1 fingerprint of the signing key.
-   For the debug key: `keytool -list -v -keystore ~/.android/debug.keystore -storepass android`.
-4. Set the consent screen's publishing status to "In production". In
-   "Testing" status Google drops the app's access seven days after you
-   approve it, and sync stops.
-
-Until this is done, "Turn on sync" says the app is not registered (Google
-reports it as status 8). The SHA-1 must be the one of the key that signed the
-installed app; `apksigner verify --print-certs bin/wallet.apk` prints it.
-
-The `drive.appdata` scope is non-sensitive, so publishing should not need
-Google's app review.
 
 ## Live flight info setup
 
@@ -136,9 +123,7 @@ hour, and once after landing, about a dozen lookups per flight; one lookup
 serves every passenger on the flight. Opening the pass on the day asks again
 when the information is more than ten minutes old. Only the flight number
 and date are sent. The key is kept with the app's settings, so Android
-backup and phone transfer carry it, and it syncs to your other devices
-through Drive. Each device counts its own lookups, so two devices with the
-key share one allowance.
+backup and phone transfer carry it to a new phone.
 
 ## Releases
 

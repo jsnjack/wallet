@@ -3,15 +3,13 @@ package io.github.jsnjack.wallet.store
 import android.content.Context
 import androidx.core.content.edit
 import io.github.jsnjack.wallet.core.Retention
-import io.github.jsnjack.wallet.core.SyncedSettings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Archive and notification preferences, kept on this device, and the
- * flight-status key, which also syncs through Drive ([SyncedSettings]).
- * Android backup and phone transfer carry all of them.
+ * Archive and notification preferences and the flight-status key, kept on
+ * this device; Android backup and phone transfer carry them.
  */
 class AppSettings(context: Context) {
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -48,19 +46,11 @@ class AppSettings(context: Context) {
         _notifications.value = enabled
     }
 
-    /** Sets the flight-status key at [now]; the newer key wins on other devices. */
-    fun setFlightKey(key: String, now: Long) = applySynced(SyncedSettings(flightApiKey = key.trim(), updatedAt = now))
-
-    /** The settings that sync through Drive, with the time they last changed here (0 when never). */
-    fun synced(): SyncedSettings = SyncedSettings(flightApiKey = _flightKey.value, updatedAt = prefs.getLong(KEY_SYNCED_AT, 0L))
-
-    /** Takes settings that arrived through sync, or were changed here. */
-    fun applySynced(settings: SyncedSettings) {
-        prefs.edit {
-            putString(KEY_FLIGHT_KEY, settings.flightApiKey)
-            putLong(KEY_SYNCED_AT, settings.updatedAt)
-        }
-        _flightKey.value = settings.flightApiKey
+    /** Sets the flight-status key; a blank key turns live flight info off. */
+    fun setFlightKey(key: String) {
+        val trimmed = key.trim()
+        prefs.edit { putString(KEY_FLIGHT_KEY, trimmed) }
+        _flightKey.value = trimmed
     }
 
     private fun readRetention(): Retention =
@@ -72,6 +62,5 @@ class AppSettings(context: Context) {
         const val KEY_NOTIFICATIONS = "notifications"
         const val KEY_POSTED_REMINDERS = "posted_reminders"
         const val KEY_FLIGHT_KEY = "flight_api_key"
-        const val KEY_SYNCED_AT = "synced_settings_at"
     }
 }

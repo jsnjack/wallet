@@ -7,8 +7,8 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
 /**
- * The card file format, shared by Drive sync and the export file. Version 2
- * added the fields after `deleted`; version 1 files read with their defaults.
+ * The card format inside export files. Version 2 added the fields after
+ * `deleted`; version 1 cards read with their defaults.
  */
 @Serializable
 data class CardDto(
@@ -58,9 +58,9 @@ private data class ExportBundle(
     val cards: List<CardDto>,
 )
 
-/** Converts cards to and from the JSON stored in Drive, in export files and in database columns. */
+/** Converts cards to and from the JSON in export files and in database columns. */
 object CardJson {
-    /** Format version written into every file. */
+    /** Format version written into every card and export file. */
     const val FORMAT_VERSION = 2
 
     private val json = Json {
@@ -68,18 +68,6 @@ object CardJson {
         encodeDefaults = true
     }
     private val detailList = ListSerializer(DetailDto.serializer())
-
-    /** The JSON for one synced card file. */
-    fun encode(card: Card): String = json.encodeToString(CardDto.serializer(), card.toDto())
-
-    /** One synced card file, or null when it is unreadable or uses a format this version cannot draw. */
-    fun decode(text: String): Card? = try {
-        json.decodeFromString(CardDto.serializer(), text).toCard()
-    } catch (e: SerializationException) {
-        null
-    } catch (e: IllegalArgumentException) {
-        null
-    }
 
     /** The JSON inside an export file. */
     fun encodeExport(cards: List<Card>, exportedAt: Long): String =

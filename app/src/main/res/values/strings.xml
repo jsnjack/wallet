@@ -88,18 +88,16 @@
     <string name="form_code_not_drawable">This number cannot be shown as %s. Pick another code type.</string>
 
     <string name="settings_title">Settings</string>
+    <string name="settings_backup">Backup</string>
+    <string name="settings_backup_detail">Your phone\'s Google backup includes your cards and settings and brings them back on a new phone or after reinstalling. Export saves an extra copy.</string>
     <string name="settings_export">Export cards</string>
     <string name="settings_export_detail">One file with all cards, encrypted with a password. It works without Google.</string>
     <string name="settings_import">Import cards</string>
     <string name="settings_import_detail">Cards newer than the ones on this phone are added or updated.</string>
     <string name="settings_version">Version %s</string>
     <string name="export_file_name">wallet-%s.wallet</string>
-
-    <string name="sync_title">Sync with Google Drive</string>
-    <string name="sync_off_body">Your cards are kept in a hidden folder in your Google Drive that only this app can see, so a new phone or a tablet gets them too.</string>
-    <string name="sync_turn_on">Turn on sync</string>
     <string name="flights_title">Live flight info</string>
-    <string name="flights_body">Gate, terminal, delays and status on boarding passes, from AeroDataBox. Create a free account at rapidapi.com, subscribe to AeroDataBox\'s Basic plan and paste your key here. Only the flight number and date are sent; the key syncs to your other devices with your cards.</string>
+    <string name="flights_body">Gate, terminal, delays and status on boarding passes, from AeroDataBox. Create a free account at rapidapi.com, subscribe to AeroDataBox\'s Basic plan and paste your key here. Only the flight number and date are sent. The key is kept in your phone\'s Google backup.</string>
     <string name="flights_key_label">RapidAPI key</string>
     <string name="flights_save">Save key</string>
     <string name="flights_key_saved">Key ending in %s</string>
@@ -114,28 +112,6 @@
         <item quantity="one">%1$d of %2$d lookup used this month</item>
         <item quantity="other">%1$d of %2$d lookups used this month</item>
     </plurals>
-    <string name="sync_connecting">Connecting to Google…</string>
-    <string name="sync_problem_not_registered">Google refused access because this app is not registered for Google Drive yet. Set up its OAuth client as described in the README, then try again.</string>
-    <string name="sync_problem_api_disabled">Google refused access because the Drive API is switched off in this app\'s Google Cloud project.</string>
-    <string name="sync_problem_network">Google could not be reached. Check the connection and try again.</string>
-    <string name="sync_problem_other">Google returned an error. Try again later.</string>
-    <string name="sync_problem_code">Google status %d</string>
-    <string name="sync_running">Syncing…</string>
-    <string name="sync_done">Synced %s</string>
-    <string name="sync_waiting">Waiting to sync</string>
-    <string name="sync_failed">The last sync failed. It will try again.</string>
-    <string name="sync_needs_sign_in">Google needs you to approve access again.</string>
-    <string name="sync_sign_in_again">Approve access</string>
-    <string name="sync_account_unknown">Google account</string>
-    <string name="sync_now">Sync now</string>
-    <string name="sync_mobile_data">Use mobile data</string>
-    <string name="sync_mobile_data_detail">Otherwise sync waits for Wi-Fi.</string>
-    <string name="sync_turn_off">Turn off sync</string>
-    <string name="sync_turn_off_detail">Cards stay on this phone and in Drive.</string>
-    <string name="sync_running_short">syncing</string>
-    <string name="sync_done_short">synced</string>
-    <string name="sync_failed_short">sync failed</string>
-    <string name="sync_needs_sign_in_short">sync needs approval</string>
 
     <string name="password_export_title">Export password</string>
     <string name="password_export_body">You need this password to import the file. It cannot be recovered.</string>
@@ -146,13 +122,6 @@
         <item quantity="one">Use at least %d character.</item>
         <item quantity="other">Use at least %d characters.</item>
     </plurals>
-
-    <string name="first_run_title">All your cards, one tap away</string>
-    <string name="first_run_body">Loyalty cards, vouchers and tickets, stored on this phone and synced through your Google Drive.</string>
-    <string name="first_run_restore">Restore from Google Drive</string>
-    <string name="first_run_restoring">Restoring…</string>
-    <string name="first_run_fresh">Start fresh</string>
-    <string name="first_run_later">You can turn on sync later in Settings.</string>
 
     <string name="message_deleted">%s deleted</string>
     <string name="message_unsupported_code">This code type is not supported yet.</string>

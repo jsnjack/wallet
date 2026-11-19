@@ -15,7 +15,7 @@ import io.github.jsnjack.wallet.core.DayTime
 import io.github.jsnjack.wallet.core.CodeFormat
 import io.github.jsnjack.wallet.core.Usage
 
-/** SQLite tables for cards (synced) and usage counts (this device only). Call from IO threads. */
+/** SQLite tables for cards and usage counts. Call from IO threads. */
 internal class CardDatabase(context: Context) : SQLiteOpenHelper(context, NAME, null, VERSION) {
 
     override fun onCreate(db: SQLiteDatabase) {

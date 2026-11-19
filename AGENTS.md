@@ -9,8 +9,8 @@
 
 `wallet` is an Android app (Kotlin, Jetpack Compose, personal sideload) for
 loyalty cards, vouchers, gift cards, tickets and boarding passes. Cards live
-in a local SQLite database and open in one tap at full brightness; Google
-Drive's hidden app folder keeps other devices in step. Time-based rules
+in a local SQLite database and open in one tap at full brightness; the
+phone's Google backup keeps a copy. Time-based rules
 archive used and past cards and surface the card needed next in the grid,
 a notification, two widgets and a Quick Settings tile. It is built for a
 Galaxy A56 on One UI 9 (Android 17). The design, decisions and plan are in
@@ -36,25 +36,17 @@ app/src/main/java/io/github/jsnjack/wallet/
     CardLooks.kt            Text contrast, palette, colour for a name, monograms, hex
     Brands.kt               Bundled shop list for name suggestions and colours
     CardList.kt             Grid order, search, favourites, quick access (favourites then most used)
-    ConnectProblem.kt       Google status codes → why turning on sync failed
-    SyncPlan.kt             SyncRules: card and settings file names, newer-wins plan, duplicate files
-    SyncedSettings.kt       Settings that sync through Drive (the flight-status key), one file
     LiveFlight.kt           FlightRef (one flight on one day), LiveFlight, FlightCheck, LookupProblem
     AeroDataBox.kt          AeroDataBox flight status JSON → LiveFlight
     FlightLookups.kt        When to look a flight up, monthly allowance, changes worth an alert
     FlightProgress.kt       A flight's day as a 0–100 progress bar, and when to redraw it
-    CardJson.kt             Card file format v2 (sync files, export bundle, database JSON columns)
+    CardJson.kt             Card format v2 (export bundle, database JSON columns)
     ExportCrypto.kt         Export file encryption: PBKDF2-HMAC-SHA256 + AES-256-GCM
   store/
-    CardDatabase.kt         SQLiteOpenHelper v2: cards (synced) and usage (this device only)
+    CardDatabase.kt         SQLiteOpenHelper v2: cards and usage counts
     CardStore.kt            In-memory cards with write-through, StateFlows for the UI
     AppSettings.kt          Archive retention, notifications, reminders already posted, flight-status key
-    FlightStore.kt          Latest lookup per flight and this month's lookup count (this device only)
-  drive/
-    DriveAuth.kt            Play services AuthorizationClient for the drive.appdata scope
-    DriveClient.kt          Drive REST v3 over HttpURLConnection: list, download, create, update
-    SyncController.kt       Sync runs, status, WorkManager scheduling, sync preferences
-    SyncWorker.kt           Background run; silent authorization only
+    FlightStore.kt          Latest lookup per flight and this month's lookup count
   flight/
     AeroDataBoxClient.kt    RapidAPI GET for a flight or a key check; LookupRefused for bad key or used-up quota
     FlightUpdater.kt        Due lookups (FlightWorker), lookup on opening a pass, key check, scheduling
@@ -74,16 +66,16 @@ app/src/main/java/io/github/jsnjack/wallet/
     WalletTileService.kt    Quick Settings tile
   ui/
     WalletViewModel.kt      Screen stack, actions, imports, snackbar events, export/import
-    WalletRoot.kt           Shows the top screen, snackbar, Google consent launcher
+    WalletRoot.kt           Shows the top screen, snackbar, code chooser, notification permission request
     GridScreen.kt           Bottom-up grid, favourites rail, Now Bar, ⋯ and long-press sheets
-    CodeScreen.kt, ScanScreen.kt, CardFormScreen.kt, FirstRunScreen.kt
+    CodeScreen.kt, ScanScreen.kt, CardFormScreen.kt
     ArchiveScreen.kt, SettingsScreen.kt   Full-height bottom sheets (ArchiveSheet, SettingsSheet)
     CardParts.kt            Big-type CardTile and MiniTile, pixel-exact CodeImage, DetailGrid, dates, usage text
     OneUi.kt                One UI parts: TitleBar, Group/GroupRow, WalletSwitch, WalletChip, WalletField, ToastSnackbar,
                             WalletSheet, SheetRow, ConfirmSheet, BottomButtons
     Theme.kt                Material 3 scheme and shapes from res/values(-night)/colors.xml (One UI teal)
   MainActivity.kt           Compose host; routes shortcut and share intents; holds the first frame until cards load
-  WalletApplication.kt      Lazy CardStore and SyncController; on-demand WorkManager
+  WalletApplication.kt      Lazy CardStore, settings, flight lookups and surfaces; on-demand WorkManager
 app/src/main/assets/airports.tsv   Bundled airport table (make airports)
 scripts/airports.sh                Builds it from OurAirports (public domain)
 docs/design-options.html           Design, decisions and roadmap (bunk-gui page)
@@ -94,8 +86,8 @@ docs/flight-info.html              Live flight info: services compared, AeroData
 ```
 
 External services:
-- Google Play services (`AuthorizationClient`) for Drive access.
-- `www.googleapis.com/drive/v3` and `/upload/drive/v3`, app data folder only.
+- Android's Google backup (Auto Backup, `data_extraction_rules.xml`): the
+  card database and settings, about once a day; no code of our own.
 - `aerodatabox.p.rapidapi.com` (AeroDataBox through RapidAPI) with the
   user's own key: flight status by number and date, and an airport lookup
   to check the key.
@@ -117,29 +109,22 @@ External services:
    A scanned, imported or saved code keeps its type behind "Change code
    type", because changing it can make the card unreadable at the till.
    Saving a new card opens its code screen.
-3. **Sync.** `CardStore` calls `SyncController.onLocalChange` after user
-   changes, which schedules `SyncWorker` 5 s later (unique work, replaced on
-   each change); the app also asks for a run at start and every 6 hours.
-   A run lists the app folder, compares each card's `updatedAt`
-   (stored in the file's `appProperties`) with the local one, downloads
-   newer remote cards and uploads newer local ones. `settings.json`
-   (`SyncedSettings`, the flight-status key) follows the same rule.
-4. **Delete.** A deleted card becomes a blank tombstone (`Card.tombstone`)
-   that syncs like any card; undo saves the old card again with a new time.
-5. **Import a file.** Shared or picked files go to `WalletViewModel.importFile`,
+3. **Delete.** A deleted card becomes a blank tombstone (`Card.tombstone`),
+   hidden everywhere; undo saves the old card again with a new time.
+4. **Import a file.** Shared or picked files go to `WalletViewModel.importFile`,
    which sniffs the bytes: a zip is read by `Pkpass`, `%PDF` pages are
    rendered and read by `CodeReader.readPdf`, anything else is read as an
    image. Several codes open a chooser. `importScreenshots` reads many
    images (the Google Wallet route) and queues one form per card found.
-6. **Archive and agenda.** `Agenda` decides from `usedAt`, `expires` and,
+5. **Archive and agenda.** `Agenda` decides from `usedAt`, `expires` and,
    for tickets and boarding passes, `event` whether a card is archived; the
    ViewModel ticks a clock every minute. `Surfaces.refresh` runs after card
-   changes (debounced), after a sync that downloaded cards, from widget
-   updates and from `AgendaWorker`, which it schedules for
+   changes (debounced), after flight lookups, from widget updates and from
+   `AgendaWorker`, which it schedules for
    `Agenda.nextChange` (at least next midnight). It deletes cards past the
    retention, posts or cancels notifications, redraws widgets and asks the
    tile to refresh, then has `FlightUpdater` schedule the next lookup.
-7. **Live flight info.** With a key in Settings, `FlightUpdater.schedule`
+6. **Live flight info.** With a key in Settings, `FlightUpdater.schedule`
    finds the earliest lookup `FlightLookups.next` asks for among current
    boarding passes (grouped by `FlightRef`) and enqueues `FlightWorker`
    (unique work "flights", network required). `runDue` looks up what is
@@ -152,7 +137,7 @@ External services:
    newer the "today" notification for a flight carries a
    `Notification.ProgressStyle` bar from `FlightProgress`; `Surfaces`
    schedules `AgendaWorker` every 10 minutes while the bar moves.
-8. **Share a card.** The long-press menu and the code screen call
+7. **Share a card.** The long-press menu and the code screen call
    `WalletViewModel.shareCard`: `CardShare` draws the name, the code at
    whole pixels with a quiet zone, and the number into a PNG in
    `cache/shared/`, served by the FileProvider `<applicationId>.files`, and
@@ -184,22 +169,24 @@ Version: `make build` passes `-PappVersion` from `monova`;
 without the property the version is 0.0.1, code 1, for local use only.
 
 Supported: Android 13+ (`minSdk` 33), target 37. Permissions: camera,
-internet (Drive and AeroDataBox), biometric, notifications, promoted notifications
+internet (AeroDataBox), biometric, notifications, promoted notifications
 (Live Updates). Tested over adb on a Galaxy A56 (SM-A566B, One UI 9,
 Android 17): the screens in light and dark mode, the v1 → v2 database
 upgrade, image, multi-screenshot, PDF and .pkpass import, boarding pass
 reading, "Up next", the promoted "today" notification, voucher "Mark as
-used" and the archive. Not yet tested on a device: camera scanning of a
-real card, biometric unlock, Drive sync (needs the Google Cloud setup)
-and the widgets. The Quick Settings tile was tested with
+used", the archive, search, the Settings sections and a Google backup run
+(`bmgr backupnow`). Not yet tested on a device: camera scanning of a real
+card, biometric unlock, the widgets, sharing, the flight progress bar and
+live flight info. The Quick Settings tile was tested with
 `cmd statusbar add-tile` / `click-tile` and removed again.
 
 Signing: local builds use the debug keystore. A dedicated app key is still
-to be created before the first F-Droid release (AGENTS.android.md); the
-Google OAuth client must list the SHA-1 of every key that signs an
-installed build.
+to be created before the first F-Droid release (AGENTS.android.md). Google
+backup restores only into a build signed with the same key, and Android
+refuses an update signed with another key; moving the installed app to a
+new key means export, uninstall, install, import.
 
-Logging: tag `Wallet`. Log sync counts, HTTP status codes and error
+Logging: tag `Wallet`. Log counts, HTTP status codes and error
 messages only; card names, numbers, notes and account addresses are
 personal data and are never logged. `CodeMatrix` errors name the format,
 never the code. Flight lookups log the flight's state and HTTP statuses,
@@ -212,23 +199,20 @@ because their messages quote the response.
 
 - **Local first.** The SQLite database is the main copy and all cards are
   held in memory, so nothing on the path from icon to code waits for disk
-  scans or the network. Sync runs after the first frame.
+  scans or the network.
 - **Framework SQLite, not Room.** One table of a few hundred rows read once
   at start; Room's annotation processor would add build complexity with no
-  query to gain from. Usage counts are a separate table and never synced,
-  because they change on every view.
-- **One Drive file per card, newer wins.** `appProperties.updatedAt` lets a
-  sync decide from the listing alone. Same-card edits on two devices keep
-  the later one; a merge screen would be overkill for one person.
-- **No passphrase for sync** (decided 2026-11-19). Drive files are plain
-  JSON protected by the Google account. Per-card files keep client-side
-  encryption possible later without changing the sync design. Export files
-  are always password-encrypted because they can end up anywhere.
-- **Only the `drive.appdata` scope.** Non-sensitive, so no Google review;
-  the consent screen must be "In production" or access expires after 7 days.
-- **No Credential Manager or Google Drive client library.**
-  `AuthorizationClient` picks the account and grants the scope in one step,
-  and four REST calls do not justify the Drive client's size.
+  query to gain from. Usage counts are a separate table because they change
+  on every view.
+- **Google backup instead of Drive sync** (decided 2026-11-19). Drive sync
+  needed a Google Cloud project with an OAuth client before it could work,
+  and the user wants no setup. `data_extraction_rules.xml` puts `wallet.db`
+  and all shared preferences into Android's cloud backup and device
+  transfer, which restore on a new phone or a reinstall signed with the
+  same key; a first `bmgr backupnow` run succeeded on the phone. The sync
+  code, the first-run "Restore from Google Drive" screen and Play services
+  were removed; one phone needs no live sync. Export files are always
+  password-encrypted because they can end up anywhere.
 - **Pixel-exact codes.** `CodeMatrix` encodes with no margin;
   `CodeImage` scales by whole pixels with no filtering, on a white panel in
   both themes. QR codes get a UTF-8 charset hint only for non-Latin-1 text,
@@ -275,39 +259,28 @@ because their messages quote the response.
   missing cards). Shortcuts, the favourites widget and the Quick Settings
   tile (when nothing is up next) use `CardList.quickAccess`: favourites,
   then the most used cards.
-- **Turning on sync explains itself.** `WalletViewModel.connect` tracks the
-  attempt; Settings and the first-run screen show "Connecting to Google…"
-  or the reason Google refused (`ConnectProblem`: not registered, Drive API
-  off, no network, other with Google's status code). Cancelling shows
-  nothing.
 - **Google Wallet import is by screenshot.** Google Wallet and Samsung
   Wallet offer no export to other apps; a screenshot of each card's barcode
   is read like any image, several at once.
 - **Archive is derived, not stored.** Only "used at" is stored; expiry and
   past events are computed from dates each time, so changing a date moves a
-  card in or out of the archive. Retention deletes create tombstones that
-  sync.
+  card in or out of the archive. Retention deletes create tombstones.
 - **Widgets use RemoteViews, not Glance.** Two small fixed layouts do not
   justify the Glance dependency; tiles are tinted with
   `setBackgroundTintList`.
-- **File format v2 is additive.** New fields have defaults, so v1 files read
-  fine; a v1 app ignores the new fields and drops them when it re-uploads a
-  card, so update all devices together.
+- **Card format v2 is additive.** New fields have defaults, so v1 export
+  files read fine.
 - **Brand list is approximate.** `Brands.ALL` holds names and approximate
   colours only, never number prefixes, so nothing guesses a shop from a
   number.
-
----
-
 - **Live flight info from AeroDataBox with the user's key** (decided
   2026-11-19 from `docs/flight-info.html`). Free RapidAPI Basic plan: 400
   units a month, 2 per flight lookup, so 200 lookups; gate, terminal,
   check-in desk, belt, revised and predicted times and status in one call,
-  for every airport. The key is pasted in Settings and syncs through Drive
-  in `settings.json` (the user's choice over one key per phone); a key
-  built into the APK would be public and missing from F-Droid builds. Live
-  results stay on the device and never sync: they change every few minutes.
-  Each device counts its own lookups.
+  for every airport. The key is pasted in Settings and kept with the app's
+  settings, so Google backup carries it; a key built into the APK would be
+  public and missing from F-Droid builds. Live results and the monthly count
+  stay on the device.
 - **A shared card is a picture, not a file format** (decided 2026-11-19).
   Anyone can show the picture at a till without the app, Wallet imports it
   with the existing image route, and no import format has to stay stable.
@@ -319,6 +292,8 @@ because their messages quote the response.
   once 10 minutes after the expected landing; a flight the service does not
   know is tried once more at 06:00 on the day. About 12–15 lookups per
   flight, shared by every passenger on it.
+
+---
 
 ## Gotchas
 
@@ -334,10 +309,6 @@ because their messages quote the response.
 - `Surfaces.refresh` schedules `AgendaWorker` with REPLACE last, after
   `FlightUpdater.schedule`: when AgendaWorker runs the refresh, the REPLACE
   cancels it, and any later suspending call would not run.
-- Google's authorization API reports an unregistered app (no OAuth client
-  for the package and signing SHA-1) as status 8, INTERNAL_ERROR; the real
-  reason is only in the Play services log (tag `Auth`, "not registered to
-  use OAuth2.0"). `ConnectProblem` treats 8 like 10 as not registered.
 - `Intent.setClipData` returns nothing, so it cannot be chained; the share
   intent sets the clip separately so the read grant reaches the app picked
   in the chooser.
@@ -349,15 +320,12 @@ because their messages quote the response.
   `AeroDataBox.localTime` reads the wall-clock part of either form.
 - `Notification.Builder.setRequestPromotedOngoing` is API 36.1: guard with
   `SDK_INT_FULL >= VERSION_CODES_FULL.BAKLAVA_1`, not `SDK_INT >= 36`.
-
 - `ProcessCameraProvider.awaitInstance` is an extension function; it needs
   `import androidx.camera.lifecycle.awaitInstance`.
 - zxing-cpp builds its Kotlin result classes from native code;
   `proguard-rules.pro` keeps `zxingcpp.**` for minified builds.
 - Shortcut updates are rate-limited for background apps; `Shortcuts.update`
   runs from the ViewModel and logs and skips when the limit is hit.
-- HttpURLConnection has no PATCH; Drive updates use POST with
-  `X-HTTP-Method-Override: PATCH`.
 - A Material snackbar with an action defaults to `Indefinite`; Undo
   snackbars pass `SnackbarDuration.Long`.
 - A `ModalBottomSheet` is its own window and hides the screen's snackbar;

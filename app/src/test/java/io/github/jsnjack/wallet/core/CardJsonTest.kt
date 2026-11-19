@@ -12,36 +12,41 @@ class CardJsonTest {
         color = 0xFF00A0E2.toInt(), note = "family", pinned = true, locked = false, createdAt = 100, updatedAt = 200,
     )
 
+    private fun roundTrip(card: Card): Card? = CardJson.decodeExport(CardJson.encodeExport(listOf(card), 1)).singleOrNull()
+
+    private fun export(cardJson: String) = """{"v":2,"exportedAt":1,"cards":[$cardJson]}"""
+
     @Test
     fun cardRoundTrips() {
-        assertEquals(card, CardJson.decode(CardJson.encode(card)))
+        assertEquals(card, roundTrip(card))
     }
 
     @Test
-    fun tombstoneRoundTripsWithoutItsContent() {
+    fun tombstoneKeepsNoContent() {
         val tombstone = card.tombstone(300)
-        val decoded = CardJson.decode(CardJson.encode(tombstone))!!
-        assertEquals(true, decoded.deleted)
-        assertEquals("", decoded.code)
-        assertEquals("", decoded.pin)
-        assertEquals(300L, decoded.updatedAt)
+        assertEquals(true, tombstone.deleted)
+        assertEquals("", tombstone.code)
+        assertEquals("", tombstone.pin)
+        assertEquals(300L, tombstone.updatedAt)
     }
 
     @Test
     fun unknownFormatIsSkipped() {
-        val text = CardJson.encode(card).replace("\"EAN_13\"", "\"DOT_CODE\"")
-        assertNull(CardJson.decode(text))
+        val text = CardJson.encodeExport(listOf(card), 1).replace("\"EAN_13\"", "\"DOT_CODE\"")
+        assertEquals(emptyList<Card>(), CardJson.decodeExport(text))
     }
 
     @Test
     fun unknownKindBecomesOtherAndUnknownFieldsAreIgnored() {
-        val text = CardJson.encode(card).replace("\"LOYALTY\"", "\"PARKING_PERMIT\"").replace("{", "{\"seat\":\"14C\",")
-        assertEquals(CardKind.OTHER, CardJson.decode(text)?.kind)
+        val text = CardJson.encodeExport(listOf(card), 1)
+            .replace("\"LOYALTY\"", "\"PARKING_PERMIT\"")
+            .replace("\"id\":\"c1\"", "\"seat\":\"14C\",\"id\":\"c1\"")
+        assertEquals(CardKind.OTHER, CardJson.decodeExport(text).single().kind)
     }
 
-    @Test
-    fun garbageIsNull() {
-        assertNull(CardJson.decode("not json"))
+    @Test(expected = IllegalArgumentException::class)
+    fun garbageIsRejected() {
+        CardJson.decodeExport("not json")
     }
 
     @Test
@@ -62,14 +67,14 @@ class CardJsonTest {
             expires = DayTime(LocalDate.of(2026, 12, 31)), event = DayTime(LocalDate.of(2026, 11, 20), LocalTime.of(7, 5)),
             details = listOf(Detail("Gate", "D7")), flight = Flight("AMS", "LIS", "KL", "1691", "TRAVELLER/A", "X7K2QP", "14C", "Y"),
         )
-        assertEquals(full, CardJson.decode(CardJson.encode(full)))
+        assertEquals(full, roundTrip(full))
     }
 
     @Test
-    fun version1FileReadsWithDefaults() {
+    fun version1CardReadsWithDefaults() {
         val v1 = """{"v":1,"id":"c1","name":"AH","code":"2620048511734","format":"EAN_13","kind":"LOYALTY",""" +
             """"color":"#00A0E2","note":"","pinned":false,"locked":false,"createdAt":1,"updatedAt":2,"deleted":false}"""
-        val decoded = CardJson.decode(v1)!!
+        val decoded = CardJson.decodeExport(export(v1)).single()
         assertEquals("", decoded.pin)
         assertNull(decoded.flight)
         assertEquals(emptyList<Detail>(), decoded.details)

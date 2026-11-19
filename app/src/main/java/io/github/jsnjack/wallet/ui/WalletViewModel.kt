@@ -1,7 +1,6 @@
 package io.github.jsnjack.wallet.ui
 
 import android.app.Application
-import android.app.PendingIntent
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
@@ -9,7 +8,6 @@ import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.android.gms.common.api.ApiException
 import io.github.jsnjack.wallet.LOG_TAG
 import io.github.jsnjack.wallet.R
 import io.github.jsnjack.wallet.WalletApplication
@@ -19,7 +17,6 @@ import io.github.jsnjack.wallet.core.CardDraft
 import io.github.jsnjack.wallet.core.CardGroups
 import io.github.jsnjack.wallet.core.CardJson
 import io.github.jsnjack.wallet.core.CardList
-import io.github.jsnjack.wallet.core.ConnectProblem
 import io.github.jsnjack.wallet.core.ExportCrypto
 import io.github.jsnjack.wallet.core.FlightCheck
 import io.github.jsnjack.wallet.core.NotAnExportException
@@ -28,9 +25,6 @@ import io.github.jsnjack.wallet.core.Retention
 import io.github.jsnjack.wallet.core.UpNext
 import io.github.jsnjack.wallet.core.Usage
 import io.github.jsnjack.wallet.core.WrongPasswordException
-import io.github.jsnjack.wallet.drive.AuthOutcome
-import io.github.jsnjack.wallet.drive.DriveAuth
-import io.github.jsnjack.wallet.drive.SyncStatus
 import io.github.jsnjack.wallet.flight.KeyCheck
 import io.github.jsnjack.wallet.store.LookupUsage
 import io.github.jsnjack.wallet.platform.CardShare
@@ -58,10 +52,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
-import java.net.UnknownHostException
-import java.net.SocketTimeoutException
-import java.net.ConnectException
-import io.github.jsnjack.wallet.drive.DriveException
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -85,23 +75,8 @@ sealed interface Screen {
     /** Used, expired and past cards. */
     data object Archive : Screen
 
-    /** Sync, archive, notification and backup settings. */
+    /** Archive, notification, flight info and backup settings. */
     data object Settings : Screen
-
-    /** Restore from Drive or start fresh. */
-    data object FirstRun : Screen
-}
-
-/** Progress and outcome of turning on Drive sync. */
-sealed interface ConnectState {
-    /** Nothing in progress, or the user cancelled. */
-    data object Idle : ConnectState
-
-    /** Waiting for Google: the account picker, consent or the first sync. */
-    data object Connecting : ConnectState
-
-    /** Google refused or could not be reached; [code] is Google's status code, when there is one. */
-    data class Failed(val problem: ConnectProblem, val code: Int?) : ConnectState
 }
 
 /** One-off messages for the snackbar. */
@@ -124,7 +99,6 @@ sealed interface UiEvent {
 class WalletViewModel(app: Application) : AndroidViewModel(app) {
     private val wallet = app as WalletApplication
     private val store = wallet.store
-    private val sync = wallet.sync
     private val settings = wallet.settings
     private val zone: ZoneId = ZoneId.systemDefault()
     private val agenda = Agenda(zone)
@@ -202,9 +176,6 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     /** Codes found in one file when there are several to choose from. */
     val choices = MutableStateFlow<List<ReadCode>?>(null)
 
-    /** Drive sync state. */
-    val syncStatus: StateFlow<SyncStatus> = sync.status
-
     /** How long archived cards are kept. */
     val retention: StateFlow<Retention> = settings.retention
 
@@ -230,23 +201,13 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     /** True while the key is being checked. */
     val checkingKey: StateFlow<Boolean> = _checkingKey.asStateFlow()
 
-    private val _connect = MutableStateFlow<ConnectState>(ConnectState.Idle)
-
-    /** Progress and outcome of turning on Drive sync, shown where the user turned it on. */
-    val connect: StateFlow<ConnectState> = _connect.asStateFlow()
-
-    /** True while a restore, import or file read runs in the foreground. */
+    /** True while an import or file read runs in the foreground. */
     val busy = MutableStateFlow(false)
 
     private val events = Channel<UiEvent>(Channel.BUFFERED)
 
     /** Snackbar messages. */
     val messages: Flow<UiEvent> = events.receiveAsFlow()
-
-    private val consent = Channel<PendingIntent>(Channel.BUFFERED)
-
-    /** Google consent screens the activity must launch. */
-    val consentRequests: Flow<PendingIntent> = consent.receiveAsFlow()
 
     private val permission = Channel<Unit>(Channel.CONFLATED)
 
@@ -256,9 +217,7 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     init {
         viewModelScope.launch {
             store.load()
-            if (store.cards.value.isEmpty() && !sync.firstRunDone) _stack.value = listOf(Screen.FirstRun)
             _ready.value = true
-            sync.requestNow()
             wallet.surfaces.refresh()
         }
         viewModelScope.launch {
@@ -457,11 +416,6 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
         val top = _stack.value.lastOrNull()
         when {
             top == Screen.Scan || top == Screen.Form -> showForm(draft, replaceTop = true)
-            top == Screen.FirstRun -> {
-                sync.firstRunDone = true
-                _stack.value = listOf(Screen.Grid)
-                showForm(draft, replaceTop = false)
-            }
             else -> showForm(draft, replaceTop = false)
         }
     }
@@ -596,76 +550,6 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     /** The card with [cardId], unless deleted. */
     fun card(cardId: String): Card? = store.get(cardId)
 
-    // First run and sync
-
-    /** Starts Drive access; may ask the activity to show Google's consent screen. */
-    fun connectDrive() {
-        _connect.value = ConnectState.Connecting
-        viewModelScope.launch {
-            try {
-                handleAuth(DriveAuth.authorize(getApplication()))
-            } catch (e: IOException) {
-                reportConnectFailure(e)
-            }
-        }
-    }
-
-    /** Continues after Google's consent screen returned [data]. */
-    fun onConsentResult(data: Intent?) {
-        viewModelScope.launch {
-            try {
-                handleAuth(DriveAuth.afterConsent(getApplication(), data))
-            } catch (e: IOException) {
-                reportConnectFailure(e)
-            }
-        }
-    }
-
-    private fun reportConnectFailure(e: IOException) {
-        Log.w(LOG_TAG, "Drive sync not turned on: ${e.message}")
-        val auth = e.cause as? ApiException
-        val problem = when {
-            auth != null -> ConnectProblem.fromAuthStatus(auth.statusCode)
-            e is DriveException -> ConnectProblem.fromHttpStatus(e.status)
-            e is UnknownHostException || e is ConnectException || e is SocketTimeoutException -> ConnectProblem.NETWORK
-            else -> ConnectProblem.OTHER
-        }
-        _connect.value = problem?.let { ConnectState.Failed(it, auth?.statusCode ?: (e as? DriveException)?.status) } ?: ConnectState.Idle
-    }
-
-    private suspend fun handleAuth(outcome: AuthOutcome) {
-        when (outcome) {
-            is AuthOutcome.NeedsConsent -> consent.send(outcome.intent)
-            is AuthOutcome.Granted -> {
-                busy.value = true
-                try {
-                    sync.enable(outcome.token)
-                    _connect.value = ConnectState.Idle
-                    if (_stack.value.lastOrNull() == Screen.FirstRun) finishFirstRun()
-                } catch (e: IOException) {
-                    reportConnectFailure(e)
-                } finally {
-                    busy.value = false
-                }
-            }
-        }
-    }
-
-    /** Leaves the first-run screen for the grid. */
-    fun finishFirstRun() {
-        sync.firstRunDone = true
-        _stack.value = listOf(Screen.Grid)
-    }
-
-    /** Runs a sync soon. */
-    fun syncNow() = sync.requestNow()
-
-    /** Turns sync off. */
-    fun disableSync() = sync.disable()
-
-    /** Allows or forbids syncing over mobile data. */
-    fun setUseMobileData(allowed: Boolean) = sync.setUseMobileData(allowed)
-
     /** Changes how long archived cards are kept. */
     fun setRetention(value: Retention) = settings.setRetention(value)
 
@@ -685,12 +569,11 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
 
     // Live flight info
 
-    /** Saves (or with a blank [key], removes) the flight-status key, syncs it and checks a new one right away. */
+    /** Saves (or with a blank [key], removes) the flight-status key and checks a new one right away. */
     fun setFlightKey(key: String) {
-        settings.setFlightKey(key, System.currentTimeMillis())
+        settings.setFlightKey(key)
         wallet.flightUpdater.keyChanged()
         _keyCheck.value = null
-        sync.onLocalChange()
         if (key.isNotBlank()) checkFlightKey() else viewModelScope.launch { wallet.flightUpdater.schedule() }
     }
 
@@ -751,7 +634,6 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
                     CardJson.decodeExport(ExportCrypto.decrypt(file, password).decodeToString())
                 }
                 val taken = store.applyIncoming(cards)
-                if (taken > 0) sync.requestNow()
                 events.send(UiEvent.Counted(R.plurals.message_imported, taken))
             } catch (e: WrongPasswordException) {
                 events.send(UiEvent.Message(R.string.message_wrong_password))

@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -51,7 +50,7 @@ import java.time.LocalDate
 /**
  * Shows the top screen of the stack inside a themed [Surface] (so text
  * follows light and dark mode), plus the snackbar, the code chooser and the
- * permission and consent screens the view model asks for.
+ * notification permission request the view model asks for.
  */
 @Composable
 fun WalletRoot(vm: WalletViewModel) {
@@ -62,14 +61,8 @@ fun WalletRoot(vm: WalletViewModel) {
     val resources = LocalResources.current
     val context = LocalContext.current
 
-    val consentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
-        vm.onConsentResult(result.data)
-    }
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) vm.refreshSurfaces()
-    }
-    LaunchedEffect(Unit) {
-        vm.consentRequests.collect { consentLauncher.launch(IntentSenderRequest.Builder(it).build()) }
     }
     LaunchedEffect(Unit) {
         vm.notificationPermissionRequests.collect {
@@ -118,12 +111,11 @@ fun WalletRoot(vm: WalletViewModel) {
                     is Screen.Code -> CodeScreen(vm, base.cardId)
                     Screen.Scan -> ScanScreen(vm)
                     Screen.Form -> CardFormScreen(vm)
-                    Screen.FirstRun -> FirstRunScreen(vm)
                     Screen.Archive, Screen.Settings -> GridScreen(vm)
                 }
                 if (top == Screen.Settings) SettingsSheet(vm)
                 if (top == Screen.Archive) ArchiveSheet(vm)
-                if (busy && stack.last() != Screen.FirstRun) {
+                if (busy) {
                     CircularProgressIndicator(Modifier.align(Alignment.Center))
                 }
                 SnackbarHost(

@@ -9,15 +9,10 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import io.github.jsnjack.wallet.core.Card
-import io.github.jsnjack.wallet.core.SyncRules
 import io.github.jsnjack.wallet.core.Usage
 
-/**
- * All cards, held in memory and written through to SQLite. [onLocalChange]
- * runs after every change the user makes, so sync can be scheduled; cards
- * that arrive from sync do not trigger it.
- */
-class CardStore(context: Context, private val onLocalChange: () -> Unit) {
+/** All cards, held in memory and written through to SQLite. */
+class CardStore(context: Context) {
     private val db = CardDatabase(context)
     private val mutex = Mutex()
     private val all = mutableMapOf<String, Card>()
@@ -48,45 +43,33 @@ class CardStore(context: Context, private val onLocalChange: () -> Unit) {
     fun get(id: String): Card? = _cards.value.firstOrNull { it.id == id }
 
     /** Saves a card the user added or changed; its "last changed" time moves forward. */
-    suspend fun save(card: Card): Card {
-        val saved = mutex.withLock {
-            val previous = all[card.id]
-            val stamped = card.copy(updatedAt = maxOf(card.updatedAt, (previous?.updatedAt ?: 0L) + 1))
-            write(listOf(stamped))
-            stamped
-        }
-        onLocalChange()
-        return saved
+    suspend fun save(card: Card): Card = mutex.withLock {
+        val previous = all[card.id]
+        val stamped = card.copy(updatedAt = maxOf(card.updatedAt, (previous?.updatedAt ?: 0L) + 1))
+        write(listOf(stamped))
+        stamped
     }
 
     /** Replaces the card with a tombstone and returns the card as it was, for undo. */
-    suspend fun delete(id: String, now: Long): Card? {
-        val previous = mutex.withLock {
-            val previous = all[id]?.takeUnless { it.deleted } ?: return@withLock null
-            write(listOf(previous.tombstone(maxOf(now, previous.updatedAt + 1))))
-            withContext(Dispatchers.IO) { db.deleteUsage(id) }
-            _usage.value = _usage.value - id
-            previous
-        }
-        if (previous != null) onLocalChange()
-        return previous
+    suspend fun delete(id: String, now: Long): Card? = mutex.withLock {
+        val previous = all[id]?.takeUnless { it.deleted } ?: return@withLock null
+        write(listOf(previous.tombstone(maxOf(now, previous.updatedAt + 1))))
+        withContext(Dispatchers.IO) { db.deleteUsage(id) }
+        _usage.value = _usage.value - id
+        previous
     }
 
     /**
      * Replaces several cards with tombstones without undo, for archive
      * clean-up. Returns how many were deleted.
      */
-    suspend fun deleteAll(ids: Collection<String>, now: Long): Int {
-        val removed = mutex.withLock {
-            val current = ids.mapNotNull { all[it]?.takeUnless { card -> card.deleted } }
-            if (current.isEmpty()) return@withLock 0
-            write(current.map { it.tombstone(maxOf(now, it.updatedAt + 1)) })
-            withContext(Dispatchers.IO) { current.forEach { db.deleteUsage(it.id) } }
-            _usage.value = _usage.value - current.map { it.id }.toSet()
-            current.size
-        }
-        if (removed > 0) onLocalChange()
-        return removed
+    suspend fun deleteAll(ids: Collection<String>, now: Long): Int = mutex.withLock {
+        val current = ids.mapNotNull { all[it]?.takeUnless { card -> card.deleted } }
+        if (current.isEmpty()) return@withLock 0
+        write(current.map { it.tombstone(maxOf(now, it.updatedAt + 1)) })
+        withContext(Dispatchers.IO) { current.forEach { db.deleteUsage(it.id) } }
+        _usage.value = _usage.value - current.map { it.id }.toSet()
+        current.size
     }
 
     /** Counts one showing of the card. */
@@ -96,15 +79,15 @@ class CardStore(context: Context, private val onLocalChange: () -> Unit) {
         _usage.value = _usage.value + (id to usage)
     }
 
-    /** Every card including tombstones, for sync and export. */
+    /** Every card including deleted ones, for export. */
     suspend fun snapshot(): List<Card> = mutex.withLock { all.values.toList() }
 
     /**
-     * Stores cards from sync or an import where they are newer than the local
-     * copy, keeping their "last changed" time. Returns how many were taken.
+     * Stores cards from an import where they are newer than the local copy,
+     * keeping their "last changed" time. Returns how many were taken.
      */
     suspend fun applyIncoming(incoming: List<Card>): Int = mutex.withLock {
-        val newer = incoming.filter { SyncRules.isNewer(it.updatedAt, all[it.id]?.updatedAt) }
+        val newer = incoming.filter { card -> all[card.id]?.let { card.updatedAt > it.updatedAt } ?: true }
         if (newer.isNotEmpty()) write(newer)
         newer.size
     }

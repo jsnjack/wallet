@@ -29,8 +29,8 @@ import java.util.concurrent.TimeUnit
 /**
  * Keeps everything outside the app's own screen current: archive clean-up,
  * the "today" notification and reminders, widgets and the Quick Settings
- * tile. [refresh] runs after card changes, after sync and at each moment
- * the agenda changes (scheduled with WorkManager).
+ * tile. [refresh] runs after card changes, after flight lookups and at each
+ * moment the agenda changes (scheduled with WorkManager).
  */
 class Surfaces(
     private val context: Context,

@@ -78,8 +78,6 @@ import io.github.jsnjack.wallet.core.FlightRef
 import io.github.jsnjack.wallet.core.LiveFlight
 import io.github.jsnjack.wallet.core.UpNext
 import io.github.jsnjack.wallet.core.UpNextReason
-import io.github.jsnjack.wallet.drive.SyncProblem
-import io.github.jsnjack.wallet.drive.SyncStatus
 import io.github.jsnjack.wallet.flight.FlightText
 import io.github.jsnjack.wallet.platform.Biometrics
 import java.time.format.DateTimeFormatter
@@ -102,7 +100,6 @@ fun GridScreen(vm: WalletViewModel) {
     val groupSizes by vm.groupSizes.collectAsStateWithLifecycle()
     val flightChecks by vm.flightChecks.collectAsStateWithLifecycle()
     val query by vm.query.collectAsStateWithLifecycle()
-    val sync by vm.syncStatus.collectAsStateWithLifecycle()
     var menuFor by remember { mutableStateOf<Card?>(null) }
     var confirmDelete by remember { mutableStateOf<Card?>(null) }
     var more by remember { mutableStateOf(false) }
@@ -114,7 +111,7 @@ fun GridScreen(vm: WalletViewModel) {
         Column(Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
             TitleBar(
                 title = stringResource(R.string.app_name),
-                subtitle = listOfNotNull(pluralStringResource(R.plurals.card_count, all.size, all.size), syncSummary(sync)).joinToString(" · "),
+                subtitle = pluralStringResource(R.plurals.card_count, all.size, all.size),
             )
             when {
                 all.isEmpty() && archivedMatches.isEmpty() ->
@@ -233,16 +230,6 @@ private fun ArchivedMatches(cards: List<Card>, vm: WalletViewModel) {
             }
         }
     }
-}
-
-@Composable
-private fun syncSummary(sync: SyncStatus): String? = when {
-    !sync.enabled -> null
-    sync.running -> stringResource(R.string.sync_running_short)
-    sync.problem == SyncProblem.NEEDS_SIGN_IN -> stringResource(R.string.sync_needs_sign_in_short)
-    sync.problem == SyncProblem.FAILED -> stringResource(R.string.sync_failed_short)
-    sync.lastSyncAt > 0 -> stringResource(R.string.sync_done_short)
-    else -> null
 }
 
 @Composable

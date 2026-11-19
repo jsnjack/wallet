@@ -24,7 +24,7 @@
 <p>Gate, terminal, delays and status on a boarding pass, the way Google Wallet and Samsung Wallet show them. Researched 2026-11-19 from the providers' own pricing and API pages; prices and free tiers change, so the numbers are checked again at sign-up.</p>
 
 <div class="bunk-callout important"><p class="bunk-callout-title">Decided 2026-11-19</p>
-<p>Built with AeroDataBox on RapidAPI's free Basic plan. The key is pasted into Settings and syncs to the user's other devices through Drive, in the app folder's <code>settings.json</code>. The .pkpass extras and Schiphol's API are not built.</p></div>
+<p>Built with AeroDataBox on RapidAPI's free Basic plan. The key is pasted into Settings and kept with the app's settings, so the phone's Google backup carries it. (It first synced through Drive; Drive sync was removed the same day in favour of Google backup.) The .pkpass extras and Schiphol's API are not built.</p></div>
 
 <div class="bunk-callout tip"><p class="bunk-callout-title">Recommendation</p>
 <p>Look flights up in <strong>AeroDataBox</strong> on RapidAPI's free Basic plan, with a key you create and paste into Settings. It needs no card, covers every airport on a trip, returns gate, terminal, belt, revised times and status in one call, and its pricing page names "a mobile application displaying flight number, time, status and gate" as an allowed use. The free plan allows about 200 lookups a month, which covers about 14 flights at the schedule below.</p></div>
@@ -85,7 +85,7 @@
 <h3 id="privacy">Privacy and setup</h3>
 <ul>
   <li>The app sends only the airline, flight number and date with your key; never names, booking references or barcodes.</li>
-  <li>The key is stored with the app's settings, so Android backup and phone transfer carry it, and it syncs to other devices through Drive as unencrypted JSON, like the cards. A key built into the APK was ruled out: anyone with the APK could read it, and F-Droid builds would not have it.</li>
+  <li>The key is stored with the app's settings, so Android backup and phone transfer carry it. A key built into the APK was ruled out: anyone with the APK could read it, and F-Droid builds would not have it.</li>
   <li>Setup: create a RapidAPI account, subscribe to AeroDataBox's free Basic plan, copy the key into Settings → Live flight info. With no key, nothing changes.</li>
   <li>The app's internet use is no longer "Drive only"; AGENTS.md records the new service.</li>
 </ul>

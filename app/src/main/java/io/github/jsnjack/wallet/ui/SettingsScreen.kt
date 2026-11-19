@@ -6,24 +6,19 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.TextField
 import androidx.compose.material3.Text
@@ -46,12 +41,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.jsnjack.wallet.R
-import io.github.jsnjack.wallet.core.ConnectProblem
 import io.github.jsnjack.wallet.core.FlightLookups
 import io.github.jsnjack.wallet.core.LookupProblem
 import io.github.jsnjack.wallet.core.Retention
-import io.github.jsnjack.wallet.drive.SyncProblem
-import io.github.jsnjack.wallet.drive.SyncStatus
 import io.github.jsnjack.wallet.flight.KeyCheck
 import java.time.LocalDate
 import java.time.YearMonth
@@ -62,12 +54,9 @@ private const val KEY_SHOWN_CHARS = 4
 
 private enum class PasswordFor { EXPORT, IMPORT }
 
-/** Sync, imports, notifications, archive, live flight info and backup, as a full-height sheet that closes with a swipe down. */
+/** Imports, notifications, archive, live flight info and backup, as a full-height sheet that closes with a swipe down. */
 @Composable
 fun SettingsSheet(vm: WalletViewModel) {
-    val sync by vm.syncStatus.collectAsStateWithLifecycle()
-    val busy by vm.busy.collectAsStateWithLifecycle()
-    val connect by vm.connect.collectAsStateWithLifecycle()
     var passwordFor by remember { mutableStateOf<PasswordFor?>(null) }
     var target by remember { mutableStateOf<Uri?>(null) }
     val context = LocalContext.current
@@ -100,7 +89,6 @@ fun SettingsSheet(vm: WalletViewModel) {
             Modifier.verticalScroll(rememberScrollState()).padding(bottom = 8.dp),
             verticalArrangement = Arrangement.spacedBy(GROUP_GAP),
         ) {
-            SyncGroup(sync, busy, connect, vm)
             Group {
                 GroupRow(
                     stringResource(R.string.settings_google_wallet),
@@ -135,6 +123,8 @@ fun SettingsSheet(vm: WalletViewModel) {
             }
             FlightGroup(vm)
             Group {
+                GroupRow(stringResource(R.string.settings_backup), stringResource(R.string.settings_backup_detail))
+                GroupDivider()
                 GroupRow(
                     stringResource(R.string.settings_export),
                     stringResource(R.string.settings_export_detail),
@@ -170,93 +160,11 @@ fun SettingsSheet(vm: WalletViewModel) {
     }
 }
 
-/**
- * What happened after "Turn on sync": a spinner while Google is asked, or a
- * plain explanation when it refused. Nothing when idle or cancelled.
- */
-@Composable
-fun ConnectStatus(state: ConnectState) {
-    when (state) {
-        ConnectState.Idle -> Unit
-        ConnectState.Connecting -> Row(verticalAlignment = Alignment.CenterVertically) {
-            CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(10.dp))
-            Text(stringResource(R.string.sync_connecting), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        is ConnectState.Failed -> Column {
-            Text(
-                stringResource(
-                    when (state.problem) {
-                        ConnectProblem.NOT_REGISTERED -> R.string.sync_problem_not_registered
-                        ConnectProblem.API_DISABLED -> R.string.sync_problem_api_disabled
-                        ConnectProblem.NETWORK -> R.string.sync_problem_network
-                        ConnectProblem.OTHER -> R.string.sync_problem_other
-                    },
-                ),
-                fontSize = 14.sp,
-                color = colorResource(R.color.danger),
-            )
-            state.code?.let {
-                Text(stringResource(R.string.sync_problem_code, it), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-    }
-}
-
 /** The label for an archive retention choice. */
 fun retentionLabel(value: Retention): Int = when (value) {
     Retention.THREE_MONTHS -> R.string.retention_three_months
     Retention.ONE_YEAR -> R.string.retention_one_year
     Retention.FOREVER -> R.string.retention_forever
-}
-
-@Composable
-private fun SyncGroup(sync: SyncStatus, busy: Boolean, connect: ConnectState, vm: WalletViewModel) {
-    if (!sync.enabled) {
-        Group {
-            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.sync_title), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                Text(stringResource(R.string.sync_off_body), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
-                Button(onClick = vm::connectDrive, enabled = !busy && connect != ConnectState.Connecting) { Text(stringResource(R.string.sync_turn_on)) }
-                ConnectStatus(connect)
-            }
-        }
-        return
-    }
-    val (title, tint) = when {
-        sync.running || busy -> stringResource(R.string.sync_running) to colorResource(R.color.muted)
-        sync.problem == SyncProblem.NEEDS_SIGN_IN -> stringResource(R.string.sync_needs_sign_in) to colorResource(R.color.warning)
-        sync.problem == SyncProblem.FAILED -> stringResource(R.string.sync_failed) to colorResource(R.color.danger)
-        sync.lastSyncAt > 0 -> stringResource(R.string.sync_done, relativeTime(sync.lastSyncAt)) to colorResource(R.color.positive)
-        else -> stringResource(R.string.sync_waiting) to colorResource(R.color.muted)
-    }
-    Group {
-        if (connect is ConnectState.Failed) {
-            Box(Modifier.padding(start = 18.dp, end = 18.dp, top = 14.dp)) { ConnectStatus(connect) }
-        }
-        GroupRow(title, sync.account ?: stringResource(R.string.sync_account_unknown), titleColor = tint) {
-            if (sync.running || busy) CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
-        }
-        GroupDivider()
-        if (sync.problem == SyncProblem.NEEDS_SIGN_IN) {
-            GroupRow(stringResource(R.string.sync_sign_in_again), titleColor = MaterialTheme.colorScheme.primary, onClick = vm::connectDrive)
-        } else {
-            GroupRow(stringResource(R.string.sync_now), titleColor = MaterialTheme.colorScheme.primary, onClick = vm::syncNow)
-        }
-        GroupDivider()
-        GroupRow(
-            stringResource(R.string.sync_mobile_data),
-            stringResource(R.string.sync_mobile_data_detail),
-            onClick = { vm.setUseMobileData(!sync.useMobileData) },
-        ) { WalletSwitch(checked = sync.useMobileData, onCheckedChange = vm::setUseMobileData) }
-        GroupDivider()
-        GroupRow(
-            stringResource(R.string.sync_turn_off),
-            stringResource(R.string.sync_turn_off_detail),
-            titleColor = colorResource(R.color.danger),
-            onClick = vm::disableSync,
-        )
-    }
 }
 
 /** The RapidAPI key for live flight info: paste and save it, then test or remove it; with this month's lookups. */

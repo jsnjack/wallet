@@ -45,8 +45,8 @@ data class Flight(
  * One stored card. [code] is the exact text inside the barcode and [color]
  * an ARGB brand colour. [expires] ends a voucher's or membership's validity;
  * [event] is a ticket's or flight's date. A card with [usedAt] set is in the
- * archive. A deleted card stays as a blank tombstone so sync can pass the
- * deletion on to other devices.
+ * archive. A deleted card stays as a blank tombstone, hidden everywhere;
+ * undo saves the card again.
  */
 data class Card(
     val id: String,
@@ -77,5 +77,5 @@ data class Card(
     )
 }
 
-/** How often and how recently a card was shown on this device; not synced. */
+/** How often and how recently a card was shown on this device. */
 data class Usage(val count: Int, val lastUsedAt: Long)
