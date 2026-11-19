@@ -20,7 +20,10 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import io.github.jsnjack.wallet.LOG_TAG
 import io.github.jsnjack.wallet.core.CardJson
+import io.github.jsnjack.wallet.core.RemoteFile
 import io.github.jsnjack.wallet.core.SyncRules
+import io.github.jsnjack.wallet.core.SyncedSettings
+import io.github.jsnjack.wallet.store.AppSettings
 import io.github.jsnjack.wallet.store.CardStore
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -39,14 +42,16 @@ data class SyncStatus(
 )
 
 /**
- * Keeps the card store and the Drive app folder in step. Runs happen in
- * [SyncWorker] (after changes, at app start and every few hours) or directly
- * from the UI right after the user grants access. [onRemoteChange] runs when
- * a sync brought in changed cards.
+ * Keeps the card store and the synced [AppSettings] in step with the Drive
+ * app folder. Runs happen in [SyncWorker] (after changes, at app start and
+ * every few hours) or directly from the UI right after the user grants
+ * access. [onRemoteChange] runs when a sync brought in changed cards or
+ * settings.
  */
 class SyncController(
     private val context: Context,
     private val store: CardStore,
+    private val settings: AppSettings,
     private val onRemoteChange: () -> Unit,
 ) {
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -103,7 +108,7 @@ class SyncController(
         if (enabled) schedulePeriodic()
     }
 
-    /** Schedules a sync a few seconds after the user changed a card. */
+    /** Schedules a sync a few seconds after the user changed a card or a synced setting. */
     fun onLocalChange() {
         if (enabled) enqueue(CHANGE_DELAY_SECONDS)
     }
@@ -120,7 +125,8 @@ class SyncController(
     }
 
     /**
-     * One sync run: download newer remote cards, then upload newer local ones.
+     * One sync run: download newer remote cards, then upload newer local ones;
+     * the settings file follows the same rule.
      * Throws [IOException] when Drive cannot be reached; the problem is recorded.
      */
     suspend fun syncWithToken(token: String): Unit = runLock.withLock {
@@ -128,7 +134,7 @@ class SyncController(
         try {
             store.load()
             val (downloaded, uploaded) = withContext(Dispatchers.IO) { transfer(DriveClient(token)) }
-            Log.i(LOG_TAG, "sync done: $downloaded downloaded, $uploaded uploaded")
+            Log.i(LOG_TAG, "sync done: $downloaded downloaded, $uploaded uploaded (settings included)")
             if (downloaded > 0) onRemoteChange()
             prefs.edit {
                 putLong(KEY_LAST_SYNC, System.currentTimeMillis())
@@ -144,7 +150,8 @@ class SyncController(
     }
 
     private suspend fun transfer(drive: DriveClient): Pair<Int, Int> {
-        val remote = SyncRules.newestPerCard(drive.listCardFiles())
+        val files = drive.listFiles()
+        val remote = SyncRules.newestPerCard(SyncRules.cardEntries(files))
         val local = store.snapshot()
         val plan = SyncRules.plan(local.associate { it.id to it.updatedAt }, remote)
         val incoming = plan.download.mapNotNull { entry ->
@@ -158,9 +165,25 @@ class SyncController(
             val card = byId.getValue(id)
             val json = CardJson.encode(card)
             val existing = remote[id]
-            if (existing != null) drive.update(existing.fileId, json, card.updatedAt) else drive.create(id, json, card.updatedAt)
+            if (existing != null) drive.update(existing.fileId, json, card.updatedAt) else drive.create(SyncRules.fileName(id), json, card.updatedAt)
         }
-        return downloaded to plan.upload.size
+        val (settingsDown, settingsUp) = transferSettings(drive, SyncRules.settingsFile(files))
+        return downloaded + settingsDown to plan.upload.size + settingsUp
+    }
+
+    /** Downloads newer remote settings or uploads newer local ones; returns the files moved each way. */
+    private fun transferSettings(drive: DriveClient, remote: RemoteFile?): Pair<Int, Int> {
+        val local = settings.synced()
+        val localTime = local.updatedAt.takeIf { it > 0 }
+        if (remote != null && SyncRules.isNewer(remote.updatedAt, localTime)) {
+            val incoming = SyncedSettings.decode(drive.download(remote.fileId))
+            if (incoming == null) Log.w(LOG_TAG, "skipping an unreadable settings file") else settings.applySynced(incoming.copy(updatedAt = remote.updatedAt))
+            return (if (incoming == null) 0 else 1) to 0
+        }
+        if (localTime == null || !SyncRules.isNewer(localTime, remote?.updatedAt)) return 0 to 0
+        val json = local.encode()
+        if (remote != null) drive.update(remote.fileId, json, localTime) else drive.create(SyncRules.SETTINGS_FILE, json, localTime)
+        return 0 to 1
     }
 
     private fun constraints() = Constraints.Builder()

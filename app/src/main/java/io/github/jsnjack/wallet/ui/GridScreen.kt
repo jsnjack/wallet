@@ -73,10 +73,14 @@ import io.github.jsnjack.wallet.R
 import io.github.jsnjack.wallet.core.Card
 import io.github.jsnjack.wallet.core.CardKind
 import io.github.jsnjack.wallet.core.CardLooks
+import io.github.jsnjack.wallet.core.FlightCheck
+import io.github.jsnjack.wallet.core.FlightRef
+import io.github.jsnjack.wallet.core.LiveFlight
 import io.github.jsnjack.wallet.core.UpNext
 import io.github.jsnjack.wallet.core.UpNextReason
 import io.github.jsnjack.wallet.drive.SyncProblem
 import io.github.jsnjack.wallet.drive.SyncStatus
+import io.github.jsnjack.wallet.flight.FlightText
 import io.github.jsnjack.wallet.platform.Biometrics
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -96,6 +100,7 @@ fun GridScreen(vm: WalletViewModel) {
     val upNext by vm.upNext.collectAsStateWithLifecycle()
     val favourites by vm.favourites.collectAsStateWithLifecycle()
     val groupSizes by vm.groupSizes.collectAsStateWithLifecycle()
+    val flightChecks by vm.flightChecks.collectAsStateWithLifecycle()
     val query by vm.query.collectAsStateWithLifecycle()
     val sync by vm.syncStatus.collectAsStateWithLifecycle()
     var menuFor by remember { mutableStateOf<Card?>(null) }
@@ -127,7 +132,7 @@ fun GridScreen(vm: WalletViewModel) {
                     ) {
                         if (query.isBlank() && upNext.isNotEmpty()) {
                             item(span = { GridItemSpan(maxLineSpan) }, key = "up-next") {
-                                CompositionLocalProvider(LocalLayoutDirection provides ltr) { NowBar(upNext, onOpen = vm::openCard) }
+                                CompositionLocalProvider(LocalLayoutDirection provides ltr) { NowBar(upNext, flightChecks, onOpen = vm::openCard) }
                             }
                         }
                         items(visible, key = { it.id }) { card ->
@@ -253,15 +258,17 @@ private fun Hint(title: String, body: String?) {
 
 /**
  * "Up next" as a dark capsule, like One UI's Now Bar on the lock screen.
- * Swipe sideways when several cards are due.
+ * Swipe sideways when several cards are due. A flight with live information
+ * shows its status, gate and expected departure.
  */
 @Composable
-private fun NowBar(items: List<UpNext>, onOpen: (String) -> Unit) {
+private fun NowBar(items: List<UpNext>, flightChecks: Map<String, FlightCheck>, onOpen: (String) -> Unit) {
     val pager = rememberPagerState { items.size }
     val accent = colorResource(R.color.now_bar_accent)
     HorizontalPager(state = pager, pageSpacing = 8.dp, modifier = Modifier.fillMaxWidth()) { page ->
         val item = items[page]
         val card = item.card
+        val live = FlightRef.of(card)?.takeIf { item.reason == UpNextReason.FLIGHT }?.let { flightChecks[it.id]?.flight }
         Surface(onClick = { onOpen(card.id) }, shape = CircleShape, color = colorResource(R.color.now_bar), contentColor = Color.White) {
             Row(Modifier.padding(start = 6.dp, end = 16.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) {
@@ -273,7 +280,7 @@ private fun NowBar(items: List<UpNext>, onOpen: (String) -> Unit) {
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(upNextLabel(item).uppercase(), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp, color = accent, maxLines = 1)
+                    Text((live?.let { liveLabel(it) } ?: upNextLabel(item)).uppercase(), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp, color = accent, maxLines = 1)
                     Text(
                         card.flight?.let { "${it.code} · ${it.from} → ${it.to}" } ?: card.name,
                         fontWeight = FontWeight.SemiBold,
@@ -282,7 +289,7 @@ private fun NowBar(items: List<UpNext>, onOpen: (String) -> Unit) {
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                val time = (if (item.reason == UpNextReason.EXPIRES_SOON) card.expires else card.event)?.time
+                val time = live?.departure?.toLocalTime() ?: (if (item.reason == UpNextReason.EXPIRES_SOON) card.expires else card.event)?.time
                 val trailing = time?.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
                     ?: if (items.size > 1) "${page + 1}/${items.size}" else null
                 if (trailing != null) Text(trailing, color = accent, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
@@ -290,6 +297,13 @@ private fun NowBar(items: List<UpNext>, onOpen: (String) -> Unit) {
         }
     }
 }
+
+// "Boarding · Gate D7"; null when the service gave neither, so the plain label shows.
+@Composable
+private fun liveLabel(live: LiveFlight): String? = listOfNotNull(
+    FlightText.state(live.state)?.let { stringResource(it) },
+    live.departureGate?.let { stringResource(R.string.flight_gate_value, it) },
+).joinToString(" · ").ifEmpty { null }
 
 @Composable
 private fun upNextLabel(item: UpNext): String = when (item.reason) {

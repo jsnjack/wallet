@@ -13,8 +13,10 @@ import io.github.jsnjack.wallet.core.Agenda
 import io.github.jsnjack.wallet.core.Card
 import io.github.jsnjack.wallet.core.CardGroups
 import io.github.jsnjack.wallet.core.CardList
+import io.github.jsnjack.wallet.core.FlightRef
 import io.github.jsnjack.wallet.store.AppSettings
 import io.github.jsnjack.wallet.store.CardStore
+import io.github.jsnjack.wallet.store.FlightStore
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.time.Duration
@@ -28,7 +30,13 @@ import java.util.concurrent.TimeUnit
  * tile. [refresh] runs after card changes, after sync and at each moment
  * the agenda changes (scheduled with WorkManager).
  */
-class Surfaces(private val context: Context, private val store: CardStore, private val settings: AppSettings) {
+class Surfaces(
+    private val context: Context,
+    private val store: CardStore,
+    private val settings: AppSettings,
+    private val flights: FlightStore,
+    private val afterRefresh: suspend () -> Unit,
+) {
     private val lock = Mutex()
 
     /** Brings every surface up to date and schedules the next run. */
@@ -44,9 +52,13 @@ class Surfaces(private val context: Context, private val store: CardStore, priva
         }
         val cards = store.cards.value
         val shown = tiles(cards, agenda, now)
-        Notifier.update(context, agenda.today(shown, now).firstOrNull(), agenda.remindersDue(cards, now), settings)
+        val today = agenda.today(shown, now).firstOrNull()
+        val live = today?.card?.let(FlightRef::of)?.let { flights.checks.value[it.id]?.flight }
+        Notifier.update(context, today, live, agenda.remindersDue(cards, now), settings)
         Widgets.update(context, agenda.upNext(shown, now).firstOrNull(), CardList.quickAccess(shown, store.usage.value, FAVOURITES))
         WalletTileService.requestUpdate(context)
+        afterRefresh()
+        // Last: when AgendaWorker runs this, replacing its own work cancels it.
         schedule(Duration.between(now, agenda.nextChange(cards, now)))
     }
 

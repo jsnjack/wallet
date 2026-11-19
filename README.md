@@ -37,6 +37,12 @@ Tickets with the same name and time share a tile the same way. Apple Wallet
 `.pkpass` files and e-ticket PDFs can be shared to the app or picked with
 "PDF or pass" in the scanner.
 
+With a key for AeroDataBox (see "Live flight info setup" below), a boarding
+pass also shows its gate, terminal, departure time and status, updated
+through the day of the flight, and after landing the baggage belt. The "Up
+next" row and the notification show them too, and a gate change, a new
+departure time or a cancellation sends an alert.
+
 An "Up next" row on top of the grid shows a boarding pass from the day
 before the flight, a ticket on the day of the event, or a voucher that
 expires today or tomorrow. The same card appears as an ongoing notification
@@ -103,6 +109,26 @@ a one-off step:
 
 The `drive.appdata` scope is non-sensitive, so publishing should not need
 Google's app review.
+
+## Live flight info setup
+
+Live flight info uses AeroDataBox through RapidAPI with your own key:
+
+1. Create a free account at rapidapi.com.
+2. Open the AeroDataBox API there and subscribe to its free Basic plan
+   (about 200 flight lookups a month; no card needed).
+3. Copy your key (`X-RapidAPI-Key`) and paste it into Settings → Live
+   flight info → "Save key". The app checks it straight away.
+
+A flight is looked up the day before and then more often on the day: every
+30 minutes from four hours before departure, every 15 minutes in the last
+hour, and once after landing, about a dozen lookups per flight; one lookup
+serves every passenger on the flight. Opening the pass on the day asks again
+when the information is more than ten minutes old. Only the flight number
+and date are sent. The key is kept with the app's settings, so Android
+backup and phone transfer carry it, and it syncs to your other devices
+through Drive. Each device counts its own lookups, so two devices with the
+key share one allowance.
 
 ## Releases
 

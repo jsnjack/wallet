@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live flight info</title>
+<link rel="stylesheet" href="bunk-present://assets/bunk-doc.css">
+<script src="bunk-present://assets/bunk-doc.js" defer></script>
+<style>
+  .phone { border: 1px solid var(--bunk-border); border-radius: 18px; padding: 14px 16px; max-width: 360px; background: var(--bunk-code-bg); }
+  .phone .row { display: flex; justify-content: space-between; align-items: baseline; }
+  .phone .big { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
+  .phone .muted { color: var(--bunk-muted); font-size: 13px; }
+  .phone .pill { display: inline-block; padding: 2px 10px; border-radius: 99px; border: 1px solid var(--bunk-accent); color: var(--bunk-accent); font-size: 12px; font-weight: 600; }
+  .phone .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
+  .phone .facts div { font-size: 12px; color: var(--bunk-muted); }
+  .phone .facts b { display: block; font-size: 17px; color: var(--bunk-fg); }
+  td, th { vertical-align: top; }
+</style>
+</head>
+<body>
+<article id="bunk-doc">
+<h1 id="live-flight-info">Live flight info on boarding passes</h1>
+<p>Gate, terminal, delays and status on a boarding pass, the way Google Wallet and Samsung Wallet show them. Researched 2026-11-19 from the providers' own pricing and API pages; prices and free tiers change, so the numbers are checked again at sign-up.</p>
+
+<div class="bunk-callout important"><p class="bunk-callout-title">Decided 2026-11-19</p>
+<p>Built with AeroDataBox on RapidAPI's free Basic plan. The key is pasted into Settings and syncs to the user's other devices through Drive, in the app folder's <code>settings.json</code>. The .pkpass extras and Schiphol's API are not built.</p></div>
+
+<div class="bunk-callout tip"><p class="bunk-callout-title">Recommendation</p>
+<p>Look flights up in <strong>AeroDataBox</strong> on RapidAPI's free Basic plan, with a key you create and paste into Settings. It needs no card, covers every airport on a trip, returns gate, terminal, belt, revised times and status in one call, and its pricing page names "a mobile application displaying flight number, time, status and gate" as an allowed use. The free plan allows about 200 lookups a month, which covers about 14 flights at the schedule below.</p></div>
+
+<nav class="bunk-toc"></nav>
+
+<h2 id="how-others-do-it">How Google and Samsung do it</h2>
+<p>Neither works it out on the phone. An airline that issues its pass through Google Wallet or Samsung Wallet pushes gate and time changes to the pass on their servers, and Google also matches flights against its own flight-status data. Apple Wallet passes (.pkpass) carry an update address that the airline's server answers with a newer pass; since iOS 26, Apple Wallet also fetches flight status itself. This app has no airline partnership and no server, so it asks a flight-status service directly from the phone.</p>
+
+<h2 id="options">Options compared</h2>
+<p>Lookups are by airline, flight number and date, about 10–15 per flight. The table sorts by any column.</p>
+<table class="bunk-sort">
+<thead><tr><th>Service</th><th>Free</th><th>Cheapest paid</th><th>Gate on free tier</th><th>Card needed</th><th>Fit</th></tr></thead>
+<tbody>
+<tr><td>AeroDataBox (RapidAPI)</td><td>400 units a month = 200 lookups</td><td>$7.50 a month for 2,500 lookups (API.market)</td><td>Yes: gate, terminal, check-in desk, belt, revised and predicted times, status</td><td>No (page did not say outright)</td><td><span class="bunk-badge good">best</span> Netherlands 100% live coverage on its own coverage table; free plan is non-commercial</td></tr>
+<tr><td>FlightAware AeroAPI Personal</td><td>$5 credit a month ≈ 1,000 lookups</td><td>Pay per use</td><td>Yes: gate, terminal, baggage claim, estimated times</td><td>Yes, payment details</td><td><span class="bunk-badge info">fallback</span> personal use only; AMS coverage not confirmed</td></tr>
+<tr><td>Schiphol Public Flight API</td><td>Free, 100 requests a minute</td><td>—</td><td>Yes, plus boarding time, gate open and closing times, pier, belts</td><td>No</td><td><span class="bunk-badge info">extra</span> AMS flights only; OAuth login and an approved subscription; Schiphol advises keeping the secret on a server</td></tr>
+<tr><td>Air France-KLM Flight Status</td><td>Free key, daily quota unknown</td><td>—</td><td>Likely gate and terminal (third-party pages only)</td><td>Not confirmed</td><td><span class="bunk-badge warn">narrow</span> Air France and KLM flights only</td></tr>
+<tr><td>Aviationstack</td><td>100 requests a month</td><td>$49.99 a month</td><td>Gates included, but searching by date needs a paid plan</td><td>Not stated</td><td><span class="bunk-badge bad">too few</span></td></tr>
+<tr><td>AirLabs</td><td>Free plan</td><td>Not confirmed</td><td>No: gate and estimated times are paid</td><td>Not stated</td><td><span class="bunk-badge bad">no gates</span></td></tr>
+<tr><td>Aviation Edge</td><td>"Limited" key</td><td>$299 a month after the first month</td><td>Yes</td><td>Not stated</td><td><span class="bunk-badge bad">too expensive</span></td></tr>
+<tr><td>FlightLabs</td><td>7 days or 50 requests</td><td>$24.99 a month</td><td>Not confirmed</td><td>Not stated</td><td><span class="bunk-badge bad">trial only</span></td></tr>
+<tr><td>Cirium / FlightStats</td><td>Evaluation only</td><td>Sales contract</td><td>—</td><td>—</td><td><span class="bunk-badge bad">enterprise</span></td></tr>
+<tr><td>OpenSky Network</td><td>4,000 credits a day</td><td>—</td><td>No gates, no flight-number lookup</td><td>No</td><td><span class="bunk-badge bad">no gates</span></td></tr>
+</tbody>
+</table>
+
+<h2 id="in-the-app">What it would look like in the app</h2>
+<div class="phone">
+  <div class="row"><span class="muted">KL 1691 · Fri 20 Nov</span><span class="pill">Boarding</span></div>
+  <div class="row" style="margin-top:6px"><span class="big">AMS</span><span class="muted">→</span><span class="big">BCN</span></div>
+  <div class="facts">
+    <div>Gate<b>D7</b></div><div>Terminal<b>2</b></div><div>Departs<b>14:35</b></div>
+  </div>
+  <p class="muted" style="margin:8px 0 0">Was 14:10 · updated 2 min ago</p>
+</div>
+<ul>
+  <li><strong>Code screen:</strong> gate, terminal, departure time and a status pill above the code; a delay shows the old time beside the new one.</li>
+  <li><strong>Up next and the "today" notification:</strong> "Gate D7 · 14:35", updated in place; a gate change or a delay of 15 minutes or more also alerts you.</li>
+  <li><strong>The pass's time:</strong> the barcode has only the date, so the first lookup fills in the scheduled departure time. Up next then starts 24 hours before departure instead of the whole day before.</li>
+  <li><strong>After landing:</strong> arrival gate and baggage belt, when the service has them.</li>
+</ul>
+
+<h3 id="when-it-asks">When the app asks</h3>
+<p>One lookup serves every passenger on the flight, because they share one tile.</p>
+<table>
+<thead><tr><th>When</th><th>Lookups</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>The day before</td><td>1</td><td>Scheduled time and terminal</td></tr>
+<tr><td>From 4 hours to 1 hour before departure, every 30 minutes</td><td>6</td><td>Gates are usually assigned in this window</td></tr>
+<tr><td>Last hour, every 15 minutes</td><td>4</td><td>Boarding, gate changes, delays</td></tr>
+<tr><td>Around landing</td><td>1–2</td><td>Arrival gate and belt</td></tr>
+<tr><td>Opening the pass when the data is over 10 minutes old</td><td>0–2</td><td>Fresh data when you look</td></tr>
+</tbody>
+</table>
+<p>That is about 12–15 lookups per flight. Doze can delay background lookups by some minutes, as it already does for reminders.</p>
+
+<h3 id="privacy">Privacy and setup</h3>
+<ul>
+  <li>The app sends only the airline, flight number and date with your key; never names, booking references or barcodes.</li>
+  <li>The key is stored with the app's settings, so Android backup and phone transfer carry it, and it syncs to other devices through Drive as unencrypted JSON, like the cards. A key built into the APK was ruled out: anyone with the APK could read it, and F-Droid builds would not have it.</li>
+  <li>Setup: create a RapidAPI account, subscribe to AeroDataBox's free Basic plan, copy the key into Settings → Live flight info. With no key, nothing changes.</li>
+  <li>The app's internet use is no longer "Drive only"; AGENTS.md records the new service.</li>
+</ul>
+
+<h2 id="free-extras">Free extras from .pkpass files</h2>
+<p>These need no key, but only help passes imported as .pkpass files, not screenshots.</p>
+<ul>
+  <li><strong>Gate and boarding time already in the pass.</strong> Airline passes built for iOS 26 can carry <code>departureGate</code>, <code>departureTerminal</code> and <code>originalBoardingDate</code>; the importer could read them. Cheap to add.</li>
+  <li><strong>The airline's own updates.</strong> A pass with an update address can be asked for its newest version with the token inside it. Apple's documentation says no device registration is needed for that request, but it is untested against a real airline, and there is no public evidence that KLM passes include the address.</li>
+</ul>
+
+</article>
+</body>
+</html>

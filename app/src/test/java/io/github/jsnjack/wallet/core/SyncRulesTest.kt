@@ -46,6 +46,27 @@ class SyncRulesTest {
     }
 
     @Test
+    fun settingsFileIsNotACardAndTheNewestCopyCounts() {
+        val files = listOf(
+            RemoteFile(SyncRules.fileName("a"), "f1", 1),
+            RemoteFile(SyncRules.SETTINGS_FILE, "s-old", 5),
+            RemoteFile(SyncRules.SETTINGS_FILE, "s-new", 9),
+            RemoteFile("notes.txt", "f2", 3),
+        )
+        assertEquals(listOf(RemoteEntry("a", "f1", 1)), SyncRules.cardEntries(files))
+        assertEquals("s-new", SyncRules.settingsFile(files)?.fileId)
+        assertNull(SyncRules.settingsFile(files.take(1)))
+    }
+
+    @Test
+    fun syncedSettingsRoundTripAndIgnoreUnknownFields() {
+        val settings = SyncedSettings(flightApiKey = "key-123", updatedAt = 42)
+        assertEquals(settings, SyncedSettings.decode(settings.encode()))
+        assertEquals("k", SyncedSettings.decode("""{"v":2,"flightApiKey":"k","newField":true}""")?.flightApiKey)
+        assertNull(SyncedSettings.decode("not json"))
+    }
+
+    @Test
     fun isNewerOnlyWhenStrictlyLater() {
         assertTrue(SyncRules.isNewer(2, null))
         assertTrue(SyncRules.isNewer(2, 1))

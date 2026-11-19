@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -46,17 +47,22 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.jsnjack.wallet.R
 import io.github.jsnjack.wallet.core.ConnectProblem
+import io.github.jsnjack.wallet.core.FlightLookups
+import io.github.jsnjack.wallet.core.LookupProblem
 import io.github.jsnjack.wallet.core.Retention
 import io.github.jsnjack.wallet.drive.SyncProblem
 import io.github.jsnjack.wallet.drive.SyncStatus
+import io.github.jsnjack.wallet.flight.KeyCheck
 import java.time.LocalDate
+import java.time.YearMonth
 
 private const val EXPORT_MIME = "application/octet-stream"
 private const val MIN_PASSWORD = 8
+private const val KEY_SHOWN_CHARS = 4
 
 private enum class PasswordFor { EXPORT, IMPORT }
 
-/** Sync, imports, notifications, archive and backup, as a full-height sheet that closes with a swipe down. */
+/** Sync, imports, notifications, archive, live flight info and backup, as a full-height sheet that closes with a swipe down. */
 @Composable
 fun SettingsSheet(vm: WalletViewModel) {
     val sync by vm.syncStatus.collectAsStateWithLifecycle()
@@ -127,6 +133,7 @@ fun SettingsSheet(vm: WalletViewModel) {
                     }
                 }
             }
+            FlightGroup(vm)
             Group {
                 GroupRow(
                     stringResource(R.string.settings_export),
@@ -249,6 +256,54 @@ private fun SyncGroup(sync: SyncStatus, busy: Boolean, connect: ConnectState, vm
             titleColor = colorResource(R.color.danger),
             onClick = vm::disableSync,
         )
+    }
+}
+
+/** The RapidAPI key for live flight info: paste and save it, then test or remove it; with this month's lookups. */
+@Composable
+private fun FlightGroup(vm: WalletViewModel) {
+    val key by vm.flightKey.collectAsStateWithLifecycle()
+    val usage by vm.lookupUsage.collectAsStateWithLifecycle()
+    val check by vm.keyCheck.collectAsStateWithLifecycle()
+    val checking by vm.checkingKey.collectAsStateWithLifecycle()
+    var typed by remember { mutableStateOf("") }
+    val month = YearMonth.now().toString()
+    val used = if (usage.month == month) usage.used else 0
+    // A used-up allowance belongs to its month; a refused key stays refused until it changes.
+    val problem = usage.problem?.takeIf { usage.month == month || it == LookupProblem.KEY_REJECTED }
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Group {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.flights_title), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            Text(stringResource(R.string.flights_body), color = muted, fontSize = 14.sp)
+            if (key.isBlank()) {
+                WalletField(
+                    value = typed,
+                    onValueChange = { typed = it },
+                    label = stringResource(R.string.flights_key_label),
+                    // A password keyboard does not learn or suggest the key.
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Button(onClick = { vm.setFlightKey(typed); typed = "" }, enabled = typed.isNotBlank()) { Text(stringResource(R.string.flights_save)) }
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.flights_key_saved, key.takeLast(KEY_SHOWN_CHARS)), fontSize = 15.sp, modifier = Modifier.weight(1f))
+                    TextButton(onClick = vm::checkFlightKey, enabled = !checking) { Text(stringResource(R.string.flights_test)) }
+                    TextButton(onClick = { vm.setFlightKey("") }) { Text(stringResource(R.string.flights_remove), color = colorResource(R.color.danger)) }
+                }
+                Text(pluralStringResource(R.plurals.flights_usage, FlightLookups.MONTHLY_LOOKUPS, used, FlightLookups.MONTHLY_LOOKUPS), color = muted, fontSize = 13.sp)
+            }
+            val status = when {
+                checking -> stringResource(R.string.flights_checking) to colorResource(R.color.muted)
+                check == KeyCheck.WORKS && problem == null -> stringResource(R.string.flights_key_works) to colorResource(R.color.positive)
+                check == KeyCheck.REJECTED || problem == LookupProblem.KEY_REJECTED -> stringResource(R.string.flights_key_rejected) to colorResource(R.color.danger)
+                check == KeyCheck.LIMIT_REACHED || problem == LookupProblem.LIMIT_REACHED -> stringResource(R.string.flights_limit_reached) to colorResource(R.color.warning)
+                check == KeyCheck.UNREACHABLE -> stringResource(R.string.flights_unreachable) to colorResource(R.color.danger)
+                else -> null
+            }
+            if (key.isNotBlank() && status != null) Text(status.first, color = status.second, fontSize = 14.sp)
+        }
     }
 }
 

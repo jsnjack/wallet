@@ -77,26 +77,41 @@ import io.github.jsnjack.wallet.core.CardLooks
 import io.github.jsnjack.wallet.core.CodeNumbers
 import io.github.jsnjack.wallet.core.Detail
 import io.github.jsnjack.wallet.core.Flight
+import io.github.jsnjack.wallet.core.FlightCheck
+import io.github.jsnjack.wallet.core.FlightRef
+import io.github.jsnjack.wallet.core.LiveFlight
 import io.github.jsnjack.wallet.core.Money
+import io.github.jsnjack.wallet.flight.FlightText
 import io.github.jsnjack.wallet.platform.AirportTable
 import io.github.jsnjack.wallet.platform.Biometrics
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import java.time.Duration
 import java.time.LocalDateTime
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 private const val USE_AFTER_MS = 1_000L
 private const val MAX_DOTS = 7
+
+// Smaller differences from the schedule are noise, not news.
+private const val MINUTES_WORTH_SAYING = 5L
 private val MARKABLE = setOf(CardKind.VOUCHER, CardKind.GIFT_CARD, CardKind.TICKET)
 
-/** Full-screen codes; swipe sideways between the passengers on one flight or the tickets for one show. */
+/**
+ * Full-screen codes; swipe sideways between the passengers on one flight or
+ * the tickets for one show. A boarding pass shows live flight information and
+ * asks for a fresh lookup when it opens.
+ */
 @Composable
 fun CodeScreen(vm: WalletViewModel, startId: String) {
     val all by vm.allCards.collectAsStateWithLifecycle()
     // Usage as it was before this visit, so the line describes the previous use.
     val usage = remember(startId) { vm.usage.value }
     val archived by vm.archived.collectAsStateWithLifecycle()
+    val flightChecks by vm.flightChecks.collectAsStateWithLifecycle()
     // Order is fixed when the screen opens, so counting a use never moves the page.
     val order = remember(startId) { vm.pagesFor(startId) }
     val startPage = order.indexOf(startId)
@@ -116,6 +131,7 @@ fun CodeScreen(vm: WalletViewModel, startId: String) {
     val current = vm.card(order[pager.settledPage])
     StatusBarIcons(dark = current != null && CardLooks.contentColor(current.color) == CardLooks.DARK_TEXT)
     LaunchedEffect(pager.settledPage) {
+        vm.refreshFlight(order[pager.settledPage])
         delay(USE_AFTER_MS)
         vm.recordUse(order[pager.settledPage])
     }
@@ -134,6 +150,7 @@ fun CodeScreen(vm: WalletViewModel, startId: String) {
             pages = order.size,
             archived = card.id in archivedIds,
             airports = airports,
+            live = FlightRef.of(card)?.let { flightChecks[it.id] },
             showCode = !card.locked || card.id in unlocked,
             onClose = { vm.back() },
             onEdit = { vm.edit(card.id) },
@@ -165,6 +182,7 @@ private fun CodePage(
     pages: Int,
     archived: Boolean,
     airports: Airports?,
+    live: FlightCheck?,
     showCode: Boolean,
     onClose: () -> Unit,
     onEdit: () -> Unit,
@@ -220,11 +238,11 @@ private fun CodePage(
             }
 
             if (flight != null) {
-                FlightHeader(card, flight, airports, content)
+                FlightHeader(card, flight, airports, live, content)
             } else {
                 CardHeader(card, used, content)
             }
-            DetailGrid(pageDetails(card), content, Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 14.dp))
+            DetailGrid(pageDetails(card, live?.flight), content, Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 14.dp))
 
             Surface(
                 shape = RoundedCornerShape(26.dp),
@@ -349,7 +367,7 @@ private fun CardHeader(card: Card, used: String?, content: Color) {
 }
 
 @Composable
-private fun FlightHeader(card: Card, flight: Flight, airports: Airports?, content: Color) {
+private fun FlightHeader(card: Card, flight: Flight, airports: Airports?, live: FlightCheck?, content: Color) {
     Column(Modifier.padding(horizontal = 20.dp, vertical = 10.dp)) {
         Text(
             listOfNotNull(flight.code, card.event?.let { dayTimeText(it) }).joinToString(" · "),
@@ -366,6 +384,57 @@ private fun FlightHeader(card: Card, flight: Flight, airports: Airports?, conten
             )
             Airport(flight.to, airports?.city(flight.to), content, Alignment.End, Modifier.weight(1f))
         }
+        if (live != null) LiveLine(live, content)
+    }
+}
+
+/** The flight's status, how late it is and how fresh the information is; or that the service does not know it. */
+@Composable
+private fun LiveLine(check: FlightCheck, content: Color) {
+    val live = check.flight
+    if (live == null) {
+        Text(stringResource(R.string.flight_not_found), color = content.copy(alpha = 0.75f), fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
+        return
+    }
+    val late = live.scheduledDeparture?.let { scheduled -> live.departure?.let { Duration.between(scheduled, it).toMinutes() } }
+    Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        FlightText.state(live.state)?.let { label ->
+            Text(
+                stringResource(label),
+                color = content,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.16f)).padding(horizontal = 10.dp, vertical = 4.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+        }
+        when {
+            late == null || FlightText.airborne(live.state) -> Unit
+            late >= MINUTES_WORTH_SAYING -> Text(stringResource(R.string.flight_late, late), color = content, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            late <= -MINUTES_WORTH_SAYING -> Text(stringResource(R.string.flight_early, -late), color = content, fontSize = 12.sp)
+        }
+        Spacer(Modifier.weight(1f))
+        Text(stringResource(R.string.flight_updated, relativeTime(check.checkedAt)), color = content.copy(alpha = 0.7f), fontSize = 11.sp, maxLines = 1)
+    }
+}
+
+/** Gate, terminal and departure time before take-off; arrival time, gate and belt after it. */
+@Composable
+private fun liveDetails(live: LiveFlight?): List<Detail> {
+    if (live == null) return emptyList()
+    val format = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
+    return if (FlightText.airborne(live.state)) {
+        listOfNotNull(
+            live.arrival?.let { Detail(stringResource(R.string.detail_arrives), it.toLocalTime().format(format)) },
+            live.arrivalGate?.let { Detail(stringResource(R.string.detail_arrival_gate), it) },
+            live.baggageBelt?.let { Detail(stringResource(R.string.detail_belt), it) },
+        )
+    } else {
+        listOfNotNull(
+            live.departureGate?.let { Detail(stringResource(R.string.detail_gate), it) },
+            live.departureTerminal?.let { Detail(stringResource(R.string.detail_terminal), it) },
+            live.departure?.let { Detail(stringResource(R.string.detail_departs), it.toLocalTime().format(format)) },
+        )
     }
 }
 
@@ -377,11 +446,15 @@ private fun Airport(code: String, city: String?, content: Color, alignment: Alig
     }
 }
 
+// Live facts come first and replace a pass's own field with the same label, such as a gate printed at check-in.
 @Composable
-private fun pageDetails(card: Card): List<Detail> {
+private fun pageDetails(card: Card, live: LiveFlight?): List<Detail> {
     val flight = card.flight ?: return card.details
-    val seat = flight.seat.takeIf { it.isNotBlank() && card.details.none { d -> d.label.equals(stringResource(R.string.detail_seat), true) } }
-    return card.details + listOfNotNull(seat?.let { Detail(stringResource(R.string.detail_seat), it) })
+    val facts = liveDetails(live)
+    val replaced = facts.map { it.label.lowercase() }.toSet()
+    val details = card.details.filterNot { it.label.lowercase() in replaced }
+    val seat = flight.seat.takeIf { it.isNotBlank() && details.none { d -> d.label.equals(stringResource(R.string.detail_seat), true) } }
+    return facts + details + listOfNotNull(seat?.let { Detail(stringResource(R.string.detail_seat), it) })
 }
 
 @Composable

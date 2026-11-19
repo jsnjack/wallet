@@ -1,7 +1,5 @@
 package io.github.jsnjack.wallet.core
 
-import java.time.LocalDate
-
 /**
  * Cards that belong together: boarding passes for one flight (one per
  * passenger, whatever the booking) and tickets for one show. The grid shows
@@ -30,19 +28,14 @@ object CardGroups {
         .groupBy({ it.first }, { it.second })
         .mapValues { (_, members) -> members.minWith(ORDER).id }
 
-    private fun key(card: Card): Key? {
-        val event = card.event ?: return null
-        return when (card.kind) {
-            CardKind.BOARDING_PASS -> card.flight?.takeIf { it.number.isNotBlank() }?.let {
-                Key.Flight(it.carrier.uppercase(), it.number, it.from.uppercase(), event.date)
-            }
-            CardKind.TICKET -> card.name.trim().lowercase().takeIf { it.isNotEmpty() }?.let { Key.Show(it, event) }
-            else -> null
-        }
+    private fun key(card: Card): Key? = when (card.kind) {
+        CardKind.BOARDING_PASS -> FlightRef.of(card)?.let(Key::Flight)
+        CardKind.TICKET -> card.event?.let { event -> card.name.trim().lowercase().takeIf { it.isNotEmpty() }?.let { Key.Show(it, event) } }
+        else -> null
     }
 
     private sealed interface Key {
-        data class Flight(val carrier: String, val number: String, val from: String, val date: LocalDate) : Key
+        data class Flight(val ref: FlightRef) : Key
 
         data class Show(val name: String, val event: DayTime) : Key
     }

@@ -9,8 +9,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
-import io.github.jsnjack.wallet.core.RemoteEntry
-import io.github.jsnjack.wallet.core.SyncRules
+import io.github.jsnjack.wallet.core.RemoteFile
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URI
@@ -20,15 +19,15 @@ import java.net.URLEncoder
 class DriveException(val status: Int, message: String) : IOException(message)
 
 /**
- * Drive REST v3 calls for card files in the hidden app folder. Blocking:
- * call from an IO thread. Each card file carries its "last changed" time in
+ * Drive REST v3 calls for the card and settings files in the hidden app folder. Blocking:
+ * call from an IO thread. Each file carries its "last changed" time in
  * appProperties, so the listing alone decides what to transfer.
  */
 class DriveClient(private val token: String) {
 
-    /** Every card file in the app folder. */
-    fun listCardFiles(): List<RemoteEntry> {
-        val entries = mutableListOf<RemoteEntry>()
+    /** Every file in the app folder: card files and the settings file. */
+    fun listFiles(): List<RemoteFile> {
+        val entries = mutableListOf<RemoteFile>()
         var pageToken: String? = null
         do {
             val url = buildString {
@@ -39,10 +38,10 @@ class DriveClient(private val token: String) {
             val page = Json.parseToJsonElement(request("GET", url).decodeToString()).jsonObject
             page["files"]?.jsonArray?.forEach { element ->
                 val file = element.jsonObject
-                val cardId = SyncRules.cardId(file.string("name")) ?: return@forEach
+                val name = file.string("name") ?: return@forEach
                 val fileId = file.string("id") ?: return@forEach
                 val updatedAt = file["appProperties"]?.jsonObject?.string(UPDATED_AT)?.toLongOrNull() ?: 0L
-                entries += RemoteEntry(cardId, fileId, updatedAt)
+                entries += RemoteFile(name, fileId, updatedAt)
             }
             pageToken = page.string("nextPageToken")
         } while (pageToken != null)
@@ -52,10 +51,10 @@ class DriveClient(private val token: String) {
     /** The content of file [fileId]. */
     fun download(fileId: String): String = request("GET", "$API/files/${encode(fileId)}?alt=media").decodeToString()
 
-    /** Creates the file for [cardId] and returns its file id. */
-    fun create(cardId: String, json: String, updatedAt: Long): String {
+    /** Creates the file [name] and returns its file id. */
+    fun create(name: String, json: String, updatedAt: Long): String {
         val metadata = buildJsonObject {
-            put("name", SyncRules.fileName(cardId))
+            put("name", name)
             putJsonArray("parents") { add(JsonPrimitive("appDataFolder")) }
             putJsonObject("appProperties") { put(UPDATED_AT, updatedAt.toString()) }
         }

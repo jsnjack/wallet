@@ -37,18 +37,27 @@ app/src/main/java/io/github/jsnjack/wallet/
     Brands.kt               Bundled shop list for name suggestions and colours
     CardList.kt             Grid order, search, favourites, quick access (favourites then most used)
     ConnectProblem.kt       Google status codes → why turning on sync failed
-    SyncPlan.kt             SyncRules: file names, newer-wins plan, duplicate files
+    SyncPlan.kt             SyncRules: card and settings file names, newer-wins plan, duplicate files
+    SyncedSettings.kt       Settings that sync through Drive (the flight-status key), one file
+    LiveFlight.kt           FlightRef (one flight on one day), LiveFlight, FlightCheck, LookupProblem
+    AeroDataBox.kt          AeroDataBox flight status JSON → LiveFlight
+    FlightLookups.kt        When to look a flight up, monthly allowance, changes worth an alert
     CardJson.kt             Card file format v2 (sync files, export bundle, database JSON columns)
     ExportCrypto.kt         Export file encryption: PBKDF2-HMAC-SHA256 + AES-256-GCM
   store/
     CardDatabase.kt         SQLiteOpenHelper v2: cards (synced) and usage (this device only)
     CardStore.kt            In-memory cards with write-through, StateFlows for the UI
-    AppSettings.kt          Archive retention, notifications, reminders already posted
+    AppSettings.kt          Archive retention, notifications, reminders already posted, flight-status key
+    FlightStore.kt          Latest lookup per flight and this month's lookup count (this device only)
   drive/
     DriveAuth.kt            Play services AuthorizationClient for the drive.appdata scope
     DriveClient.kt          Drive REST v3 over HttpURLConnection: list, download, create, update
     SyncController.kt       Sync runs, status, WorkManager scheduling, sync preferences
     SyncWorker.kt           Background run; silent authorization only
+  flight/
+    AeroDataBoxClient.kt    RapidAPI GET for a flight or a key check; LookupRefused for bad key or used-up quota
+    FlightUpdater.kt        Due lookups (FlightWorker), lookup on opening a pass, key check, scheduling
+    FlightText.kt           Status labels shared by the code screen, Now Bar and notifications
   platform/
     CodeReader.kt           zxing-cpp: camera frames, images and PDF pages → ReadCode
     AirportTable.kt         Loads assets/airports.tsv once
@@ -57,7 +66,7 @@ app/src/main/java/io/github/jsnjack/wallet/
     Biometrics.kt           Framework BiometricPrompt (strong biometric or screen lock)
   surface/
     Surfaces.kt             Refresh of everything outside the app; AgendaWorker runs it at the next change
-    Notifier.kt             "Today" ongoing notification (Live Update on 36.1+) and expiry reminders
+    Notifier.kt             "Today" ongoing notification (Live Update on 36.1+), expiry reminders, flight change alerts
     Widgets.kt              RemoteViews widgets: Up next (4×1) and Favourite cards (4×2)
     WalletTileService.kt    Quick Settings tile
   ui/
@@ -78,11 +87,15 @@ docs/design-options.html           Design, decisions and roadmap (bunk-gui page)
 docs/style-storybook.html          Five visual styles compared; One UI 9 was chosen
 docs/one-hand.html                 One-handed layouts and tile styles compared
 docs/favourites.html               Favourites ideas compared
+docs/flight-info.html              Live flight info: services compared, AeroDataBox chosen
 ```
 
 External services:
 - Google Play services (`AuthorizationClient`) for Drive access.
 - `www.googleapis.com/drive/v3` and `/upload/drive/v3`, app data folder only.
+- `aerodatabox.p.rapidapi.com` (AeroDataBox through RapidAPI) with the
+  user's own key: flight status by number and date, and an airport lookup
+  to check the key.
 
 ---
 
@@ -106,7 +119,8 @@ External services:
    each change); the app also asks for a run at start and every 6 hours.
    A run lists the app folder, compares each card's `updatedAt`
    (stored in the file's `appProperties`) with the local one, downloads
-   newer remote cards and uploads newer local ones.
+   newer remote cards and uploads newer local ones. `settings.json`
+   (`SyncedSettings`, the flight-status key) follows the same rule.
 4. **Delete.** A deleted card becomes a blank tombstone (`Card.tombstone`)
    that syncs like any card; undo saves the old card again with a new time.
 5. **Import a file.** Shared or picked files go to `WalletViewModel.importFile`,
@@ -121,7 +135,17 @@ External services:
    updates and from `AgendaWorker`, which it schedules for
    `Agenda.nextChange` (at least next midnight). It deletes cards past the
    retention, posts or cancels notifications, redraws widgets and asks the
-   tile to refresh.
+   tile to refresh, then has `FlightUpdater` schedule the next lookup.
+7. **Live flight info.** With a key in Settings, `FlightUpdater.schedule`
+   finds the earliest lookup `FlightLookups.next` asks for among current
+   boarding passes (grouped by `FlightRef`) and enqueues `FlightWorker`
+   (unique work "flights", network required). `runDue` looks up what is
+   due, one request a second, keeping 10 of the 200 monthly lookups for
+   opening a pass; `CodeScreen` calls `refreshOnOpen` for each page. A
+   result goes to `FlightStore`, fills in a pass's missing departure time,
+   posts an alert for a gate, time or cancellation change, and refreshes
+   the surfaces. A refused key or used-up quota stops lookups
+   (`LookupProblem`); other failures wait 10 minutes.
 
 ---
 
@@ -148,7 +172,7 @@ Version: `make build` passes `-PappVersion` from `monova`;
 without the property the version is 0.0.1, code 1, for local use only.
 
 Supported: Android 13+ (`minSdk` 33), target 37. Permissions: camera,
-internet (Drive only), biometric, notifications, promoted notifications
+internet (Drive and AeroDataBox), biometric, notifications, promoted notifications
 (Live Updates). Tested over adb on a Galaxy A56 (SM-A566B, One UI 9,
 Android 17): the screens in light and dark mode, the v1 → v2 database
 upgrade, image, multi-screenshot, PDF and .pkpass import, boarding pass
@@ -166,7 +190,9 @@ installed build.
 Logging: tag `Wallet`. Log sync counts, HTTP status codes and error
 messages only; card names, numbers, notes and account addresses are
 personal data and are never logged. `CodeMatrix` errors name the format,
-never the code.
+never the code. Flight lookups log the flight's state and HTTP statuses,
+never the flight number, date or API key, and parser errors only by type,
+because their messages quote the response.
 
 ---
 
@@ -261,6 +287,22 @@ never the code.
 
 ---
 
+- **Live flight info from AeroDataBox with the user's key** (decided
+  2026-11-19 from `docs/flight-info.html`). Free RapidAPI Basic plan: 400
+  units a month, 2 per flight lookup, so 200 lookups; gate, terminal,
+  check-in desk, belt, revised and predicted times and status in one call,
+  for every airport. The key is pasted in Settings and syncs through Drive
+  in `settings.json` (the user's choice over one key per phone); a key
+  built into the APK would be public and missing from F-Droid builds. Live
+  results stay on the device and never sync: they change every few minutes.
+  Each device counts its own lookups.
+- **Lookups follow the flight's day** (`FlightLookups`): once 24 hours
+  before (or 08:00 the day before when the pass has no time), every 30
+  minutes from 4 hours before departure, every 15 minutes in the last hour,
+  once 10 minutes after the expected landing; a flight the service does not
+  know is tried once more at 06:00 on the day. About 12–15 lookups per
+  flight, shared by every passenger on it.
+
 ## Gotchas
 
 - `adb shell am start … --grant-read-uri-permission` cannot grant MediaStore
@@ -272,6 +314,15 @@ never the code.
 - `AgendaWorker` reschedules itself with `ExistingWorkPolicy.REPLACE`, which
   cancels the running run right after it enqueued the next one. Doze can
   delay the run, so a morning reminder may arrive late.
+- `Surfaces.refresh` schedules `AgendaWorker` with REPLACE last, after
+  `FlightUpdater.schedule`: when AgendaWorker runs the refresh, the REPLACE
+  cancels it, and any later suspending call would not run.
+- RapidAPI answers HTTP 429 both for the monthly quota and for more than
+  one request a second; `AeroDataBoxClient` treats only a body that
+  mentions "quota" as a used-up allowance.
+- AeroDataBox's spec does not pin down its time format: responses have
+  been seen as "2026-11-20 14:10+01:00", the spec says ISO date-time;
+  `AeroDataBox.localTime` reads the wall-clock part of either form.
 - `Notification.Builder.setRequestPromotedOngoing` is API 36.1: guard with
   `SDK_INT_FULL >= VERSION_CODES_FULL.BAKLAVA_1`, not `SDK_INT >= 36`.
 

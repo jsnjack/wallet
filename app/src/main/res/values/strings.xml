@@ -95,6 +95,22 @@
     <string name="sync_title">Sync with Google Drive</string>
     <string name="sync_off_body">Your cards are kept in a hidden folder in your Google Drive that only this app can see, so a new phone or a tablet gets them too.</string>
     <string name="sync_turn_on">Turn on sync</string>
+    <string name="flights_title">Live flight info</string>
+    <string name="flights_body">Gate, terminal, delays and status on boarding passes, from AeroDataBox. Create a free account at rapidapi.com, subscribe to AeroDataBox\'s Basic plan and paste your key here. Only the flight number and date are sent; the key syncs to your other devices with your cards.</string>
+    <string name="flights_key_label">RapidAPI key</string>
+    <string name="flights_save">Save key</string>
+    <string name="flights_key_saved">Key ending in %s</string>
+    <string name="flights_test">Test</string>
+    <string name="flights_remove">Remove</string>
+    <string name="flights_checking">Checking the key…</string>
+    <string name="flights_key_works">The key works.</string>
+    <string name="flights_key_rejected">RapidAPI rejected this key. Check that it is copied in full and subscribed to AeroDataBox.</string>
+    <string name="flights_limit_reached">This month\'s lookups are used up; they start again next month.</string>
+    <string name="flights_unreachable">Could not reach RapidAPI. Try again when you are online.</string>
+    <plurals name="flights_usage">
+        <item quantity="one">%1$d of %2$d lookup used this month</item>
+        <item quantity="other">%1$d of %2$d lookups used this month</item>
+    </plurals>
     <string name="sync_connecting">Connecting to Google…</string>
     <string name="sync_problem_not_registered">Google refused access because this app is not registered for Google Drive yet. Set up its OAuth client as described in the README, then try again.</string>
     <string name="sync_problem_api_disabled">Google refused access because the Drive API is switched off in this app\'s Google Cloud project.</string>
@@ -198,6 +214,9 @@
     <string name="notify_expires_today">Expires today.</string>
     <string name="notify_reminder_title">%s expires tomorrow</string>
     <string name="notify_reminder_text">Tap to show the card.</string>
+    <string name="channel_flights">Flight changes</string>
+    <string name="channel_flights_description">Gate changes, new departure times and cancellations for your boarding passes.</string>
+    <string name="notify_departs_now">Now departs %s</string>
 
     <string name="choose_code_title">Several codes found</string>
     <string name="code_archived">In the archive</string>
@@ -210,6 +229,29 @@
     <string name="code_used">Used</string>
     <string name="code_past">Past</string>
     <string name="detail_seat">Seat</string>
+    <string name="detail_gate">Gate</string>
+    <string name="detail_terminal">Terminal</string>
+    <string name="detail_departs">Departs</string>
+    <string name="detail_arrives">Arrives</string>
+    <string name="detail_arrival_gate">Arrival gate</string>
+    <string name="detail_belt">Belt</string>
+    <string name="flight_gate_value">Gate %s</string>
+    <string name="flight_updated">Updated %s</string>
+    <string name="flight_late">%d min late</string>
+    <string name="flight_early">%d min early</string>
+    <string name="flight_not_found">No live information for this flight.</string>
+    <string name="flight_state_expected">Scheduled</string>
+    <string name="flight_state_check_in">Check-in open</string>
+    <string name="flight_state_boarding">Boarding</string>
+    <string name="flight_state_gate_closed">Gate closed</string>
+    <string name="flight_state_departed">Departed</string>
+    <string name="flight_state_en_route">In the air</string>
+    <string name="flight_state_delayed">Delayed</string>
+    <string name="flight_state_approaching">Landing soon</string>
+    <string name="flight_state_arrived">Arrived</string>
+    <string name="flight_state_canceled">Cancelled</string>
+    <string name="flight_state_canceled_uncertain">May be cancelled</string>
+    <string name="flight_state_diverted">Diverted</string>
 
     <string name="action_restore">Restore</string>
     <string name="action_mark_used">Mark as used</string>
