@@ -167,7 +167,8 @@ make install      # build + adb install -r
 make test         # JVM unit tests (core/)
 make logs         # adb logcat -s Wallet
 make airports     # refresh assets/airports.tsv from OurAirports
-make release      # check, upload GitHub release, then queue F-Droid publication (jsnjack/android-apps)
+make release-apk  # minified, non-debuggable APK signed with the personal key → bin/release/wallet.apk
+make release      # check, upload the release APK to GitHub, then queue F-Droid publication (jsnjack/android-apps)
 make fdroid-publish  # retry F-Droid publication for the current commit
 ```
 
@@ -205,7 +206,10 @@ and that it is not debuggable. The first release build (0.15.0) was signed
 locally the same way, installed over the phone's debug build and started
 with no crash. The published version code is the higher of `version_floor`
 (15000 in `apps.json`) plus one and the `make release` mapping; local
-builds installed afterwards must not be lower.
+builds installed afterwards must not be lower. The GitHub release carries
+the same kind of APK (`make release-apk`: `assembleRelease`, signed with
+`apksigner` and the debug keystore); the debug APK stays local, because
+installed over the real app it would let `run-as` read the card database.
 
 Logging: tag `Wallet`. Log counts, HTTP status codes and error
 messages only; card names, numbers, notes and account addresses are

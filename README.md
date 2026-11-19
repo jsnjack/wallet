@@ -145,7 +145,8 @@ the times. Settings → Live flight info turns it off.
 Wallet is published in the personal F-Droid repository at
 https://jsnjack.github.io/android-apps/ (configured in
 `jsnjack/android-apps`). Commit and push `master`, then run `make release`;
-it runs the checks, uploads the APK to the app's GitHub release and starts
+it runs the checks, uploads a release APK (minified, not debuggable, signed
+with the personal key) to the app's GitHub release and starts
 F-Droid publication for that exact commit. The publisher builds an optimised
 release APK and signs it with the same personal key as local builds, so a
 repository update installs over a local build and keeps the cards.
