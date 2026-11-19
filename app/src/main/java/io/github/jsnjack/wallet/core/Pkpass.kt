@@ -13,6 +13,7 @@ import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.format.DateTimeParseException
 import java.time.temporal.ChronoUnit
+import java.util.Locale
 import java.util.zip.ZipInputStream
 
 /**
@@ -81,7 +82,7 @@ object Pkpass {
             color = color(pass.string("backgroundColor")),
             expires = dayTime(pass.string("expirationDate")),
             event = event,
-            details = details(style),
+            details = details(style) + listOfNotNull(location(pass)),
             flight = leg?.flight,
             usedAt = if ((pass["voided"] as? JsonPrimitive)?.content == "true") now else null,
         )
@@ -157,6 +158,15 @@ object Pkpass {
     }
 
     private const val DATE_LENGTH = 10
+
+    // The first of the pass's locations, for a map; Apple Wallet uses them to show the pass nearby.
+    private fun location(pass: JsonObject): Detail? {
+        val place = (pass["locations"] as? JsonArray)?.firstOrNull() as? JsonObject ?: return null
+        val latitude = (place["latitude"] as? JsonPrimitive)?.content?.toDoubleOrNull() ?: return null
+        val longitude = (place["longitude"] as? JsonPrimitive)?.content?.toDoubleOrNull() ?: return null
+        if (latitude !in -90.0..90.0 || longitude !in -180.0..180.0) return null
+        return Detail(CardPlace.LOCATION, String.format(Locale.ROOT, "%.5f, %.5f", latitude, longitude))
+    }
 
     private fun JsonObject.string(key: String): String? = (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content
 }

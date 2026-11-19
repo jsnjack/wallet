@@ -41,12 +41,13 @@ Tickets with the same name and time share a tile the same way. Apple Wallet
 `.pkpass` files and e-ticket PDFs can be shared to the app or picked with
 "PDF or pass" in the scanner. On Android 15 and newer the text of a PDF
 ticket fills in the form: the event name, date and time, and doors, hall,
-row, seat and venue; the buyer's name, numbers and price are left out. A PDF
-with several tickets, one per page, offers "Add both" (or "Add all"): one
-form per ticket, each filled from its own page, and the tickets then share
-one tile. When a ticket prints its code as a QR code and as a barcode,
-Wallet shows the QR code with a "Show as barcode" switch under it, for a
-scanner that only reads barcodes.
+row, seat, venue and address; the buyer's name, numbers and price are left
+out. A PDF with several tickets, one per page, offers "Add both" (or "Add
+all"): one form per ticket, each filled from its own page, and the tickets
+then share one tile. When a ticket prints its code as a QR code and as a
+barcode, Wallet shows the QR code with a "Show as barcode" switch under it,
+for a scanner that only reads barcodes. A card with a venue, an address or
+an Apple Wallet location shows it under its name; a tap opens Google Maps.
 
 With a key for AeroDataBox (see "Live flight info setup" below), a boarding
 pass also shows its gate, terminal, departure time and status, updated

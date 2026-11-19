@@ -47,6 +47,19 @@ class PkpassTest {
     }
 
     @Test
+    fun aPassLocationBecomesCoordinatesForTheMap() {
+        // SYNTH: an event ticket with the venue's location.
+        val draft = Pkpass.read(
+            pkpass(
+                """{"formatVersion":1,"organizationName":"Venue","barcodes":[{"format":"PKBarcodeFormatQR","message":"T-1",
+                "messageEncoding":"iso-8859-1"}],"locations":[{"latitude":52.0917,"longitude":5.1131}],"eventTicket":{}}""",
+            ),
+            today, 0,
+        )
+        assertEquals(Detail("Location", "52.09170, 5.11310"), draft.details.last())
+    }
+
+    @Test
     fun boardingPassUsesTheBcbpBarcode() {
         val draft = Pkpass.read(
             pkpass(

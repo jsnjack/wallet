@@ -38,7 +38,8 @@ app/src/main/java/io/github/jsnjack/wallet/
     CardList.kt             CardOrder (A–Z or most used), search, favourites, quick access (favourites then most used)
     CodeChoice.kt           One code per text when a file repeats it (a ticket's QR and barcode), square codes first;
                             the other format becomes Card.altFormat
-    TicketText.kt           E-ticket text (English, Dutch) → event name, date and time, door details, venue
+    TicketText.kt           E-ticket text (English, Dutch) → event name, date and time, door details, venue and address
+    CardPlace.kt            A card's venue, address or coordinates as one maps search
     LiveFlight.kt           FlightRef (one flight on one day), LiveFlight, FlightCheck, LookupProblem
     AeroDataBox.kt          AeroDataBox flight status JSON → LiveFlight
     FlightLookups.kt        When to look a flight up, monthly allowance, changes worth an alert
@@ -263,6 +264,9 @@ because their messages quote the response.
   the format is stored; QR is the default because camera scanners read it
   more reliably from a screen, and "Show as barcode" covers scanners that
   read only barcodes.
+- **Maps through Google's documented search link.** The place chip opens
+  `https://www.google.com/maps/search/?api=1&query=…`, which the Maps app
+  handles and a browser falls back to; no Maps SDK or key.
 - **Ticket details from PDF text, not image recognition** (decided
   2026-11-19). Android 15's `PdfRenderer.Page.getTextContents` reads
   e-ticket PDFs with no new library; text recognition for screenshots would
@@ -342,6 +346,10 @@ because their messages quote the response.
 - `Intent.setClipData` returns nothing, so it cannot be chained; the share
   intent sets the clip separately so the read grant reaches the app picked
   in the chooser.
+- A PDF's stored text order follows its columns, not the page: on the
+  Ticketmaster ticket the buyer's name shares a line with the venue's
+  postcode. `TicketText` takes only the postcode and one-word city from such
+  a line, never the rest of it.
 - ZXing's Code 39 writer switches to extended mode for lowercase, so
   `canEncode` accepts lowercase text; only non-ASCII text fails.
 - RapidAPI answers HTTP 429 both for the monthly quota and for more than

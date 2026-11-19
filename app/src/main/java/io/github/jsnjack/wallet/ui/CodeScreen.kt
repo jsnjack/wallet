@@ -66,8 +66,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
+import android.util.Log
+import io.github.jsnjack.wallet.LOG_TAG
+import io.github.jsnjack.wallet.core.CardPlace
 import androidx.compose.material3.TextButton
 import io.github.jsnjack.wallet.R
 import io.github.jsnjack.wallet.core.Agenda
@@ -368,6 +375,7 @@ private fun CardHeader(card: Card, used: String?, content: Color) {
             Text(card.name, color = content, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 2)
             val subtitle = card.event?.let { dayTimeText(it) } ?: stringResource(kindLabel(card.kind))
             Text(listOfNotNull(subtitle, used).joinToString(" · "), color = content.copy(alpha = 0.8f), fontSize = 13.sp)
+            CardPlace.query(card)?.let { query -> PlaceChip(CardPlace.label(card) ?: stringResource(R.string.place_map), query, content) }
         }
         card.balanceCents?.let {
             Column(horizontalAlignment = Alignment.End) {
@@ -377,6 +385,37 @@ private fun CardHeader(card: Card, used: String?, content: Color) {
         }
     }
 }
+
+/** Where the event is; a tap opens the place in Google Maps, or a browser without it. */
+@Composable
+private fun PlaceChip(label: String, query: String, content: Color) {
+    val context = LocalContext.current
+    Row(
+        Modifier
+            .padding(top = 6.dp)
+            .clip(RoundedCornerShape(50))
+            .background(Color.Black.copy(alpha = 0.16f))
+            .clickable { openMap(context, query) }
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(painterResource(R.drawable.ic_place), contentDescription = null, tint = content, modifier = Modifier.size(15.dp))
+        Spacer(Modifier.width(4.dp))
+        Text(label, color = content, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+private fun openMap(context: Context, query: String) {
+    val maps = Intent(Intent.ACTION_VIEW, (MAPS_SEARCH + Uri.encode(query)).toUri())
+    try {
+        context.startActivity(maps)
+    } catch (e: ActivityNotFoundException) {
+        Log.w(LOG_TAG, "no app opens maps links")
+    }
+}
+
+// Google's documented maps link: opens the Maps app when installed, the website otherwise.
+private const val MAPS_SEARCH = "https://www.google.com/maps/search/?api=1&query="
 
 @Composable
 private fun FlightHeader(card: Card, flight: Flight, airports: Airports?, live: FlightCheck?, content: Color) {
@@ -461,7 +500,9 @@ private fun Airport(code: String, city: String?, content: Color, alignment: Alig
 // Live facts come first and replace a pass's own field with the same label, such as a gate printed at check-in.
 @Composable
 private fun pageDetails(card: Card, live: LiveFlight?): List<Detail> {
-    val flight = card.flight ?: return card.details
+    // The place is shown as the map chip in the header, so its venue and coordinates are not repeated here.
+    val place = CardPlace.label(card)
+    val flight = card.flight ?: return card.details.filterNot { it.label.equals(CardPlace.LOCATION, ignoreCase = true) || it.value.trim() == place }
     val facts = liveDetails(live)
     val replaced = facts.map { it.label.lowercase() }.toSet()
     val details = card.details.filterNot { it.label.lowercase() in replaced }

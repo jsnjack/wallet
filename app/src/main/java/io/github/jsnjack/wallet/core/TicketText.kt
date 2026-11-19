@@ -18,7 +18,6 @@ object TicketText {
     private const val MAX_NAME = 80
     private const val MIN_LETTERS = 3
     private const val MAX_NAME_WORDS = 10
-    private const val VENUE_LABEL = "Venue"
 
     private val LABEL = Regex("""^([^:]{2,$MAX_LABEL}):\s*(.*)$""")
     private val DAY_MONTH_YEAR = Regex("""\b(\d{1,2})(?:st|nd|rd|th|e)?\.?\s+(\p{L}{3,9})\.?,?\s+(\d{4})\b""")
@@ -26,8 +25,11 @@ object TicketText {
     private val NUMERIC_DMY = Regex("""\b(\d{1,2})[-./](\d{1,2})[-./](\d{4})\b""")
     private val ISO_DATE = Regex("""\b(\d{4})-(\d{2})-(\d{2})\b""")
     private val TIME = Regex("""(?<![\d€$£.,])([01]?\d|2[0-3])[:.]([0-5]\d)(?![\d.,])""")
-    private val POSTCODE_LINE = Regex("""^\d{4,5}\s?(?:[A-Z]{2}\s+)?(\p{Lu}[\p{L} '-]+)$""")
-    private val HOUSE_NUMBER = Regex("""\s\d+\s?[A-Za-z]?$""")
+    // "3511 WC Utrecht" anywhere in a line, since a column can share the line with other text; "10115 Berlin" only as a whole line.
+    // The city is one word, so whatever follows it on a shared line (a buyer's name) is never taken; the postcode places the address.
+    private val DUTCH_POSTCODE = Regex("""\b(\d{4} ?[A-Z]{2})\s+((?:'s-)?\p{Lu}[\p{L}'-]+)""")
+    private val OTHER_POSTCODE = Regex("""^(\d{4,5})\s+(\p{Lu}[\p{L}'-]+(?:[ -]\p{Lu}[\p{L}'-]+)*)$""")
+    private val STREET = Regex("""^\p{Lu}[\p{L}.'-]*(?: [\p{L}.'-]+)* \d{1,5} ?[A-Za-z]?(?:-\d+)?$""")
     private val NOT_EVENT_DATE = Regex("""(?i)\b(order|besteld|bestel|gekocht|purchase|aankoop|printed|geprint|issued|uitgegeven|created|aangemaakt|geboren|born)""")
     private val BOILERPLATE = Regex("""(?i)(www\.|https?:|@|\*|e-?ticket|toegangsbewijs|print (this|dit)|mobile ticket|\bterms\b|conditions|voorwaarden)""")
     private val ISSUERS = setOf("ticketmaster", "eventim", "see tickets", "ticketswap", "paylogic", "eventbrite", "ticketcounter", "ticketland")
@@ -86,7 +88,7 @@ object TicketText {
             val value = line.value?.takeIf { it.isNotBlank() } ?: return@forEach
             if (label.lowercase() in DETAIL_LABELS && details.none { it.label.equals(label, ignoreCase = true) }) details += Detail(label, value)
         }
-        venue(lines, used)?.let { details += Detail(VENUE_LABEL, it) }
+        details += place(lines, used)
 
         val name = lines.indices.firstOrNull { i -> !used[i] && isName(lines[i].text, code) }?.let { lines[it].text }
         return TicketFacts(name, event, details)
@@ -155,20 +157,20 @@ object TicketText {
 
     private fun time(match: MatchResult): LocalTime = LocalTime.of(match.groupValues[1].toInt(), match.groupValues[2].toInt())
 
-    // A postcode line ("3511 WC Utrecht") follows the street ("Vredenburgkade 11"), which follows the venue.
-    private fun venue(lines: List<Line>, used: BooleanArray): String? {
-        // A line like "2026 Tour" also looks like a postcode line; only one with a street above it counts.
-        val index = lines.indices.firstOrNull { i ->
-            !used[i] && POSTCODE_LINE.matches(lines[i].text) && i > 0 && !used[i - 1] && HOUSE_NUMBER.containsMatchIn(lines[i - 1].text)
-        } ?: return null
-        val city = POSTCODE_LINE.find(lines[index].text)!!.groupValues[1].trim()
-        val street = index - 1
-        used[index] = true
+    // The venue's name above its street ("Vredenburgkade 11"), with the postcode and city from wherever they are printed.
+    // Only the postcode and city are taken from their line, which may also hold the buyer's name.
+    private fun place(lines: List<Line>, used: BooleanArray): List<Detail> {
+        val postcode = lines.indices.firstNotNullOfOrNull { i ->
+            (DUTCH_POSTCODE.find(lines[i].text) ?: OTHER_POSTCODE.find(lines[i].text))?.let { i to it }
+        } ?: return emptyList()
+        val street = lines.indices.firstOrNull { !used[it] && STREET.matches(lines[it].text) } ?: return emptyList()
+        val (postcodeLine, match) = postcode
+        if (match.value == lines[postcodeLine].text) used[postcodeLine] = true
         used[street] = true
-        val place = street - 1
-        if (place < 0 || used[place] || date(lines[place].text) != null) return city
-        used[place] = true
-        return "${lines[place].text}, $city"
+        val address = "${lines[street].text}, ${match.groupValues[1]} ${match.groupValues[2]}"
+        val venue = (street - 1).takeIf { it >= 0 && !used[it] && isName(lines[it].text, "") }
+        venue?.let { used[it] = true }
+        return listOfNotNull(venue?.let { Detail(CardPlace.VENUE, lines[it].text) }, Detail(CardPlace.ADDRESS, address))
     }
 
     private fun isName(text: String, code: String): Boolean {
