@@ -51,9 +51,9 @@ private const val MIN_PASSWORD = 8
 
 private enum class PasswordFor { EXPORT, IMPORT }
 
-/** Sync with Google Drive, export and import. */
+/** Sync, imports, notifications, archive and backup, as a full-height sheet that closes with a swipe down. */
 @Composable
-fun SettingsScreen(vm: WalletViewModel) {
+fun SettingsSheet(vm: WalletViewModel) {
     val sync by vm.syncStatus.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
     var passwordFor by remember { mutableStateOf<PasswordFor?>(null) }
@@ -82,16 +82,10 @@ fun SettingsScreen(vm: WalletViewModel) {
     val retention by vm.retention.collectAsStateWithLifecycle()
     val notifications by vm.notifications.collectAsStateWithLifecycle()
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .statusBarsPadding()
-            .navigationBarsPadding(),
-    ) {
-        TitleBar(stringResource(R.string.settings_title), onBack = { vm.back() })
+    WalletSheet(onDismiss = { vm.back() }) {
+        Text(stringResource(R.string.settings_title), fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp, bottom = 10.dp))
         Column(
-            Modifier.verticalScroll(rememberScrollState()).padding(horizontal = SCREEN_PADDING).padding(bottom = 16.dp),
+            Modifier.verticalScroll(rememberScrollState()).padding(bottom = 8.dp),
             verticalArrangement = Arrangement.spacedBy(GROUP_GAP),
         ) {
             SyncGroup(sync, busy, vm)

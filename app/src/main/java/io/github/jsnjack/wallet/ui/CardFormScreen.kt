@@ -106,10 +106,7 @@ fun CardFormScreen(vm: WalletViewModel) {
             .navigationBarsPadding()
             .imePadding(),
     ) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { vm.back() }) {
-                Icon(painterResource(R.drawable.ic_close), contentDescription = stringResource(R.string.action_close))
-            }
+        Row(Modifier.fillMaxWidth().padding(start = 18.dp, end = 12.dp, top = 10.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(
                     stringResource(if (editing) R.string.form_edit_title else R.string.form_new_title),
@@ -118,8 +115,6 @@ fun CardFormScreen(vm: WalletViewModel) {
                 )
                 if (queued > 0) Text(pluralStringResource(R.plurals.form_queue, queued, queued), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            if (queued > 0) TextButton(onClick = vm::skipDraft) { Text(stringResource(R.string.action_skip)) }
-            TextButton(onClick = save) { Text(stringResource(R.string.action_save), fontWeight = FontWeight.SemiBold) }
         }
         Column(
             Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = SCREEN_PADDING),
@@ -128,7 +123,7 @@ fun CardFormScreen(vm: WalletViewModel) {
             CardTile(
                 name = current.name.ifBlank { stringResource(R.string.form_name_placeholder) },
                 color = current.effectiveColor,
-                flight = current.kind == CardKind.BOARDING_PASS,
+                kind = current.kind,
                 large = true,
                 modifier = Modifier.fillMaxWidth(0.5f).align(Alignment.CenterHorizontally),
             )
@@ -199,29 +194,23 @@ fun CardFormScreen(vm: WalletViewModel) {
             }
             Spacer(Modifier.height(16.dp))
         }
-        if (!editing) {
-            Button(
-                onClick = save,
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = SCREEN_PADDING, vertical = 8.dp).height(50.dp),
-            ) {
-                Text(stringResource(if (queued > 0) R.string.action_save_next else R.string.action_save), fontSize = 16.sp)
+        Box(Modifier.padding(horizontal = SCREEN_PADDING, vertical = 8.dp)) {
+            if (queued > 0) {
+                BottomButtons(stringResource(R.string.action_skip), vm::skipDraft, stringResource(R.string.action_save_next), save)
+            } else {
+                BottomButtons(stringResource(R.string.action_cancel), { vm.back() }, stringResource(R.string.action_save), save)
             }
         }
     }
 
     val editingId = current.editingId
     if (confirmDelete && editingId != null) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text(stringResource(R.string.delete_title, current.name)) },
-            text = { Text(stringResource(R.string.delete_body)) },
-            confirmButton = {
-                TextButton(onClick = { confirmDelete = false; vm.delete(editingId) }) {
-                    Text(stringResource(R.string.action_delete), color = colorResource(R.color.danger))
-                }
-            },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.action_cancel)) } },
+        ConfirmSheet(
+            title = stringResource(R.string.delete_title, current.name),
+            body = stringResource(R.string.delete_body),
+            confirm = stringResource(R.string.action_delete),
+            onConfirm = { confirmDelete = false; vm.delete(editingId) },
+            onDismiss = { confirmDelete = false },
         )
     }
 }
@@ -427,7 +416,10 @@ private fun Swatches(draft: CardDraft, onPick: (Int) -> Unit) {
 
 @Composable
 private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier.fillMaxWidth().clickable { onChange(!checked) }.padding(horizontal = 18.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text(label, modifier = Modifier.weight(1f), fontSize = 16.sp)
         WalletSwitch(checked = checked, onCheckedChange = onChange)
     }

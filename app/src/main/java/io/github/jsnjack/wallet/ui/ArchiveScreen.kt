@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -56,9 +57,9 @@ private enum class ArchiveFilter(val label: Int, val kinds: Set<CardKind>?) {
     TICKETS(R.string.archive_tickets, setOf(CardKind.TICKET)),
 }
 
-/** Used vouchers, expired cards and past tickets and flights, newest first, one group per month. */
+/** Used vouchers, expired cards and past tickets and flights, newest first, one group per month, in a full-height sheet. */
 @Composable
-fun ArchiveScreen(vm: WalletViewModel) {
+fun ArchiveSheet(vm: WalletViewModel) {
     val archived by vm.archived.collectAsStateWithLifecycle()
     val retention by vm.retention.collectAsStateWithLifecycle()
     var filter by remember { mutableStateOf(ArchiveFilter.ALL) }
@@ -66,22 +67,24 @@ fun ArchiveScreen(vm: WalletViewModel) {
     val month = remember(locale) { DateTimeFormatter.ofPattern("LLLL yyyy", locale) }
     val shown = archived.filter { (card, _) -> filter.kinds?.contains(card.kind) ?: true }
 
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding().navigationBarsPadding()) {
-        TitleBar(
-            title = stringResource(R.string.archive_title),
-            subtitle = if (retention == Retention.FOREVER) stringResource(R.string.archive_kept_forever)
+    WalletSheet(onDismiss = { vm.back() }) {
+        Text(stringResource(R.string.archive_title), fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp))
+        Text(
+            if (retention == Retention.FOREVER) stringResource(R.string.archive_kept_forever)
             else stringResource(R.string.archive_kept_for, stringResource(retentionLabel(retention))),
-            onBack = { vm.back() },
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 8.dp, bottom = 10.dp),
         )
-        LazyRow(contentPadding = PaddingValues(horizontal = SCREEN_PADDING), horizontalArrangement = CHIP_GAP) {
+        LazyRow(horizontalArrangement = CHIP_GAP) {
             items(ArchiveFilter.entries) { option ->
                 WalletChip(stringResource(option.label), selected = option == filter, onClick = { filter = option })
             }
         }
         LazyColumn(
-            contentPadding = PaddingValues(start = SCREEN_PADDING, end = SCREEN_PADDING, top = 8.dp, bottom = 16.dp),
+            contentPadding = PaddingValues(top = 8.dp, bottom = 8.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(),
         ) {
             if (shown.isEmpty()) {
                 item {
@@ -150,14 +153,11 @@ private fun ArchivedRow(card: Card, archivedAt: LocalDateTime, vm: WalletViewMod
                 Text(stringResource(reason, date), fontSize = 12.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, shape = RoundedCornerShape(22.dp)) {
-            if (card.usedAt != null) {
-                DropdownMenuItem(text = { Text(stringResource(R.string.action_restore)) }, onClick = { menu = false; vm.restore(card.id) })
+        if (menu) {
+            WalletSheet(onDismiss = { menu = false }) {
+                if (card.usedAt != null) SheetRow(stringResource(R.string.action_restore), R.drawable.ic_archive) { menu = false; vm.restore(card.id) }
+                SheetRow(stringResource(R.string.menu_delete), R.drawable.ic_close, color = colorResource(R.color.danger)) { menu = false; vm.delete(card.id) }
             }
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.menu_delete), color = colorResource(R.color.danger)) },
-                onClick = { menu = false; vm.delete(card.id) },
-            )
         }
     }
 }

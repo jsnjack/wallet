@@ -16,26 +16,26 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
-/** Quick Settings tile: opens the "Up next" card, or the grid when there is none. */
+/** Quick Settings tile: opens the "Up next" card, else the first favourite, else the grid. */
 class WalletTileService : TileService() {
     private val scope = MainScope()
 
     override fun onStartListening() {
         scope.launch {
-            val next = (application as WalletApplication).surfaces.upNextNow()
+            val card = (application as WalletApplication).surfaces.tileCard()
             val tile = qsTile ?: return@launch
             tile.label = getString(R.string.app_name)
-            tile.subtitle = next?.card?.name ?: getString(R.string.tile_open)
-            tile.state = if (next != null) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
+            tile.subtitle = card?.name ?: getString(R.string.tile_open)
+            tile.state = if (card != null) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
             tile.updateTile()
         }
     }
 
     override fun onClick() {
         scope.launch {
-            val next = (application as WalletApplication).surfaces.upNextNow()
+            val card = (application as WalletApplication).surfaces.tileCard()
             val intent = Intent(this@WalletTileService, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            if (next != null) intent.setAction(Shortcuts.ACTION_SHOW_CARD).putExtra(Shortcuts.EXTRA_CARD_ID, next.card.id)
+            if (card != null) intent.setAction(Shortcuts.ACTION_SHOW_CARD).putExtra(Shortcuts.EXTRA_CARD_ID, card.id)
             val pending = PendingIntent.getActivity(
                 this@WalletTileService,
                 0,

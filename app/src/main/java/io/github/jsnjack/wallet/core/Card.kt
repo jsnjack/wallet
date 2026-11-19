@@ -56,6 +56,7 @@ data class Card(
     val kind: CardKind,
     val color: Int,
     val note: String,
+    /** True for a favourite (stored as "pinned" in the file format and database). */
     val pinned: Boolean,
     val locked: Boolean,
     val createdAt: Long,

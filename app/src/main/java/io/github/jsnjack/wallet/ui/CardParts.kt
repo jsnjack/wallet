@@ -25,9 +25,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import io.github.jsnjack.wallet.core.Usage
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
@@ -58,28 +60,23 @@ import java.time.format.FormatStyle
 /** Width to height of a bank card, used for every tile. */
 const val CARD_RATIO = 1.6f
 
-// One UI tiles catch the light from the top left.
-private val GLOSS = Brush.linearGradient(
-    0f to Color.White.copy(alpha = 0.26f),
-    0.46f to Color.White.copy(alpha = 0f),
-)
-
 /**
- * A brand-coloured tile with the card's monogram and name, with One UI's
- * gloss and, in light mode, a soft shadow. Flights show a plane instead of
- * a monogram; small icons mark cards kept at the top or locked.
+ * A "big type" tile: the brand colour with the card name at the top and a
+ * giant monogram (or a plane for flights) bleeding off the bottom-right
+ * corner in a lighter tone. Small icons mark cards kept at the top or locked.
  */
 @Composable
 fun CardTile(
     name: String,
     color: Int,
     modifier: Modifier = Modifier,
-    flight: Boolean = false,
+    kind: CardKind = CardKind.LOYALTY,
     pinned: Boolean = false,
     locked: Boolean = false,
     large: Boolean = false,
 ) {
     val content = Color(CardLooks.contentColor(color))
+    val ghost = if (content == Color.White) Color.White.copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.16f)
     val shape = RoundedCornerShape(if (large) 24.dp else 20.dp)
     val shadow = if (isSystemInDarkTheme()) 0.dp else 3.dp
     Box(
@@ -87,45 +84,94 @@ fun CardTile(
             .aspectRatio(CARD_RATIO)
             .shadow(shadow, shape)
             .clip(shape)
-            .background(Color(color))
-            .background(GLOSS),
+            .background(Color(color)),
     ) {
-        Column(
-            Modifier.fillMaxSize().padding(horizontal = if (large) 16.dp else 12.dp, vertical = if (large) 14.dp else 10.dp),
-            verticalArrangement = Arrangement.SpaceBetween,
-        ) {
-            if (flight) {
-                Icon(painterResource(R.drawable.ic_flight), contentDescription = null, tint = content, modifier = Modifier.size(if (large) 28.dp else 22.dp))
-            } else {
-                Text(
-                    CardLooks.monogram(name),
-                    color = content,
-                    fontSize = if (large) 26.sp else 19.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    maxLines = 1,
-                )
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    name,
-                    color = content,
-                    fontSize = if (large) 14.sp else 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                if (pinned) Badge(R.drawable.ic_star_filled, content)
-                if (locked) Badge(R.drawable.ic_lock_filled, content)
-            }
+        if (kind == CardKind.BOARDING_PASS) {
+            Icon(
+                painterResource(R.drawable.ic_flight),
+                contentDescription = null,
+                tint = ghost,
+                modifier = Modifier.align(Alignment.BottomEnd).offset(x = 14.dp, y = 18.dp).size(if (large) 130.dp else 96.dp),
+            )
+        } else {
+            Text(
+                CardLooks.monogram(name),
+                color = ghost,
+                fontSize = if (large) 92.sp else 68.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = (-3).sp,
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier.align(Alignment.BottomEnd).offset(x = 8.dp, y = if (large) 26.dp else 20.dp),
+            )
+        }
+        Row(Modifier.fillMaxWidth().padding(horizontal = if (large) 16.dp else 12.dp, vertical = if (large) 14.dp else 10.dp), verticalAlignment = Alignment.Top) {
+            Text(
+                name,
+                color = content,
+                fontSize = if (large) 17.sp else 13.5.sp,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                lineHeight = if (large) 20.sp else 16.sp,
+                modifier = Modifier.weight(1f),
+            )
+            if (pinned) Badge(R.drawable.ic_star_filled, content)
+            if (locked) Badge(R.drawable.ic_lock_filled, content)
         }
     }
 }
 
+/** A small big-type tile for the favourites rail: name at the top, monogram bleeding off the corner. */
+@Composable
+fun MiniTile(name: String, color: Int, flight: Boolean, modifier: Modifier = Modifier) {
+    val content = Color(CardLooks.contentColor(color))
+    val ghost = if (content == Color.White) Color.White.copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.16f)
+    Box(modifier.clip(RoundedCornerShape(14.dp)).background(Color(color))) {
+        if (flight) {
+            Icon(painterResource(R.drawable.ic_flight), contentDescription = null, tint = ghost, modifier = Modifier.align(Alignment.BottomEnd).offset(x = 8.dp, y = 10.dp).size(52.dp))
+        } else {
+            Text(
+                CardLooks.monogram(name),
+                color = ghost,
+                fontSize = 40.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = (-2).sp,
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier.align(Alignment.BottomEnd).offset(x = 6.dp, y = 12.dp),
+            )
+        }
+        Text(
+            name,
+            color = content,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.ExtraBold,
+            lineHeight = 13.sp,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+        )
+    }
+}
+
+/** "Used 3×, last 2 days ago" for a card's code screen; null before the first use. */
+@Composable
+fun usageText(usage: Usage?): String? {
+    if (usage == null || usage.count == 0) return null
+    val count = pluralStringResource(R.plurals.used_count, usage.count, usage.count)
+    val now = System.currentTimeMillis()
+    val last = if (now - usage.lastUsedAt < DateUtils.MINUTE_IN_MILLIS) {
+        stringResource(R.string.used_just_now)
+    } else {
+        DateUtils.getRelativeTimeSpanString(usage.lastUsedAt, now, DateUtils.MINUTE_IN_MILLIS).toString()
+    }
+    return stringResource(R.string.used_last, count, last)
+}
+
 @Composable
 private fun Badge(icon: Int, tint: Color) {
-    Spacer(Modifier.width(3.dp))
-    Icon(painterResource(icon), contentDescription = null, tint = tint.copy(alpha = 0.85f), modifier = Modifier.size(14.dp))
+    Icon(painterResource(icon), contentDescription = null, tint = tint.copy(alpha = 0.85f), modifier = Modifier.padding(start = 3.dp, top = 2.dp).size(14.dp))
 }
 
 /**

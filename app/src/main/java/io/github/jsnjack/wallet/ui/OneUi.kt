@@ -1,12 +1,16 @@
 package io.github.jsnjack.wallet.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,7 +22,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarData
@@ -43,33 +46,16 @@ import androidx.compose.ui.unit.sp
 import io.github.jsnjack.wallet.R
 
 /**
- * Compact One UI title bar: a bold title (and optional subtitle) with actions
- * on the right. It replaces One UI's tall "viewing area" so content starts
- * near the top of the screen.
+ * Compact One UI title bar: a bold title and optional subtitle, information
+ * only. Actions live at the bottom of the screen, within reach of the thumb.
  */
 @Composable
-fun TitleBar(
-    title: String,
-    subtitle: String? = null,
-    onBack: (() -> Unit)? = null,
-    actions: @Composable RowScope.() -> Unit = {},
-) {
-    Row(
-        Modifier.fillMaxWidth().height(60.dp).padding(start = if (onBack == null) 18.dp else 4.dp, end = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (onBack != null) {
-            IconButton(onClick = onBack) {
-                Icon(painterResource(R.drawable.ic_close), contentDescription = stringResource(R.string.action_close))
-            }
+fun TitleBar(title: String, subtitle: String? = null) {
+    Column(Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 6.dp)) {
+        Text(title, fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (subtitle != null) {
+            Text(subtitle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         }
-        Column(Modifier.weight(1f)) {
-            Text(title, fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (subtitle != null) {
-                Text(subtitle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-            }
-        }
-        actions()
     }
 }
 
@@ -218,3 +204,67 @@ val GROUP_GAP = 10.dp
 
 /** Spacing used in rows of chips. */
 val CHIP_GAP = Arrangement.spacedBy(8.dp)
+
+/**
+ * A One UI bottom sheet: rises from the bottom, closes with a swipe down,
+ * a tap outside or Back, so it never needs the top of the screen.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun WalletSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp),
+        containerColor = MaterialTheme.colorScheme.background,
+    ) {
+        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = SCREEN_PADDING).padding(bottom = 8.dp), content = content)
+    }
+}
+
+/** A full-width row in a sheet: an easy target for the thumb. */
+@Composable
+fun SheetRow(title: String, icon: Int? = null, color: Color = Color.Unspecified, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 15.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (icon != null) {
+            Icon(painterResource(icon), contentDescription = null, tint = if (color == Color.Unspecified) MaterialTheme.colorScheme.onSurfaceVariant else color, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.width(16.dp))
+        }
+        Text(title, fontSize = 16.sp, color = color)
+    }
+}
+
+/** A confirmation that rises from the bottom, with both buttons under the thumb. */
+@Composable
+fun ConfirmSheet(title: String, body: String, confirm: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    WalletSheet(onDismiss) {
+        Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp))
+        Spacer(Modifier.height(6.dp))
+        Text(body, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
+        Spacer(Modifier.height(18.dp))
+        BottomButtons(stringResource(R.string.action_cancel), onDismiss, confirm, onConfirm, danger = true)
+    }
+}
+
+/** Two equal pill buttons side by side, the secondary one first. */
+@Composable
+fun BottomButtons(secondary: String, onSecondary: () -> Unit, primary: String, onPrimary: () -> Unit, danger: Boolean = false, enabled: Boolean = true) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Surface(onClick = onSecondary, shape = CircleShape, color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.weight(1f).height(50.dp)) {
+            Box(contentAlignment = Alignment.Center) { Text(secondary, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
+        }
+        Surface(
+            onClick = onPrimary,
+            enabled = enabled,
+            shape = CircleShape,
+            color = if (danger) colorResource(R.color.danger) else MaterialTheme.colorScheme.primary,
+            contentColor = if (danger) Color.White else MaterialTheme.colorScheme.onPrimary,
+            modifier = Modifier.weight(1f).height(50.dp),
+        ) {
+            Box(contentAlignment = Alignment.Center) { Text(primary, fontWeight = FontWeight.Bold, fontSize = 15.sp) }
+        }
+    }
+}

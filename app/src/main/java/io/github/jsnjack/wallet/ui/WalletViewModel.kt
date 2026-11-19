@@ -25,6 +25,7 @@ import io.github.jsnjack.wallet.core.Pkpass
 import io.github.jsnjack.wallet.core.Retention
 import io.github.jsnjack.wallet.core.Trips
 import io.github.jsnjack.wallet.core.UpNext
+import io.github.jsnjack.wallet.core.Usage
 import io.github.jsnjack.wallet.core.WrongPasswordException
 import io.github.jsnjack.wallet.drive.AuthOutcome
 import io.github.jsnjack.wallet.drive.DriveAuth
@@ -123,6 +124,9 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
         }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, LocalDateTime.now(zone))
 
+    /** How often each card was shown on this device, for tile info lines. */
+    val usage: StateFlow<Map<String, Usage>> = store.usage
+
     /** Every card that is not deleted, archived ones and every trip leg included. */
     val allCards: StateFlow<List<Card>> = store.cards
 
@@ -131,9 +135,14 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
         CardList.sorted(Trips.collapse(all.filterNot { agenda.isArchived(it, time) }), usage)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    /** Current cards matching the search. */
-    val visible: StateFlow<List<Card>> = combine(cards, query) { all, q -> all.filter { CardList.matches(it, q) } }
+    /** Favourites for the rail above the bottom bar, most used first. */
+    val favourites: StateFlow<List<Card>> = combine(cards, store.usage, CardList::favourites)
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Cards in the grid: without a search the favourites live in the rail instead; a search covers every card. */
+    val visible: StateFlow<List<Card>> = combine(cards, query) { all, q ->
+        all.filter { CardList.matches(it, q) && (q.isNotBlank() || !it.pinned) }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** Archived cards, most recently archived first. */
     val archived: StateFlow<List<Pair<Card, LocalDateTime>>> = combine(store.cards, now) { all, time ->
@@ -200,7 +209,7 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
             wallet.surfaces.refresh()
         }
         viewModelScope.launch {
-            combine(store.cards, store.usage) { all, usage -> CardList.mostUsed(all, usage) to all }
+            combine(cards, store.usage) { current, usage -> CardList.quickAccess(current, usage, SHORTCUT_COUNT) to store.cards.value }
                 .debounce(SHORTCUT_DEBOUNCE_MS)
                 .collect { (top, all) -> withContext(Dispatchers.Default) { Shortcuts.update(app, top, all) } }
         }
@@ -239,6 +248,7 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
         return when {
             trip.size > 1 -> trip
             visible.value.any { it.id == cardId } -> visible.value
+            favourites.value.any { it.id == cardId } -> favourites.value
             archived.value.any { it.first.id == cardId } -> archived.value.map { it.first }
             else -> listOf(card)
         }.map { it.id }
@@ -647,6 +657,7 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
 
     private companion object {
         const val SHORTCUT_DEBOUNCE_MS = 2_000L
+        const val SHORTCUT_COUNT = 3
         const val SURFACE_DEBOUNCE_MS = 1_000L
         const val CLOCK_TICK_MS = 60_000L
         const val MAX_FILE_BYTES = 20 * 1024 * 1024

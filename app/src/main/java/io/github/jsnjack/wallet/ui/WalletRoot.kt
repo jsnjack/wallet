@@ -31,6 +31,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
@@ -101,15 +104,19 @@ fun WalletRoot(vm: WalletViewModel) {
 
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxSize()) {
-            when (val screen = stack.last()) {
+            // Settings and the archive are sheets: the screen below stays visible under them.
+            val top = stack.last()
+            val base = if (top in SHEET_SCREENS) stack.dropLast(1).lastOrNull() ?: Screen.Grid else top
+            when (base) {
                 Screen.Grid -> GridScreen(vm)
-                is Screen.Code -> CodeScreen(vm, screen.cardId)
+                is Screen.Code -> CodeScreen(vm, base.cardId)
                 Screen.Scan -> ScanScreen(vm)
                 Screen.Form -> CardFormScreen(vm)
-                Screen.Archive -> ArchiveScreen(vm)
-                Screen.Settings -> SettingsScreen(vm)
                 Screen.FirstRun -> FirstRunScreen(vm)
+                Screen.Archive, Screen.Settings -> GridScreen(vm)
             }
+            if (top == Screen.Settings) SettingsSheet(vm)
+            if (top == Screen.Archive) ArchiveSheet(vm)
             if (busy && stack.last() != Screen.FirstRun) {
                 CircularProgressIndicator(Modifier.align(Alignment.Center))
             }
@@ -123,28 +130,27 @@ fun WalletRoot(vm: WalletViewModel) {
     choices?.let { codes -> CodeChooser(codes, onPick = vm::onScanned, onDismiss = vm::dismissChoices) }
 }
 
+private val SHEET_SCREENS = setOf(Screen.Settings, Screen.Archive)
+
+/** Several codes in one file: pick one from a sheet. */
 @Composable
 private fun CodeChooser(codes: List<ReadCode>, onPick: (ReadCode) -> Unit, onDismiss: () -> Unit) {
     val today = LocalDate.now()
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.choose_code_title)) },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                codes.forEach { code ->
-                    val leg = Bcbp.parse(code.text, today)?.legs?.firstOrNull()
-                    Column(Modifier.fillMaxWidth().clickable { onPick(code) }.padding(vertical = 10.dp)) {
-                        Text(
-                            leg?.let { "${it.flight.code} · ${it.flight.from} → ${it.flight.to} · ${it.flight.passenger}" } ?: code.text,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(code.format.label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+    WalletSheet(onDismiss) {
+        Text(stringResource(R.string.choose_code_title), fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp, bottom = 6.dp))
+        Column(Modifier.verticalScroll(rememberScrollState())) {
+            codes.forEach { code ->
+                val leg = Bcbp.parse(code.text, today)?.legs?.firstOrNull()
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable { onPick(code) }.padding(horizontal = 12.dp, vertical = 12.dp)) {
+                    Text(
+                        leg?.let { "${it.flight.code} · ${it.flight.from} → ${it.flight.to} · ${it.flight.passenger}" } ?: code.text,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        fontSize = 15.sp,
+                    )
+                    Text(code.format.label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-        },
-        confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
-    )
+        }
+    }
 }

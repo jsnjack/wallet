@@ -44,4 +44,19 @@ class CardListTest {
         val usage = mapOf("a" to Usage(1, 1), "b" to Usage(9, 1), "c" to Usage(3, 1), "d" to Usage(3, 5))
         assertEquals(listOf("b", "d", "c"), CardList.mostUsed(cards, usage).map { it.id })
     }
+
+    @Test
+    fun favouritesAreTheStarredCardsByUse() {
+        val cards = listOf(card("a", "A", pinned = true), card("b", "B"), card("c", "C", pinned = true))
+        val usage = mapOf("c" to Usage(5, 1))
+        assertEquals(listOf("c", "a"), CardList.favourites(cards, usage).map { it.id })
+    }
+
+    @Test
+    fun quickAccessPutsFavouritesFirstAndFillsWithMostUsed() {
+        val cards = listOf(card("fav", "F", pinned = true), card("busy", "B"), card("quiet", "Q"), card("never", "N"))
+        val usage = mapOf("busy" to Usage(9, 1), "quiet" to Usage(1, 1))
+        assertEquals(listOf("fav", "busy", "quiet"), CardList.quickAccess(cards, usage, 3).map { it.id })
+        assertEquals(listOf("fav"), CardList.quickAccess(cards, usage, 1).map { it.id })
+    }
 }

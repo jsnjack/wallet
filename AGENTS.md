@@ -34,7 +34,7 @@ app/src/main/java/io/github/jsnjack/wallet/
     CodeMatrix.kt           ZXing: code → BitMatrix with no quiet zone
     CardLooks.kt            Text contrast, palette, colour for a name, monograms, hex
     Brands.kt               Bundled shop list for name suggestions and colours
-    CardList.kt             Grid order, search matching, most-used cards for shortcuts
+    CardList.kt             Grid order, search, favourites, quick access (favourites then most used)
     SyncPlan.kt             SyncRules: file names, newer-wins plan, duplicate files
     CardJson.kt             Card file format v2 (sync files, export bundle, database JSON columns)
     ExportCrypto.kt         Export file encryption: PBKDF2-HMAC-SHA256 + AES-256-GCM
@@ -61,9 +61,12 @@ app/src/main/java/io/github/jsnjack/wallet/
   ui/
     WalletViewModel.kt      Screen stack, actions, imports, snackbar events, export/import
     WalletRoot.kt           Shows the top screen, snackbar, Google consent launcher
-    GridScreen.kt, CodeScreen.kt, ScanScreen.kt, CardFormScreen.kt, ArchiveScreen.kt, SettingsScreen.kt, FirstRunScreen.kt
-    CardParts.kt            Glossy CardTile, pixel-exact CodeImage with quiet zone, DetailGrid, dates, kind labels
-    OneUi.kt                One UI parts: TitleBar, Group/GroupRow, WalletSwitch, WalletChip, WalletField, ToastSnackbar
+    GridScreen.kt           Bottom-up grid, favourites rail, Now Bar, ⋯ and long-press sheets
+    CodeScreen.kt, ScanScreen.kt, CardFormScreen.kt, FirstRunScreen.kt
+    ArchiveScreen.kt, SettingsScreen.kt   Full-height bottom sheets (ArchiveSheet, SettingsSheet)
+    CardParts.kt            Big-type CardTile and MiniTile, pixel-exact CodeImage, DetailGrid, dates, usage text
+    OneUi.kt                One UI parts: TitleBar, Group/GroupRow, WalletSwitch, WalletChip, WalletField, ToastSnackbar,
+                            WalletSheet, SheetRow, ConfirmSheet, BottomButtons
     Theme.kt                Material 3 scheme and shapes from res/values(-night)/colors.xml (One UI teal)
   MainActivity.kt           Compose host; routes shortcut and share intents; holds the first frame until cards load
   WalletApplication.kt      Lazy CardStore and SyncController; on-demand WorkManager
@@ -71,6 +74,8 @@ app/src/main/assets/airports.tsv   Bundled airport table (make airports)
 scripts/airports.sh                Builds it from OurAirports (public domain)
 docs/design-options.html           Design, decisions and roadmap (bunk-gui page)
 docs/style-storybook.html          Five visual styles compared; One UI 9 was chosen
+docs/one-hand.html                 One-handed layouts and tile styles compared
+docs/favourites.html               Favourites ideas compared
 ```
 
 External services:
@@ -143,8 +148,9 @@ Android 17): the screens in light and dark mode, the v1 → v2 database
 upgrade, image, multi-screenshot, PDF and .pkpass import, boarding pass
 reading, "Up next", the promoted "today" notification, voucher "Mark as
 used" and the archive. Not yet tested on a device: camera scanning of a
-real card, biometric unlock, Drive sync (needs the Google Cloud setup),
-widgets and the Quick Settings tile.
+real card, biometric unlock, Drive sync (needs the Google Cloud setup)
+and the widgets. The Quick Settings tile was tested with
+`cmd statusbar add-tile` / `click-tile` and removed again.
 
 Signing: local builds use the debug keystore. A dedicated app key is still
 to be created before the first F-Droid release (AGENTS.android.md); the
@@ -194,6 +200,27 @@ never the code.
   300 line icons (Apache 2.0, converted to vector drawables). One UI's tall
   title area is replaced by a 60 dp title bar so content uses the screen;
   square codes fill the panel width.
+- **One-handed by default, no mode to switch on** (decided 2026-11-19 from
+  `docs/one-hand.html`, options A + D + C's swipe-down). The grid is laid
+  out right-to-left and bottom-up (`reverseLayout`, RTL with LTR content),
+  so the most-used card sits bottom-right; Up next is the grid's first item,
+  just above the bottom bar. Nothing interactive sits at the top: the ⋯
+  button opens a sheet with Archive, Settings and imports; long-press menus,
+  confirmations, the code chooser, Settings and Archive are bottom sheets;
+  the code screen closes with a swipe down (nested-scroll overscroll) or
+  Done; the form has Cancel/Skip and Save at the bottom; the scanner's close
+  and torch are at the bottom.
+- **Big-type tiles** (decided 2026-11-19): brand colour, the name at the
+  top, a giant monogram or plane bleeding off the bottom-right. Usage
+  ("Used 3×, last 2 days ago") shows on the code screen, measured before the
+  current visit.
+- **Favourites rail plus favourites outside the app** (decided 2026-11-19
+  from `docs/favourites.html`, ideas 2 + 4). Favourites reuse the `pinned`
+  field, so the file format and database are unchanged. The rail sits above
+  the bottom bar and hides during a search; favourites leave the grid while
+  it shows them. Shortcuts, the favourites widget and the Quick Settings
+  tile (when nothing is up next) use `CardList.quickAccess`: favourites,
+  then the most used cards.
 - **Google Wallet import is by screenshot.** Google Wallet and Samsung
   Wallet offer no export to other apps; a screenshot of each card's barcode
   is read like any image, several at once.

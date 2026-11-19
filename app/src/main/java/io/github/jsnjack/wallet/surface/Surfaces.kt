@@ -13,7 +13,6 @@ import io.github.jsnjack.wallet.core.Agenda
 import io.github.jsnjack.wallet.core.Card
 import io.github.jsnjack.wallet.core.CardList
 import io.github.jsnjack.wallet.core.Trips
-import io.github.jsnjack.wallet.core.UpNext
 import io.github.jsnjack.wallet.store.AppSettings
 import io.github.jsnjack.wallet.store.CardStore
 import kotlinx.coroutines.sync.Mutex
@@ -51,15 +50,17 @@ class Surfaces(private val context: Context, private val store: CardStore, priva
         schedule(Duration.between(now, agenda.nextChange(cards, now)))
     }
 
-    /** The first "Up next" card right now, for the Quick Settings tile. */
-    suspend fun upNextNow(): UpNext? {
+    /** The card the Quick Settings tile opens: the first "Up next" card, else the first favourite or most used card. */
+    suspend fun tileCard(): Card? {
         store.load()
         val zone = ZoneId.systemDefault()
-        return Agenda(zone).upNext(store.cards.value, LocalDateTime.now(zone)).firstOrNull()
+        val now = LocalDateTime.now(zone)
+        val agenda = Agenda(zone)
+        return agenda.upNext(store.cards.value, now).firstOrNull()?.card ?: favourites(store.cards.value, agenda, now).firstOrNull()
     }
 
     private fun favourites(cards: List<Card>, agenda: Agenda, now: LocalDateTime): List<Card> =
-        CardList.sorted(Trips.collapse(cards.filterNot { agenda.isArchived(it, now) }), store.usage.value).take(FAVOURITES)
+        CardList.quickAccess(Trips.collapse(cards.filterNot { agenda.isArchived(it, now) }), store.usage.value, FAVOURITES)
 
     private fun schedule(delay: Duration) {
         val request = OneTimeWorkRequestBuilder<AgendaWorker>()

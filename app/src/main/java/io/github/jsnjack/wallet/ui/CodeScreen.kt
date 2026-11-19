@@ -42,6 +42,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Velocity
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
@@ -85,6 +94,8 @@ private val MARKABLE = setOf(CardKind.VOUCHER, CardKind.GIFT_CARD, CardKind.TICK
 @Composable
 fun CodeScreen(vm: WalletViewModel, startId: String) {
     val all by vm.allCards.collectAsStateWithLifecycle()
+    // Usage as it was before this visit, so the line describes the previous use.
+    val usage = remember(startId) { vm.usage.value }
     val archived by vm.archived.collectAsStateWithLifecycle()
     // Order is fixed when the screen opens, so counting a use never moves the page.
     val order = remember(startId) { vm.pagesFor(startId) }
@@ -118,6 +129,7 @@ fun CodeScreen(vm: WalletViewModel, startId: String) {
         }
         CodePage(
             card = card,
+            used = usageText(usage[card.id]),
             page = page,
             pages = order.size,
             archived = card.id in archivedIds,
@@ -141,9 +153,14 @@ fun CodeScreen(vm: WalletViewModel, startId: String) {
     }
 }
 
+/**
+ * One card's code. Built for one hand: swipe down anywhere to close, and
+ * every action sits in the bar at the bottom of the screen.
+ */
 @Composable
 private fun CodePage(
     card: Card,
+    used: String?,
     page: Int,
     pages: Int,
     archived: Boolean,
@@ -158,100 +175,157 @@ private fun CodePage(
     val content = Color(CardLooks.contentColor(card.color))
     val context = LocalContext.current
     val flight = card.flight
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(Color(card.color))
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .verticalScroll(rememberScrollState()),
-    ) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Surface(onClick = onClose, shape = CircleShape, color = Color.Black.copy(alpha = 0.16f), modifier = Modifier.size(40.dp)) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(painterResource(R.drawable.ic_close), contentDescription = stringResource(R.string.action_close), tint = content)
-                }
+    val density = LocalDensity.current
+    val closeAfter = with(density) { SWIPE_TO_CLOSE.toPx() }
+    var pulled by remember { mutableFloatStateOf(0f) }
+    val swipeToClose = remember(closeAfter) {
+        object : NestedScrollConnection {
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.UserInput) pulled = (pulled + available.y).coerceAtLeast(0f)
+                return Offset.Zero
             }
-            Spacer(Modifier.weight(1f))
-            Row(
-                Modifier.clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.16f)).padding(horizontal = 10.dp, vertical = 5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (!archived) {
-                    Icon(painterResource(R.drawable.ic_brightness), contentDescription = null, tint = content, modifier = Modifier.size(15.dp))
-                    Spacer(Modifier.width(5.dp))
-                }
-                Text(stringResource(if (archived) R.string.code_archived else R.string.code_brightness), color = content, fontSize = 12.sp)
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                if (pulled > closeAfter || (pulled > 0f && available.y > FLING_TO_CLOSE)) onClose()
+                pulled = 0f
+                return Velocity.Zero
             }
         }
-
-        if (flight != null) {
-            FlightHeader(card, flight, airports, content)
-        } else {
-            CardHeader(card, content)
-        }
-        DetailGrid(pageDetails(card), content, Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 14.dp))
-
-        Surface(
-            shape = RoundedCornerShape(26.dp),
-            color = colorResource(R.color.code_panel),
-            contentColor = colorResource(R.color.code_ink),
-            shadowElevation = 4.dp,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+    }
+    Box(Modifier.fillMaxSize().background(Color(card.color))) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .graphicsLayer { translationY = pulled / 2 }
+                .nestedScroll(swipeToClose)
+                .verticalScroll(rememberScrollState())
+                .statusBarsPadding()
+                .padding(bottom = 96.dp),
         ) {
-            Box {
-                Column(Modifier.padding(horizontal = 8.dp, vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    CodeImage(card.code, card.format, if (showCode) Modifier else Modifier.blur(18.dp))
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        when {
-                            !showCode -> stringResource(R.string.code_hidden)
-                            flight != null -> listOf(flight.passenger, flight.pnr.takeIf { it.isNotBlank() }?.let { stringResource(R.string.code_pnr, it) })
-                                .filterNot { it.isNullOrBlank() }.joinToString(" · ")
-                            else -> CodeNumbers.display(card.code)
-                        },
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 15.sp,
-                        letterSpacing = 1.5.sp,
-                        textAlign = TextAlign.Center,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    MetaLine(card, showCode)
-                    if (card.note.isNotEmpty()) {
-                        Spacer(Modifier.height(6.dp))
-                        Text(card.note, fontSize = 13.sp, color = colorResource(R.color.muted), textAlign = TextAlign.Center)
+            Box(Modifier.fillMaxWidth().padding(top = 6.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(width = 36.dp, height = 4.dp).clip(RoundedCornerShape(2.dp)).background(content.copy(alpha = 0.45f)))
+            }
+            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.code_swipe_hint), color = content.copy(alpha = 0.7f), fontSize = 12.sp, modifier = Modifier.weight(1f))
+                Row(
+                    Modifier.clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.16f)).padding(horizontal = 10.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (!archived) {
+                        Icon(painterResource(R.drawable.ic_brightness), contentDescription = null, tint = content, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(5.dp))
                     }
-                    Spacer(Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (showCode && flight == null) PanelAction(stringResource(R.string.action_copy_number), R.drawable.ic_copy) { copy(context, card) }
-                        when {
-                            archived && card.usedAt != null -> PanelAction(stringResource(R.string.action_restore), primary = true, onClick = onRestore)
-                            !archived && card.kind in MARKABLE -> PanelAction(stringResource(R.string.action_mark_used), primary = true, onClick = onMarkUsed)
-                        }
-                        if (showCode) PanelAction(stringResource(R.string.menu_edit), R.drawable.ic_edit, onClick = onEdit)
-                    }
+                    Text(stringResource(if (archived) R.string.code_archived else R.string.code_brightness), color = content, fontSize = 12.sp)
                 }
-                if (!showCode) {
-                    Button(
-                        onClick = onUnlock,
-                        colors = ButtonDefaults.buttonColors(containerColor = colorResource(R.color.code_ink), contentColor = colorResource(R.color.code_panel)),
-                        modifier = Modifier.align(Alignment.Center).padding(bottom = 40.dp),
-                    ) {
-                        Icon(painterResource(R.drawable.ic_lock), contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.action_unlock))
+            }
+
+            if (flight != null) {
+                FlightHeader(card, flight, airports, content)
+            } else {
+                CardHeader(card, used, content)
+            }
+            DetailGrid(pageDetails(card), content, Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 14.dp))
+
+            Surface(
+                shape = RoundedCornerShape(26.dp),
+                color = colorResource(R.color.code_panel),
+                contentColor = colorResource(R.color.code_ink),
+                shadowElevation = 4.dp,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+            ) {
+                Box {
+                    Column(Modifier.padding(horizontal = 8.dp, vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        CodeImage(card.code, card.format, if (showCode) Modifier else Modifier.blur(18.dp))
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            when {
+                                !showCode -> stringResource(R.string.code_hidden)
+                                flight != null -> listOf(flight.passenger, flight.pnr.takeIf { it.isNotBlank() }?.let { stringResource(R.string.code_pnr, it) })
+                                    .filterNot { it.isNullOrBlank() }.joinToString(" · ")
+                                else -> CodeNumbers.display(card.code)
+                            },
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 15.sp,
+                            letterSpacing = 1.5.sp,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        MetaLine(card, showCode)
+                        if (card.note.isNotEmpty()) {
+                            Spacer(Modifier.height(6.dp))
+                            Text(card.note, fontSize = 13.sp, color = colorResource(R.color.muted), textAlign = TextAlign.Center)
+                        }
+                    }
+                    if (!showCode) {
+                        Button(
+                            onClick = onUnlock,
+                            colors = ButtonDefaults.buttonColors(containerColor = colorResource(R.color.code_ink), contentColor = colorResource(R.color.code_panel)),
+                            modifier = Modifier.align(Alignment.Center).padding(bottom = 40.dp),
+                        ) {
+                            Icon(painterResource(R.drawable.ic_lock), contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.action_unlock))
+                        }
                     }
                 }
             }
+            Spacer(Modifier.height(14.dp))
+            if (pages > 1) PageDots(page, pages, content)
         }
-        Spacer(Modifier.height(14.dp))
-        if (pages > 1) PageDots(page, pages, content)
+        Row(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .background(Color.Black.copy(alpha = 0.16f))
+                .navigationBarsPadding()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (showCode) BarAction(R.drawable.ic_edit, stringResource(R.string.menu_edit), content, onEdit)
+            if (showCode && flight == null) BarAction(R.drawable.ic_copy, stringResource(R.string.action_copy_number), content) { copy(context, card) }
+            Spacer(Modifier.weight(1f))
+            when {
+                archived && card.usedAt != null -> BarButton(stringResource(R.string.action_restore), filled = false, onClick = onRestore)
+                !archived && card.kind in MARKABLE -> BarButton(stringResource(R.string.action_mark_used), filled = false, onClick = onMarkUsed)
+            }
+            Spacer(Modifier.width(8.dp))
+            BarButton(stringResource(R.string.action_done), filled = true, onClick = onClose)
+        }
+    }
+}
+
+private val SWIPE_TO_CLOSE = 120.dp
+private const val FLING_TO_CLOSE = 2_000f
+
+@Composable
+private fun BarAction(icon: Int, label: String, tint: Color, onClick: () -> Unit) {
+    Column(
+        Modifier.clip(RoundedCornerShape(14.dp)).clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(painterResource(icon), contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
+        Text(label, color = tint, fontSize = 11.sp, maxLines = 1)
     }
 }
 
 @Composable
-private fun CardHeader(card: Card, content: Color) {
+private fun BarButton(text: String, filled: Boolean, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = if (filled) colorResource(R.color.code_panel) else Color.Black.copy(alpha = 0.22f),
+        contentColor = if (filled) colorResource(R.color.code_ink) else Color.White,
+        modifier = Modifier.height(48.dp),
+    ) {
+        Box(Modifier.padding(horizontal = 22.dp), contentAlignment = Alignment.Center) {
+            Text(text, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+        }
+    }
+}
+
+@Composable
+private fun CardHeader(card: Card, used: String?, content: Color) {
     Row(Modifier.padding(horizontal = 18.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.22f)),
@@ -263,7 +337,7 @@ private fun CardHeader(card: Card, content: Color) {
         Column(Modifier.weight(1f)) {
             Text(card.name, color = content, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 2)
             val subtitle = card.event?.let { dayTimeText(it) } ?: stringResource(kindLabel(card.kind))
-            Text(subtitle, color = content.copy(alpha = 0.8f), fontSize = 13.sp)
+            Text(listOfNotNull(subtitle, used).joinToString(" · "), color = content.copy(alpha = 0.8f), fontSize = 13.sp)
         }
         card.balanceCents?.let {
             Column(horizontalAlignment = Alignment.End) {
@@ -346,24 +420,6 @@ private fun PageDots(page: Int, pages: Int, content: Color) {
     }
 }
 
-@Composable
-private fun PanelAction(text: String, icon: Int? = null, primary: Boolean = false, onClick: () -> Unit) {
-    val ink = colorResource(R.color.code_ink)
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(50),
-        color = if (primary) colorResource(R.color.launcher_teal) else ink.copy(alpha = 0.07f),
-        contentColor = if (primary) Color.White else ink,
-    ) {
-        Row(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (icon != null) {
-                Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-            }
-            Text(text, fontSize = 13.sp, fontWeight = if (primary) FontWeight.SemiBold else FontWeight.Normal)
-        }
-    }
-}
 
 private fun copy(context: Context, card: Card) {
     val clip = ClipData.newPlainText(card.name, card.code)

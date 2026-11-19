@@ -112,18 +112,21 @@ fun ScanScreen(vm: WalletViewModel) {
             }
         }
 
-        Row(Modifier.fillMaxWidth().statusBarsPadding().padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            RoundButton(R.drawable.ic_close, stringResource(R.string.action_close)) { vm.back() }
-            if (camera?.cameraInfo?.hasFlashUnit() == true) {
-                RoundButton(R.drawable.ic_flash, stringResource(R.string.action_torch), active = torch) {
-                    torch = !torch
-                    camera?.cameraControl?.enableTorch(torch)
+        // Close and torch sit at the bottom with the sources, within reach of the thumb.
+        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(14.dp)) {
+            Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                if (camera?.cameraInfo?.hasFlashUnit() == true) {
+                    RoundButton(R.drawable.ic_flash, stringResource(R.string.action_torch), active = torch) {
+                        torch = !torch
+                        camera?.cameraControl?.enableTorch(torch)
+                    }
+                } else {
+                    Spacer(Modifier.size(52.dp))
                 }
+                RoundButton(R.drawable.ic_close, stringResource(R.string.action_close)) { vm.back() }
             }
-        }
-
         Row(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(14.dp),
+            Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             SourceButton(R.drawable.ic_image, stringResource(R.string.scan_from_image), Modifier.weight(1f)) {
@@ -133,6 +136,7 @@ fun ScanScreen(vm: WalletViewModel) {
                 files.launch(IMPORT_TYPES)
             }
             SourceButton(R.drawable.ic_keyboard, stringResource(R.string.scan_type_number), Modifier.weight(1f)) { vm.startTyping() }
+        }
         }
     }
 }
@@ -197,7 +201,7 @@ private fun RoundButton(icon: Int, label: String, active: Boolean = false, onCli
         onClick = onClick,
         shape = CircleShape,
         color = if (active) Color.White else Color.Black.copy(alpha = 0.4f),
-        modifier = Modifier.size(44.dp),
+        modifier = Modifier.size(52.dp),
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(painterResource(icon), contentDescription = label, tint = if (active) Color.Black else Color.White)

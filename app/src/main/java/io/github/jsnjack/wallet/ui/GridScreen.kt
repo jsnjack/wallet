@@ -2,6 +2,9 @@ package io.github.jsnjack.wallet.ui
 
 import android.text.format.DateUtils
 import androidx.activity.compose.LocalActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -12,6 +15,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,6 +28,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -32,16 +38,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,6 +56,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -61,6 +65,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -78,94 +83,144 @@ import java.time.format.FormatStyle
 
 private val TILE_GAP = 8.dp
 
-/** The card grid: compact title bar, "Up next" capsule, tiles, and search with the add button at the bottom. */
+/**
+ * The card grid, built for one hand: it fills from the bottom, so the most
+ * used card sits bottom-right next to the thumb and "Up next" sits just above
+ * the bottom bar. Every action is in the bottom bar or a bottom sheet.
+ */
 @Composable
 fun GridScreen(vm: WalletViewModel) {
     val all by vm.cards.collectAsStateWithLifecycle()
     val visible by vm.visible.collectAsStateWithLifecycle()
     val archivedMatches by vm.archivedMatches.collectAsStateWithLifecycle()
     val upNext by vm.upNext.collectAsStateWithLifecycle()
+    val favourites by vm.favourites.collectAsStateWithLifecycle()
     val query by vm.query.collectAsStateWithLifecycle()
     val sync by vm.syncStatus.collectAsStateWithLifecycle()
+    var menuFor by remember { mutableStateOf<Card?>(null) }
     var confirmDelete by remember { mutableStateOf<Card?>(null) }
+    var more by remember { mutableStateOf(false) }
+    val ltr = LocalLayoutDirection.current
+    val showRail = favourites.isNotEmpty() && query.isBlank()
 
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
             TitleBar(
                 title = stringResource(R.string.app_name),
                 subtitle = listOfNotNull(pluralStringResource(R.plurals.card_count, all.size, all.size), syncSummary(sync)).joinToString(" · "),
-            ) {
-                IconButton(onClick = vm::openArchive) {
-                    Icon(painterResource(R.drawable.ic_archive), contentDescription = stringResource(R.string.archive_title))
-                }
-                IconButton(onClick = vm::openSettings) {
-                    Icon(painterResource(R.drawable.ic_settings), contentDescription = stringResource(R.string.settings_title))
-                }
-            }
+            )
             when {
                 all.isEmpty() && archivedMatches.isEmpty() ->
                     Hint(stringResource(R.string.grid_empty_title), stringResource(R.string.grid_empty_body))
-                visible.isEmpty() && archivedMatches.isEmpty() -> Hint(stringResource(R.string.grid_no_match), null)
-                else -> LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    contentPadding = PaddingValues(start = SCREEN_PADDING, end = SCREEN_PADDING, top = 2.dp, bottom = 84.dp),
-                    horizontalArrangement = Arrangement.spacedBy(TILE_GAP),
-                    verticalArrangement = Arrangement.spacedBy(TILE_GAP),
-                    modifier = Modifier.fillMaxSize(),
-                ) {
-                    if (query.isBlank() && upNext.isNotEmpty()) {
-                        item(span = { GridItemSpan(maxLineSpan) }, key = "up-next") {
-                            NowBar(upNext, onOpen = vm::openCard)
+                query.isNotBlank() && visible.isEmpty() && archivedMatches.isEmpty() -> Hint(stringResource(R.string.grid_no_match), null)
+                // Right-to-left and bottom-up: the first card lands bottom-right, under a right thumb.
+                else -> CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        reverseLayout = true,
+                        contentPadding = PaddingValues(start = SCREEN_PADDING, end = SCREEN_PADDING, top = 8.dp, bottom = if (showRail) 86.dp + RAIL_HEIGHT else 76.dp),
+                        horizontalArrangement = Arrangement.spacedBy(TILE_GAP),
+                        verticalArrangement = Arrangement.spacedBy(TILE_GAP, Alignment.Bottom),
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        if (query.isBlank() && upNext.isNotEmpty()) {
+                            item(span = { GridItemSpan(maxLineSpan) }, key = "up-next") {
+                                CompositionLocalProvider(LocalLayoutDirection provides ltr) { NowBar(upNext, onOpen = vm::openCard) }
+                            }
                         }
-                    }
-                    items(visible, key = { it.id }) { card ->
-                        GridTile(card, vm, onDelete = { confirmDelete = card })
-                    }
-                    if (archivedMatches.isNotEmpty()) {
-                        item(span = { GridItemSpan(maxLineSpan) }, key = "archive-matches") {
-                            Column {
-                                Text(
-                                    stringResource(R.string.archive_title),
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(start = 8.dp, top = 6.dp, bottom = 6.dp),
-                                )
-                                Group {
-                                    archivedMatches.forEachIndexed { i, card ->
-                                        if (i > 0) GroupDivider()
-                                        CardRow(card, stringResource(kindLabel(card.kind))) { vm.openCard(card.id) }
-                                    }
-                                }
+                        items(visible, key = { it.id }) { card ->
+                            CompositionLocalProvider(LocalLayoutDirection provides ltr) {
+                                GridTile(card, vm, onMenu = { menuFor = card })
+                            }
+                        }
+                        if (archivedMatches.isNotEmpty()) {
+                            item(span = { GridItemSpan(maxLineSpan) }, key = "archive-matches") {
+                                CompositionLocalProvider(LocalLayoutDirection provides ltr) { ArchivedMatches(archivedMatches, vm) }
                             }
                         }
                     }
                 }
             }
         }
-        BottomBar(
-            query = query,
-            onQuery = { vm.query.value = it },
-            onOpenFirst = { (visible.firstOrNull() ?: archivedMatches.firstOrNull())?.let { vm.openCard(it.id) } },
-            onAdd = vm::startScan,
-            modifier = Modifier.align(Alignment.BottomCenter),
-        )
+        Column(Modifier.align(Alignment.BottomCenter)) {
+            if (showRail) FavouritesRail(favourites, onOpen = vm::openCard, onMenu = { menuFor = it })
+            BottomBar(
+                query = query,
+                onQuery = { vm.query.value = it },
+                onOpenFirst = { (visible.firstOrNull() ?: archivedMatches.firstOrNull())?.let { vm.openCard(it.id) } },
+                onMore = { more = true },
+                onAdd = vm::startScan,
+                modifier = Modifier,
+            )
+        }
     }
 
+    if (more) MoreSheet(vm, onDismiss = { more = false })
+    menuFor?.let { card -> CardMenuSheet(card, vm, onDelete = { confirmDelete = card }, onDismiss = { menuFor = null }) }
     confirmDelete?.let { card ->
-        AlertDialog(
-            onDismissRequest = { confirmDelete = null },
-            title = { Text(stringResource(R.string.delete_title, card.name)) },
-            text = { Text(stringResource(R.string.delete_body)) },
-            confirmButton = {
-                TextButton(onClick = { vm.delete(card.id); confirmDelete = null }) {
-                    Text(stringResource(R.string.action_delete), color = colorResource(R.color.danger), fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmDelete = null }) { Text(stringResource(R.string.action_cancel), fontWeight = FontWeight.Bold) }
-            },
+        ConfirmSheet(
+            title = stringResource(R.string.delete_title, card.name),
+            body = stringResource(R.string.delete_body),
+            confirm = stringResource(R.string.action_delete),
+            onConfirm = { vm.delete(card.id); confirmDelete = null },
+            onDismiss = { confirmDelete = null },
         )
+    }
+}
+
+private val RAIL_HEIGHT = 82.dp
+
+/**
+ * Favourites in a fixed strip just above the bottom bar: always one tap
+ * away, even when the grid above is scrolled. Scrolls sideways past four.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun FavouritesRail(cards: List<Card>, onOpen: (String) -> Unit, onMenu: (Card) -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(22.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 3.dp,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = SCREEN_PADDING).height(RAIL_HEIGHT - 8.dp),
+    ) {
+        LazyRow(
+            contentPadding = PaddingValues(7.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            items(cards, key = { it.id }) { card ->
+                MiniTile(
+                    card.name,
+                    card.color,
+                    flight = card.kind == CardKind.BOARDING_PASS,
+                    modifier = Modifier
+                        .width(RAIL_TILE_WIDTH)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(14.dp))
+                        .combinedClickable(onClick = { onOpen(card.id) }, onLongClick = { onMenu(card) }),
+                )
+            }
+        }
+    }
+}
+
+private val RAIL_TILE_WIDTH = 86.dp
+
+@Composable
+private fun ArchivedMatches(cards: List<Card>, vm: WalletViewModel) {
+    Column {
+        Text(
+            stringResource(R.string.archive_title),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 8.dp, top = 6.dp, bottom = 6.dp),
+        )
+        Group {
+            cards.forEachIndexed { i, card ->
+                if (i > 0) GroupDivider()
+                CardRow(card, stringResource(kindLabel(card.kind))) { vm.openCard(card.id) }
+            }
+        }
     }
 }
 
@@ -181,7 +236,7 @@ private fun syncSummary(sync: SyncStatus): String? = when {
 
 @Composable
 private fun Hint(title: String, body: String?) {
-    Column(Modifier.fillMaxWidth().padding(top = 80.dp, start = 32.dp, end = 32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(Modifier.fillMaxSize().padding(start = 32.dp, end = 32.dp, bottom = 120.dp), verticalArrangement = Arrangement.Bottom, horizontalAlignment = Alignment.CenterHorizontally) {
         Text(title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
         if (body != null) {
             Spacer(Modifier.height(6.dp))
@@ -212,14 +267,7 @@ private fun NowBar(items: List<UpNext>, onOpen: (String) -> Unit) {
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(
-                        upNextLabel(item).uppercase(),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.6.sp,
-                        color = accent,
-                        maxLines = 1,
-                    )
+                    Text(upNextLabel(item).uppercase(), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp, color = accent, maxLines = 1)
                     Text(
                         card.flight?.let { "${it.code} · ${it.from} → ${it.to}" } ?: card.name,
                         fontWeight = FontWeight.SemiBold,
@@ -278,8 +326,23 @@ fun CardRow(card: Card, detail: String, onClick: () -> Unit) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun GridTile(card: Card, vm: WalletViewModel, onDelete: () -> Unit) {
-    var menu by remember { mutableStateOf(false) }
+private fun GridTile(card: Card, vm: WalletViewModel, onMenu: () -> Unit) {
+    CardTile(
+        name = card.name,
+        color = card.color,
+        kind = card.kind,
+        pinned = card.pinned,
+        locked = card.locked,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .combinedClickable(onClick = { vm.openCard(card.id) }, onLongClick = onMenu),
+    )
+}
+
+/** The long-press menu as a bottom sheet with full-width rows. */
+@Composable
+private fun CardMenuSheet(card: Card, vm: WalletViewModel, onDelete: () -> Unit, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val activity = LocalActivity.current
     val unlockTitle = stringResource(R.string.unlock_prompt_title)
@@ -288,45 +351,51 @@ private fun GridTile(card: Card, vm: WalletViewModel, onDelete: () -> Unit) {
         if (!card.locked || activity == null) return action()
         Biometrics.authenticate(activity, unlockTitle, onSuccess = action, onError = { vm.message(R.string.message_unlock_failed) })
     }
-    Box {
-        CardTile(
-            name = card.name,
-            color = card.color,
-            flight = card.kind == CardKind.BOARDING_PASS,
-            pinned = card.pinned,
-            locked = card.locked,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
-                .combinedClickable(onClick = { vm.openCard(card.id) }, onLongClick = { menu = true }),
-        )
-        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, shape = RoundedCornerShape(22.dp)) {
-            MenuItem(if (card.pinned) R.string.menu_unpin else R.string.menu_keep_at_top) { menu = false; vm.togglePinned(card.id) }
-            MenuItem(R.string.menu_pin_home) { menu = false; vm.pinToHomeScreen(card.id) }
-            MenuItem(R.string.menu_edit) { menu = false; afterUnlock { vm.edit(card.id) } }
-            MenuItem(if (card.locked) R.string.menu_unlock else R.string.menu_lock) {
-                menu = false
-                when {
-                    card.locked -> afterUnlock { vm.toggleLocked(card.id) }
-                    Biometrics.available(context) -> vm.toggleLocked(card.id)
-                    else -> vm.message(R.string.message_no_screen_lock)
-                }
-            }
-            MenuItem(R.string.menu_delete, danger = true) { menu = false; onDelete() }
+    WalletSheet(onDismiss) {
+        Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Monogram(card, Modifier.size(40.dp))
+            Spacer(Modifier.width(12.dp))
+            Text(card.name, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
+        Spacer(Modifier.height(4.dp))
+        SheetRow(stringResource(if (card.pinned) R.string.menu_unpin else R.string.menu_keep_at_top), R.drawable.ic_star_filled) {
+            onDismiss(); vm.togglePinned(card.id)
+        }
+        SheetRow(stringResource(R.string.menu_pin_home), R.drawable.ic_add) { onDismiss(); vm.pinToHomeScreen(card.id) }
+        SheetRow(stringResource(R.string.menu_edit), R.drawable.ic_edit) { onDismiss(); afterUnlock { vm.edit(card.id) } }
+        SheetRow(stringResource(if (card.locked) R.string.menu_unlock else R.string.menu_lock), R.drawable.ic_lock) {
+            onDismiss()
+            when {
+                card.locked -> afterUnlock { vm.toggleLocked(card.id) }
+                Biometrics.available(context) -> vm.toggleLocked(card.id)
+                else -> vm.message(R.string.message_no_screen_lock)
+            }
+        }
+        SheetRow(stringResource(R.string.menu_delete), R.drawable.ic_close, color = colorResource(R.color.danger)) { onDismiss(); onDelete() }
+    }
+}
+
+/** Everything that used to sit in the top bar, now one thumb-tap away. */
+@Composable
+private fun MoreSheet(vm: WalletViewModel, onDismiss: () -> Unit) {
+    val screenshots = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(MAX_SCREENSHOTS)) { uris ->
+        if (uris.isNotEmpty()) vm.importScreenshots(uris, fromShare = false)
+    }
+    val files = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) vm.importFile(uri, fromShare = false)
+    }
+    WalletSheet(onDismiss) {
+        SheetRow(stringResource(R.string.settings_google_wallet), R.drawable.ic_image) {
+            onDismiss(); screenshots.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+        }
+        SheetRow(stringResource(R.string.settings_pass_files), R.drawable.ic_file) { onDismiss(); files.launch(IMPORT_TYPES) }
+        SheetRow(stringResource(R.string.archive_title), R.drawable.ic_archive) { onDismiss(); vm.openArchive() }
+        SheetRow(stringResource(R.string.settings_title), R.drawable.ic_settings) { onDismiss(); vm.openSettings() }
     }
 }
 
 @Composable
-private fun MenuItem(text: Int, danger: Boolean = false, onClick: () -> Unit) {
-    DropdownMenuItem(
-        text = { Text(stringResource(text), fontSize = 15.sp, color = if (danger) colorResource(R.color.danger) else MaterialTheme.colorScheme.onSurface) },
-        onClick = onClick,
-    )
-}
-
-@Composable
-private fun BottomBar(query: String, onQuery: (String) -> Unit, onOpenFirst: () -> Unit, onAdd: () -> Unit, modifier: Modifier) {
+private fun BottomBar(query: String, onQuery: (String) -> Unit, onOpenFirst: () -> Unit, onMore: () -> Unit, onAdd: () -> Unit, modifier: Modifier) {
     val background = MaterialTheme.colorScheme.background
     Row(
         modifier
@@ -337,6 +406,12 @@ private fun BottomBar(query: String, onQuery: (String) -> Unit, onOpenFirst: () 
             .padding(start = SCREEN_PADDING, end = SCREEN_PADDING, top = 14.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        Surface(onClick = onMore, shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.size(48.dp)) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(painterResource(R.drawable.ic_more), contentDescription = stringResource(R.string.action_more))
+            }
+        }
+        Spacer(Modifier.width(8.dp))
         Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.weight(1f).height(48.dp)) {
             Row(Modifier.padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(painterResource(R.drawable.ic_search), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
