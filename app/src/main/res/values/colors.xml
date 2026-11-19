@@ -14,6 +14,10 @@
     <color name="danger">#FFE5383B</color>
     <color name="positive">#FF1E9E5A</color>
     <color name="warning">#FFB45309</color>
+    <!-- Date chips sit on brand-coloured tiles, so they look the same in both themes. -->
+    <color name="accent_on_white">#FF0A7F6D</color>
+    <color name="chip_warn">#FFFFB020</color>
+    <color name="chip_warn_text">#FF3A2A00</color>
     <color name="switch_off_track">#FFBDBDC2</color>
     <!-- The "Now Bar" capsule and toasts stay dark in both modes, as in One UI. -->
     <color name="now_bar">#FF1C1C1E</color>

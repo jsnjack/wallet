@@ -13,6 +13,7 @@ import io.github.jsnjack.wallet.R
 import io.github.jsnjack.wallet.WalletApplication
 import io.github.jsnjack.wallet.core.Agenda
 import io.github.jsnjack.wallet.core.Card
+import io.github.jsnjack.wallet.core.CardDates
 import io.github.jsnjack.wallet.core.CardDraft
 import io.github.jsnjack.wallet.core.CardGroups
 import io.github.jsnjack.wallet.core.CardJson
@@ -113,8 +114,8 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     /** The search text. */
     val query = MutableStateFlow("")
 
-    /** The current time, updated every minute so time-based rules move on while the app is open. */
-    private val now: StateFlow<LocalDateTime> = flow {
+    /** The current time, updated every minute so time-based rules and date chips move on while the app is open. */
+    val now: StateFlow<LocalDateTime> = flow {
         while (true) {
             emit(LocalDateTime.now(zone))
             delay(CLOCK_TICK_MS)
@@ -149,8 +150,21 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** Tiles that match the search through any card in their group; favourites appear here as well as in the rail. */
-    val visible: StateFlow<List<Card>> = combine(cards, current, query) { shown, list, q ->
-        if (q.isBlank()) shown else shown.filter { tile -> CardGroups.members(tile, list).any { CardList.matches(it, q) } }
+    /** "Coming up" above the grid: tiles with an event ahead, or a start or end date within 30 days, soonest first. */
+    val comingUp: StateFlow<List<Card>> = combine(cards, now) { shown, time -> CardDates.comingUp(shown, time) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /**
+     * The grid's tiles: every tile matching a search, or, without one, the
+     * tiles not already in "Coming up".
+     */
+    val visible: StateFlow<List<Card>> = combine(cards, current, query, comingUp) { shown, list, q, dated ->
+        if (q.isBlank()) {
+            val above = dated.map { it.id }.toSet()
+            shown.filterNot { it.id in above }
+        } else {
+            shown.filter { tile -> CardGroups.members(tile, list).any { CardList.matches(it, q) } }
+        }
     }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 

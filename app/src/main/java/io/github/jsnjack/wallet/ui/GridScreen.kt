@@ -71,6 +71,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.jsnjack.wallet.R
 import io.github.jsnjack.wallet.core.Card
+import io.github.jsnjack.wallet.core.CardDate
+import io.github.jsnjack.wallet.core.CardDates
 import io.github.jsnjack.wallet.core.CardKind
 import io.github.jsnjack.wallet.core.CardLooks
 import io.github.jsnjack.wallet.core.CardOrder
@@ -95,6 +97,8 @@ private val TILE_GAP = 8.dp
 fun GridScreen(vm: WalletViewModel) {
     val all by vm.cards.collectAsStateWithLifecycle()
     val visible by vm.visible.collectAsStateWithLifecycle()
+    val comingUp by vm.comingUp.collectAsStateWithLifecycle()
+    val now by vm.now.collectAsStateWithLifecycle()
     val archivedMatches by vm.archivedMatches.collectAsStateWithLifecycle()
     val upNext by vm.upNext.collectAsStateWithLifecycle()
     val favourites by vm.favourites.collectAsStateWithLifecycle()
@@ -133,10 +137,29 @@ fun GridScreen(vm: WalletViewModel) {
                         verticalArrangement = Arrangement.spacedBy(TILE_GAP, Alignment.Bottom),
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        items(visible, key = { it.id }) { card ->
+                        // Dated cards sit in their own section above the rest; most used order builds from the bottom, so it comes last there.
+                        val dated = if (query.isBlank()) comingUp else emptyList()
+                        val tile: @Composable (Card) -> Unit = { card ->
                             CompositionLocalProvider(LocalLayoutDirection provides ltr) {
-                                GridTile(card, groupSizes[card.id] ?: 1, vm, onMenu = { menuFor = card })
+                                GridTile(card, groupSizes[card.id] ?: 1, CardDates.next(card, now), vm, onMenu = { menuFor = card })
                             }
+                        }
+                        val section: (String, Int) -> Unit = { key, label ->
+                            item(span = { GridItemSpan(maxLineSpan) }, key = key) {
+                                CompositionLocalProvider(LocalLayoutDirection provides ltr) { SectionTitle(stringResource(label)) }
+                            }
+                        }
+                        val datedBlock = {
+                            section("coming-up-title", R.string.grid_coming_up)
+                            items(dated, key = { "dated-" + it.id }) { tile(it) }
+                            if (visible.isNotEmpty()) section("all-title", R.string.grid_all_cards)
+                        }
+                        if (dated.isNotEmpty() && !fromThumb) datedBlock()
+                        items(visible, key = { it.id }) { tile(it) }
+                        if (dated.isNotEmpty() && fromThumb) {
+                            if (visible.isNotEmpty()) section("all-title", R.string.grid_all_cards)
+                            items(dated, key = { "dated-" + it.id }) { tile(it) }
+                            section("coming-up-title", R.string.grid_coming_up)
                         }
                         if (archivedMatches.isNotEmpty()) {
                             item(span = { GridItemSpan(maxLineSpan) }, key = "archive-matches") {
@@ -349,11 +372,25 @@ fun CardRow(card: Card, detail: String, onClick: () -> Unit) {
 }
 
 @OptIn(ExperimentalFoundationApi::class)
+/** A heading inside the grid, such as "Coming up" above the dated cards. */
 @Composable
-private fun GridTile(card: Card, count: Int, vm: WalletViewModel, onMenu: () -> Unit) {
+private fun SectionTitle(text: String) {
+    Text(
+        text.uppercase(),
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 0.8.sp,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 4.dp, top = 6.dp),
+    )
+}
+
+@Composable
+private fun GridTile(card: Card, count: Int, date: CardDate?, vm: WalletViewModel, onMenu: () -> Unit) {
     CardTile(
         name = card.name,
         count = count,
+        date = date,
         color = card.color,
         kind = card.kind,
         pinned = card.pinned,

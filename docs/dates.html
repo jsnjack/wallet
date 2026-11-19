@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dated cards</title>
+<link rel="stylesheet" href="bunk-present://assets/bunk-doc.css">
+<script src="bunk-present://assets/bunk-doc.js" defer></script>
+<style>
+.phones{display:flex;flex-wrap:wrap;gap:18px;margin:14px 0}
+.pf{margin:0;display:flex;flex-direction:column;align-items:center;gap:6px}
+.pf figcaption{font-size:.82em;color:var(--bunk-muted);max-width:262px;text-align:center}
+.phone{width:262px;height:556px;border-radius:38px;padding:7px;background:#0a0a0c;border:1px solid var(--bunk-border);flex:none}
+.scr{position:relative;width:100%;height:100%;border-radius:31px;overflow:hidden;background:#F2F2F5;color:#000;font:13px/1.3 system-ui,sans-serif}
+.sb{height:28px;display:flex;justify-content:space-between;align-items:center;padding:6px 22px 0;font-size:11px;font-weight:600}
+.sb i{width:9px;height:9px;border-radius:50%;background:#000;display:block}
+.top{padding:6px 16px 4px}.top h4{margin:0;font-size:19px}.top small{color:#737373;font-size:10.5px}
+.body{padding:0 10px;display:flex;flex-direction:column;gap:6px}
+.sep{font-size:9.5px;font-weight:700;letter-spacing:.08em;color:#0A9C86;padding:4px 4px 0;display:flex;justify-content:space-between}
+.sep span{color:#9A9AA0;font-weight:600;letter-spacing:0}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.tile{position:relative;aspect-ratio:1.6;border-radius:15px;overflow:hidden;padding:7px 9px;box-shadow:0 2px 6px rgba(0,0,0,.14);color:#fff}
+.tile b{position:relative;font-size:11.5px;font-weight:800;display:block}
+.tile .g{position:absolute;right:-4px;bottom:-12px;font:900 48px/1 system-ui,sans-serif;letter-spacing:-2px;opacity:.22}
+.tile .chip{position:absolute;left:8px;bottom:7px}
+.strip{display:flex;gap:6px;overflow:hidden}
+.mtile{position:relative;flex:none;width:96px;height:62px;border-radius:13px;overflow:hidden;padding:6px 7px;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.14)}
+.mtile b{font-size:9.5px;font-weight:800;display:block;line-height:1.15}
+.mtile .chip{position:absolute;left:6px;bottom:6px}
+.chip{display:inline-block;font-size:8.5px;font-weight:800;padding:2px 6px;border-radius:999px;background:rgba(0,0,0,.30);color:#fff;white-space:nowrap}
+.chip.now{background:#fff;color:#0A7F6D}
+.chip.warn{background:#FFB020;color:#3A2A00}
+.chip.wait{background:rgba(255,255,255,.28);color:#fff}
+.chip.light{background:rgba(0,0,0,.08);color:#333}
+.chip.light.now{background:#0A9C86;color:#fff}
+.chip.light.warn{background:#FFB020;color:#3A2A00}
+.agenda{background:#fff;border-radius:16px;padding:4px 8px}
+.ag{display:flex;align-items:center;gap:8px;padding:6px 2px;border-bottom:1px solid #F0F0F2;font-size:11px}
+.ag:last-child{border-bottom:0}
+.ag i{width:22px;height:22px;border-radius:7px;flex:none;display:grid;place-items:center;font:800 8px system-ui;color:#fff;font-style:normal}
+.ag div{flex:1;min-width:0;font-weight:600}
+.agh{font-size:8.5px;font-weight:800;letter-spacing:.08em;color:#9A9AA0;padding:5px 2px 1px}
+.nowpos{position:absolute;left:10px;right:10px;bottom:64px}
+.nowbar{display:flex;align-items:center;gap:8px;padding:5px 12px 5px 5px;border-radius:999px;background:#1C1C1E;color:#fff}
+.nowbar .nb{width:30px;height:30px;border-radius:50%;background:#0A9C86;flex:none}
+.nowbar div{flex:1;min-width:0}.nowbar small{display:block;font-size:8.5px;font-weight:700;color:#9fe9dc;letter-spacing:.05em}.nowbar b{font-size:11.5px}
+.nowbar em{font-style:normal;color:#9fe9dc;font-weight:600;font-size:11px}
+.bbar{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:6px;padding:8px 10px 14px;background:linear-gradient(transparent,#F2F2F5 30%)}
+.search{flex:1;height:40px;border-radius:14px;background:#E8E8EC;color:#737373;display:flex;align-items:center;padding:0 12px;font-size:12px}
+.fab{width:40px;height:40px;border-radius:50%;background:#0A9C86;color:#fff;display:grid;place-items:center;flex:none;font-size:20px}
+.mini{width:40px;height:40px;border-radius:12px;background:#E8E8EC;display:grid;place-items:center;flex:none;font-weight:800}
+.filters{display:flex;gap:5px}
+.filters span{font-size:10px;font-weight:700;padding:5px 9px;border-radius:999px;background:#E8E8EC;color:#333}
+.filters span.on{background:#0A9C86;color:#fff}
+table.chips td:nth-child(2){white-space:nowrap}
+</style>
+</head>
+<body>
+<article id="bunk-doc">
+<h1 id="dated-cards">Dated cards at the top</h1>
+<p>Cards with a date (an event, an end date or a start date) get a <strong>“when” chip</strong> and a place at the top of the grid. This page compares four layouts and the chip's wording. Made 2026-11-19.</p>
+
+<div class="bunk-callout important"><p class="bunk-callout-title">Decided 2026-11-19</p>
+<p>Layout <strong>B</strong>: a “Coming up” section of full-size tiles above the grid, without repeating those cards below, plus the <strong>start date</strong> (“Valid from”). Built as described here, except that <code>.pkpass</code> files have no start-date field.</p></div>
+
+<div class="bunk-callout tip"><p class="bunk-callout-title">Recommendation</p>
+<p><strong>A: a “Coming up” strip</strong> above the A–Z grid. It is one row of small tiles, soonest first, each with a chip such as <span class="chip light now">Today 20:30</span> <span class="chip light">Fri 07:05</span> <span class="chip light warn">Ends Sun</span> <span class="chip light">From 1 Dec</span>. The same chip also appears on those cards' tiles in the grid. The A–Z order stays intact and costs one row of height. The Now Bar stays at the bottom for what's due now, in thumb reach and with live flight info. Add a <strong>start date</strong> (“valid from”) for vouchers, gift cards, memberships and tickets, so “From 1 Dec” is possible.</p></div>
+
+<nav class="bunk-toc"></nav>
+
+<h2 id="today">What happens today</h2>
+<ul>
+  <li><strong>Stored:</strong> the event date and time for tickets and flights, and the end date for vouchers, gift cards and memberships. There is <em>no start date</em>.</li>
+  <li><strong>Shown:</strong> the date appears on the card's code screen. The Now Bar at the bottom shows only <em>today and tomorrow</em> (an event today, a flight within 24 hours, a voucher ending today or tomorrow). Grid tiles show no date.</li>
+  <li><strong>After the date:</strong> a past event or an expired card moves to the archive by itself.</li>
+</ul>
+
+<h2 id="options">Four layouts</h2>
+<p>Each mock-up shows the top of the grid with the same cards: a concert tonight, a flight on Friday, a voucher ending Sunday, a gym membership starting on 1 December, and shop cards without dates.</p>
+
+<div class="bunk-tabs">
+<section data-title="A · Strip (recommended)">
+<div class="phones">
+<figure class="pf"><div class="phone"><div class="scr">
+  <div class="sb"><span>12:41</span><i></i></div>
+  <div class="top"><h4>Wallet</h4><small>12 cards</small></div>
+  <div class="body">
+    <div class="sep">COMING UP <span>4</span></div>
+    <div class="strip">
+      <div class="mtile" style="background:#5B2A86"><b>SYML &amp; Metropole</b><span class="chip now">Today 20:30</span></div>
+      <div class="mtile" style="background:#0B1F3A"><b>KL 1691 AMS→BCN</b><span class="chip">Fri 07:05</span></div>
+      <div class="mtile" style="background:#0000A4"><b>bol. voucher</b><span class="chip warn">Ends Sun</span></div>
+    </div>
+    <div class="sep">A–Z</div>
+    <div class="grid">
+      <div class="tile" style="background:#00A0E2"><b>Albert Heijn</b><span class="g">AH</span></div>
+      <div class="tile" style="background:#0000A4"><b>bol. voucher</b><span class="g">B</span><span class="chip warn">Ends Sun</span></div>
+      <div class="tile" style="background:#E2007A"><b>Gym</b><span class="g">G</span><span class="chip wait">From 1 Dec</span></div>
+      <div class="tile" style="background:#E3001B"><b>HEMA</b><span class="g">H</span></div>
+      <div class="tile" style="background:#0058A3"><b>IKEA Family</b><span class="g">IK</span></div>
+      <div class="tile" style="background:#0B1F3A"><b>KL 1691</b><span class="g">✈</span><span class="chip">Fri 07:05</span></div>
+    </div>
+  </div>
+  <div class="nowpos"><div class="nowbar"><span class="nb"></span><div><small>TODAY 20:30</small><b>SYML &amp; Metropole</b></div><em>20:30</em></div></div>
+  <div class="bbar"><span class="mini">⋯</span><span class="search">Search…</span><span class="fab">+</span></div>
+</div></div><figcaption>One row, soonest first, swipe sideways for more. It scrolls away with the grid, and dated cards keep their A–Z place with the same chip.</figcaption></figure>
+</div>
+<p><span class="bunk-badge good">best balance</span> It takes little height, the A–Z order stays intact, and you see what's coming at a glance. The cards appear twice (strip and grid), the same way favourites do in the rail.</p>
+</section>
+
+<section data-title="B · Section">
+<div class="phones">
+<figure class="pf"><div class="phone"><div class="scr">
+  <div class="sb"><span>12:41</span><i></i></div>
+  <div class="top"><h4>Wallet</h4><small>12 cards</small></div>
+  <div class="body">
+    <div class="sep">COMING UP <span>4</span></div>
+    <div class="grid">
+      <div class="tile" style="background:#5B2A86"><b>SYML &amp; Metropole</b><span class="g">S</span><span class="chip now">Today 20:30</span></div>
+      <div class="tile" style="background:#0B1F3A"><b>KL 1691</b><span class="g">✈</span><span class="chip">Fri 07:05</span></div>
+      <div class="tile" style="background:#0000A4"><b>bol. voucher</b><span class="g">B</span><span class="chip warn">Ends Sun</span></div>
+      <div class="tile" style="background:#E2007A"><b>Gym</b><span class="g">G</span><span class="chip wait">From 1 Dec</span></div>
+    </div>
+    <div class="sep">A–Z</div>
+    <div class="grid">
+      <div class="tile" style="background:#00A0E2"><b>Albert Heijn</b><span class="g">AH</span></div>
+      <div class="tile" style="background:#E3001B"><b>HEMA</b><span class="g">H</span></div>
+    </div>
+  </div>
+  <div class="bbar"><span class="mini">⋯</span><span class="search">Search…</span><span class="fab">+</span></div>
+</div></div><figcaption>Full-size tiles in their own block above A–Z. Dated cards are not repeated below.</figcaption></figure>
+</div>
+<p><span class="bunk-badge warn">tall</span> Big targets with no duplicates, but four dated cards take two rows, and with eight of them the A–Z grid drops below the screen.</p>
+</section>
+
+<section data-title="C · Dated first">
+<div class="phones">
+<figure class="pf"><div class="phone"><div class="scr">
+  <div class="sb"><span>12:41</span><i></i></div>
+  <div class="top"><h4>Wallet</h4><small>12 cards</small></div>
+  <div class="body">
+    <div class="grid">
+      <div class="tile" style="background:#5B2A86"><b>SYML &amp; Metropole</b><span class="g">S</span><span class="chip now">Today 20:30</span></div>
+      <div class="tile" style="background:#0B1F3A"><b>KL 1691</b><span class="g">✈</span><span class="chip">Fri 07:05</span></div>
+      <div class="tile" style="background:#0000A4"><b>bol. voucher</b><span class="g">B</span><span class="chip warn">Ends Sun</span></div>
+      <div class="tile" style="background:#E2007A"><b>Gym</b><span class="g">G</span><span class="chip wait">From 1 Dec</span></div>
+      <div class="tile" style="background:#00A0E2"><b>Albert Heijn</b><span class="g">AH</span></div>
+      <div class="tile" style="background:#E3001B"><b>HEMA</b><span class="g">H</span></div>
+    </div>
+  </div>
+  <div class="bbar"><span class="mini">⋯</span><span class="search">Search…</span><span class="fab">+</span></div>
+</div></div><figcaption>No headings: dated cards sort to the top by date, then the rest A–Z.</figcaption></figure>
+</div>
+<p><span class="bunk-badge warn">moves</span> This is the simplest to build, but the order is no longer plain A–Z, and tiles shift as dates come and go, which is what A–Z was meant to stop.</p>
+</section>
+
+<section data-title="D · Agenda list">
+<div class="phones">
+<figure class="pf"><div class="phone"><div class="scr">
+  <div class="sb"><span>12:41</span><i></i></div>
+  <div class="top"><h4>Wallet</h4><small>12 cards</small></div>
+  <div class="body">
+    <div class="agenda">
+      <div class="agh">TODAY</div>
+      <div class="ag"><i style="background:#5B2A86">S</i><div>SYML &amp; Metropole</div><span class="chip light now">20:30</span></div>
+      <div class="agh">THIS WEEK</div>
+      <div class="ag"><i style="background:#0B1F3A">✈</i><div>KL 1691 AMS → BCN</div><span class="chip light">Fri 07:05</span></div>
+      <div class="ag"><i style="background:#0000A4">B</i><div>bol. voucher</div><span class="chip light warn">Ends Sun</span></div>
+      <div class="agh">LATER</div>
+      <div class="ag"><i style="background:#E2007A">G</i><div>Gym</div><span class="chip light">From 1 Dec</span></div>
+    </div>
+    <div class="sep">A–Z</div>
+    <div class="grid">
+      <div class="tile" style="background:#00A0E2"><b>Albert Heijn</b><span class="g">AH</span></div>
+      <div class="tile" style="background:#E3001B"><b>HEMA</b><span class="g">H</span></div>
+    </div>
+  </div>
+  <div class="bbar"><span class="mini">⋯</span><span class="search">Search…</span><span class="fab">+</span></div>
+</div></div><figcaption>A small calendar grouped into Today, This week and Later, with the chip on the right.</figcaption></figure>
+</div>
+<p><span class="bunk-badge info">most readable</span> Full names and clear groups, but it reads like a list rather than cards, and it grows one line per dated card. It fits better as a sheet behind a “Coming up” button than at the top of the grid.</p>
+</section>
+</div>
+
+<h2 id="chip">The “when” chip</h2>
+<p>The chip is short, relative while the date is close and a plain date once it's further away. Its colour says how urgent it is. It is used in the strip, on grid tiles and in the favourites rail.</p>
+<table class="chips">
+<thead><tr><th>When</th><th>Chip</th><th>Rule</th></tr></thead>
+<tbody>
+<tr><td>Event today</td><td><span class="chip light now">Today 20:30</span></td><td>Accent colour; the time when known</td></tr>
+<tr><td>Event tomorrow</td><td><span class="chip light">Tomorrow 20:30</span></td><td></td></tr>
+<tr><td>Event within 6 days</td><td><span class="chip light">Fri 07:05</span></td><td>The weekday</td></tr>
+<tr><td>Event later</td><td><span class="chip light">3 Dec</span></td><td>Year added when it isn't this year</td></tr>
+<tr><td>Ends today or tomorrow</td><td><span class="chip light warn">Ends today</span></td><td>Amber, like the reminder</td></tr>
+<tr><td>Ends within 30 days</td><td><span class="chip light warn">Ends Sun</span> <span class="chip light">Ends 31 Dec</span></td><td>Amber within 7 days, grey after that</td></tr>
+<tr><td>Ends later</td><td>—</td><td>No chip: a membership ending next year isn't news</td></tr>
+<tr><td>Not valid yet</td><td><span class="chip light">From 1 Dec</span></td><td>Needs the new start date; the code screen also says “Valid from 1 Dec”</td></tr>
+<tr><td>Group of tickets</td><td><span class="chip light now">Today 20:30</span></td><td>One chip per tile; the tile already says “2 tickets”</td></tr>
+</tbody>
+</table>
+
+<h2 id="rules">Rules</h2>
+<ul>
+  <li><strong>Which cards:</strong> events from today on; end dates within 30 days; start dates within 30 days. Archived cards never appear.</li>
+  <li><strong>Order:</strong> by the date that matters next: the event, the start date, or the end date.</li>
+  <li><strong>Groups:</strong> two tickets for one show, or two passengers on one flight, stay one tile.</li>
+  <li><strong>Search:</strong> the strip hides while you search, like the rail and the Now Bar.</li>
+  <li><strong>Now Bar:</strong> stays at the bottom for what's due today or tomorrow. The strip is for looking ahead, so a concert tonight appears in both.</li>
+  <li><strong>“Most used” order:</strong> the strip shows the same way; it doesn't depend on the grid's order.</li>
+</ul>
+
+<h2 id="start-dates">Start dates (“valid from”)</h2>
+<p>Some vouchers and memberships only work from a certain day. This needs one new optional field, the same kind of change as the barcode switch: a database upgrade that only adds a column, so stored cards are untouched. Here's where it would show up:</p>
+<ul>
+  <li><strong>Form:</strong> “Valid from” next to “Expires” for vouchers, gift cards, memberships and tickets.</li>
+  <li><strong>Before the date:</strong> a “From 1 Dec” chip, and a “Valid from 1 Dec” line on the code screen. The code still shows; Wallet doesn't hide it.</li>
+  <li><strong>On the day:</strong> Up next and the notification say “Valid from today”.</li>
+  <li><strong>Import:</strong> ticket and voucher text with “geldig vanaf” or “valid from” fills it in. Apple Wallet passes have no start-date field.</li>
+</ul>
+
+<h2 id="also">Optional extra: filter chips</h2>
+<p>A row of chips at the top, <span class="filters" style="display:inline-flex"><span class="on">All</span><span>Coming up</span><span>Ending soon</span></span>, could filter the grid instead. It answers “what's coming?” with one tap, but it's another control at the top of the screen, where the one-handed design keeps things out. I'd skip it unless the strip turns out not to be enough.</p>
+</article>
+</body>
+</html>

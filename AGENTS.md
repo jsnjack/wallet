@@ -40,6 +40,7 @@ app/src/main/java/io/github/jsnjack/wallet/
                             the other format becomes Card.altFormat
     TicketText.kt           E-ticket text (English, Dutch) → event name, date and time, door details, venue and address
     CardPlace.kt            A card's venue, address or coordinates as one maps search
+    CardDates.kt            "Coming up" cards and the date chip: event ahead, start or end within 30 days
     LiveFlight.kt           FlightRef (one flight on one day), LiveFlight, FlightCheck, LookupProblem
     AeroDataBox.kt          AeroDataBox flight status JSON → LiveFlight
     FlightLookups.kt        When to look a flight up, monthly allowance, changes worth an alert
@@ -254,6 +255,13 @@ because their messages quote the response.
   Up next, shortcuts and the widget. A–Z reads like a page from the
   top-left (the user chose it over A–Z from the thumb); favourites keep
   their alphabetical place. Settings → "Card order" switches to most used.
+- **Dated cards get their own section** (decided 2026-11-19 from
+  `docs/dates.html`, layout B). "Coming up" sits above the grid with
+  full-size tiles, soonest first, and those cards are not repeated below;
+  it hides during a search, where every match shows. Every tile with a date
+  worth knowing carries a chip from `CardDates.next`: events from today on,
+  start dates ahead, end dates within 30 days (amber within a week). The Now
+  Bar keeps today and tomorrow at the bottom.
 - **Cards can start later** (decided 2026-11-19): `Card.validFrom` for
   vouchers, gift cards, memberships and tickets, from the form or from
   ticket text ("Valid from", "Geldig vanaf"); `.pkpass` has no such field.

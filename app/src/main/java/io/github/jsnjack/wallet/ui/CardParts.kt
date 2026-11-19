@@ -43,6 +43,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.jsnjack.wallet.core.CardDate
+import io.github.jsnjack.wallet.core.CardDates
+import io.github.jsnjack.wallet.core.DateKind
+import io.github.jsnjack.wallet.core.DateTone
+import io.github.jsnjack.wallet.core.Nearness
+import android.text.format.DateFormat
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.colorResource
 import io.github.jsnjack.wallet.R
 import io.github.jsnjack.wallet.core.CardKind
 import io.github.jsnjack.wallet.core.CardLooks
@@ -75,6 +83,7 @@ fun CardTile(
     locked: Boolean = false,
     large: Boolean = false,
     count: Int = 1,
+    date: CardDate? = null,
 ) {
     val content = Color(CardLooks.contentColor(color))
     val ghost = if (content == Color.White) Color.White.copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.16f)
@@ -125,6 +134,49 @@ fun CardTile(
             if (pinned) Badge(R.drawable.ic_star_filled, content)
             if (locked) Badge(R.drawable.ic_lock_filled, content)
         }
+        date?.let { DateChip(it, Modifier.align(Alignment.BottomStart).padding(start = if (large) 14.dp else 10.dp, bottom = if (large) 12.dp else 9.dp)) }
+    }
+}
+
+/**
+ * When a card's date is, as a small pill: white for an event today, amber
+ * for an end within a week, faint for a card not valid yet, dark otherwise.
+ */
+@Composable
+fun DateChip(date: CardDate, modifier: Modifier = Modifier) {
+    val (background, text) = when (date.tone) {
+        DateTone.NOW -> Color.White to colorResource(R.color.accent_on_white)
+        DateTone.WARN -> colorResource(R.color.chip_warn) to colorResource(R.color.chip_warn_text)
+        DateTone.WAIT -> Color.White.copy(alpha = 0.28f) to Color.White
+        DateTone.PLAIN -> Color.Black.copy(alpha = 0.30f) to Color.White
+    }
+    Text(
+        whenText(date),
+        color = text,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.ExtraBold,
+        maxLines = 1,
+        modifier = modifier.clip(RoundedCornerShape(50)).background(background).padding(horizontal = 7.dp, vertical = 2.dp),
+    )
+}
+
+/** "Today 20:30", "Fri 07:05", "3 Dec", "Ends Sun", "From 1 Dec": short while close, a plain date further away. */
+@Composable
+fun whenText(date: CardDate): String {
+    val locale = LocalConfiguration.current.locales[0]
+    val inSentence = date.kind != DateKind.EVENT
+    val day = when (CardDates.nearness(date.at.date, LocalDate.now())) {
+        Nearness.TODAY -> stringResource(if (inSentence) R.string.day_today_in_sentence else R.string.day_today)
+        Nearness.TOMORROW -> stringResource(if (inSentence) R.string.day_tomorrow_in_sentence else R.string.day_tomorrow)
+        Nearness.WEEKDAY -> date.at.date.format(DateTimeFormatter.ofPattern("EEE", locale))
+        Nearness.DATE -> date.at.date.format(DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, "dMMM"), locale))
+        Nearness.DATE_WITH_YEAR -> date.at.date.format(DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, "dMMMyyyy"), locale))
+    }
+    val time = date.at.time?.takeIf { date.kind == DateKind.EVENT }?.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
+    return when (date.kind) {
+        DateKind.EVENT -> listOfNotNull(day, time).joinToString(" ")
+        DateKind.ENDS -> stringResource(R.string.when_ends, day)
+        DateKind.STARTS -> stringResource(R.string.when_from, day)
     }
 }
 
