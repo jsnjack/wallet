@@ -367,7 +367,7 @@ private fun CardMenuSheet(card: Card, vm: WalletViewModel, onDelete: () -> Unit,
     val context = LocalContext.current
     val activity = LocalActivity.current
     val unlockTitle = stringResource(R.string.unlock_prompt_title)
-    // Edit shows the number, so a locked card needs the same check as its code.
+    // Edit and Share show the number, so a locked card needs the same check as its code.
     fun afterUnlock(action: () -> Unit) {
         if (!card.locked || activity == null) return action()
         Biometrics.authenticate(activity, unlockTitle, onSuccess = action, onError = { vm.message(R.string.message_unlock_failed) })
@@ -384,6 +384,7 @@ private fun CardMenuSheet(card: Card, vm: WalletViewModel, onDelete: () -> Unit,
         }
         SheetRow(stringResource(R.string.menu_pin_home), R.drawable.ic_add) { onDismiss(); vm.pinToHomeScreen(card.id) }
         SheetRow(stringResource(R.string.menu_edit), R.drawable.ic_edit) { onDismiss(); afterUnlock { vm.edit(card.id) } }
+        SheetRow(stringResource(R.string.menu_share), R.drawable.ic_share) { onDismiss(); afterUnlock { vm.shareCard(card.id) } }
         SheetRow(stringResource(if (card.locked) R.string.menu_unlock else R.string.menu_lock), R.drawable.ic_lock) {
             onDismiss()
             when {

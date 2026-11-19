@@ -154,6 +154,7 @@ fun CodeScreen(vm: WalletViewModel, startId: String) {
             showCode = !card.locked || card.id in unlocked,
             onClose = { vm.back() },
             onEdit = { vm.edit(card.id) },
+            onShare = { vm.shareCard(card.id) },
             onMarkUsed = { vm.markUsed(card.id) },
             onRestore = { vm.restore(card.id) },
             onUnlock = {
@@ -186,6 +187,7 @@ private fun CodePage(
     showCode: Boolean,
     onClose: () -> Unit,
     onEdit: () -> Unit,
+    onShare: () -> Unit,
     onMarkUsed: () -> Unit,
     onRestore: () -> Unit,
     onUnlock: () -> Unit,
@@ -302,6 +304,7 @@ private fun CodePage(
         ) {
             if (showCode) BarAction(R.drawable.ic_edit, stringResource(R.string.menu_edit), content, onEdit)
             if (showCode && flight == null) BarAction(R.drawable.ic_copy, stringResource(R.string.action_copy_number), content) { copy(context, card) }
+            if (showCode) BarAction(R.drawable.ic_share, stringResource(R.string.menu_share), content, onShare)
             Spacer(Modifier.weight(1f))
             when {
                 archived && card.usedAt != null -> BarButton(stringResource(R.string.action_restore), filled = false, onClick = onRestore)

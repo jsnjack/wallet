@@ -90,6 +90,17 @@
                 android:resource="@xml/widget_favourites_info" />
         </receiver>
 
+        <!-- Pictures of cards for the share sheet; read access is granted per share. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/shared_files" />
+        </provider>
+
         <!-- WorkManager starts on first use (WalletApplication), not at app start. -->
         <provider
             android:name="androidx.startup.InitializationProvider"

@@ -21,8 +21,12 @@ A typed number gets a guessed code type you can change; a scanned code keeps
 the type it was read with unless you tap "Change code type".
 
 Long-press a card to keep it at the top, pin it to the home screen, edit
-it, require a fingerprint or screen lock before its code shows, or delete
-it. Long-pressing the app icon lists the three most used cards.
+it, share it, require a fingerprint or screen lock before its code shows, or
+delete it. Long-pressing the app icon lists the three most used cards.
+
+Share (in that menu or at the bottom of a code) sends a picture of the code
+with the card's name. Anyone can show the picture at a till; Wallet on
+another phone imports it like a screenshot, with the name filled in.
 
 Vouchers can have an expiry date and a PIN, gift cards a balance, and
 tickets a date and seat. "Mark as used" moves a voucher to the archive;

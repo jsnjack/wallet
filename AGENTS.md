@@ -65,6 +65,7 @@ app/src/main/java/io/github/jsnjack/wallet/
     CodeBitmaps.kt          BitMatrix → 1-pixel-per-module Bitmap, LRU cached
     Shortcuts.kt            Dynamic (top 3) and pinned launcher shortcuts
     Biometrics.kt           Framework BiometricPrompt (strong biometric or screen lock)
+    CardShare.kt            A card as a picture (name, pixel-exact code, number) for the share sheet
   surface/
     Surfaces.kt             Refresh of everything outside the app; AgendaWorker runs it at the next change
     Notifier.kt             "Today" ongoing notification (Live Update on 36.1+, flight progress bar on 36+),
@@ -151,6 +152,12 @@ External services:
    newer the "today" notification for a flight carries a
    `Notification.ProgressStyle` bar from `FlightProgress`; `Surfaces`
    schedules `AgendaWorker` every 10 minutes while the bar moves.
+8. **Share a card.** The long-press menu and the code screen call
+   `WalletViewModel.shareCard`: `CardShare` draws the name, the code at
+   whole pixels with a quiet zone, and the number into a PNG in
+   `cache/shared/`, served by the FileProvider `<applicationId>.files`, and
+   sends it with the name as `EXTRA_TEXT`. A shared image arriving with text
+   becomes the form's name (`importFile(nameHint)`) when the code has none.
 
 ---
 
@@ -301,6 +308,11 @@ because their messages quote the response.
   built into the APK would be public and missing from F-Droid builds. Live
   results stay on the device and never sync: they change every few minutes.
   Each device counts its own lookups.
+- **A shared card is a picture, not a file format** (decided 2026-11-19).
+  Anyone can show the picture at a till without the app, Wallet imports it
+  with the existing image route, and no import format has to stay stable.
+  Name and colour travel as the share text and the brand list; dates,
+  notes and PIN do not.
 - **Lookups follow the flight's day** (`FlightLookups`): once 24 hours
   before (or 08:00 the day before when the pass has no time), every 30
   minutes from 4 hours before departure, every 15 minutes in the last hour,
@@ -326,6 +338,9 @@ because their messages quote the response.
   for the package and signing SHA-1) as status 8, INTERNAL_ERROR; the real
   reason is only in the Play services log (tag `Auth`, "not registered to
   use OAuth2.0"). `ConnectProblem` treats 8 like 10 as not registered.
+- `Intent.setClipData` returns nothing, so it cannot be chained; the share
+  intent sets the clip separately so the read grant reaches the app picked
+  in the chooser.
 - RapidAPI answers HTTP 429 both for the monthly quota and for more than
   one request a second; `AeroDataBoxClient` treats only a body that
   mentions "quota" as a used-up allowance.

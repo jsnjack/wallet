@@ -34,6 +34,9 @@
     <string name="menu_keep_at_top">Add to favourites</string>
     <string name="menu_unpin">Remove from favourites</string>
     <string name="menu_pin_home">Pin to home screen</string>
+    <string name="menu_share">Share</string>
+    <string name="share_title">Share %s</string>
+    <string name="message_share_failed">This card\'s code could not be drawn for sharing.</string>
     <string name="menu_edit">Edit</string>
     <string name="menu_lock">Require unlock</string>
     <string name="menu_unlock">Stop requiring unlock</string>

@@ -43,7 +43,7 @@ class MainActivity : ComponentActivity() {
             Shortcuts.ACTION_SCAN -> vm.openScanFromShortcut()
             Intent.ACTION_SEND -> intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
                 ?.takeIf { it.scheme == SCHEME_CONTENT }
-                ?.let { vm.importFile(it, fromShare = true) }
+                ?.let { vm.importFile(it, fromShare = true, nameHint = intent.getStringExtra(Intent.EXTRA_TEXT)) }
             Intent.ACTION_SEND_MULTIPLE -> intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java)
                 ?.filter { it.scheme == SCHEME_CONTENT }
                 ?.takeIf { it.isNotEmpty() }

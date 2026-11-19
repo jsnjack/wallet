@@ -33,6 +33,7 @@ import io.github.jsnjack.wallet.drive.DriveAuth
 import io.github.jsnjack.wallet.drive.SyncStatus
 import io.github.jsnjack.wallet.flight.KeyCheck
 import io.github.jsnjack.wallet.store.LookupUsage
+import io.github.jsnjack.wallet.platform.CardShare
 import io.github.jsnjack.wallet.platform.CodeReader
 import io.github.jsnjack.wallet.platform.FileReadResult
 import io.github.jsnjack.wallet.platform.ReadCode
@@ -352,10 +353,16 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
 
     // Adding cards
 
-    /** A code was read by the camera or picked from several in a file. */
-    fun onScanned(code: ReadCode) {
+    /**
+     * A code was read by the camera or picked from several in a file.
+     * [nameHint] names the card when the code itself does not, such as the
+     * text that came with a card shared from another phone.
+     */
+    fun onScanned(code: ReadCode, nameHint: String? = null) {
         choices.value = null
-        val draft = CardDraft.scanned(code.text, code.format, LocalDate.now(zone))
+        val scanned = CardDraft.scanned(code.text, code.format, LocalDate.now(zone))
+        val hint = nameHint?.lineSequence()?.firstOrNull()?.trim()?.take(MAX_NAME_HINT).orEmpty()
+        val draft = if (scanned.name.isBlank() && hint.isNotEmpty()) scanned.copy(name = hint) else scanned
         if (_stack.value.lastOrNull() == Screen.Scan) showForm(draft, replaceTop = true) else openFormFromOutside(draft)
     }
 
@@ -366,9 +373,10 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
 
     /**
      * Reads a picked or shared file: a .pkpass, a PDF or an image. One code
-     * opens the form; several open a chooser.
+     * opens the form, named after [nameHint] when the code has no name of its
+     * own; several open a chooser.
      */
-    fun importFile(uri: Uri, fromShare: Boolean) {
+    fun importFile(uri: Uri, fromShare: Boolean, nameHint: String? = null) {
         viewModelScope.launch {
             if (fromShare) ready.first { it }
             busy.value = true
@@ -385,8 +393,8 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
                         }
                         openFormFromOutside(draft)
                     }
-                    isPdf(bytes) -> handleRead(withContext(Dispatchers.Default) { CodeReader(liveCamera = false).readPdf(context, uri) })
-                    else -> handleRead(withContext(Dispatchers.Default) { CodeReader(liveCamera = false).readImage(context, uri) })
+                    isPdf(bytes) -> handleRead(withContext(Dispatchers.Default) { CodeReader(liveCamera = false).readPdf(context, uri) }, nameHint)
+                    else -> handleRead(withContext(Dispatchers.Default) { CodeReader(liveCamera = false).readImage(context, uri) }, nameHint)
                 }
             } catch (e: IOException) {
                 Log.w(LOG_TAG, "file import failed: ${e.message}")
@@ -437,9 +445,9 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private suspend fun handleRead(result: FileReadResult) {
+    private suspend fun handleRead(result: FileReadResult, nameHint: String?) {
         when (result) {
-            is FileReadResult.Found -> if (result.codes.size == 1) onScanned(result.codes.single()) else choices.value = result.codes
+            is FileReadResult.Found -> if (result.codes.size == 1) onScanned(result.codes.single(), nameHint) else choices.value = result.codes
             FileReadResult.Unsupported -> events.send(UiEvent.Message(R.string.message_unsupported_code))
             FileReadResult.Nothing -> events.send(UiEvent.Message(R.string.message_no_code_in_file))
         }
@@ -548,6 +556,20 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     private fun changeCard(cardId: String, change: (Card) -> Card) {
         val card = store.get(cardId) ?: return
         viewModelScope.launch { store.save(change(card).copy(updatedAt = System.currentTimeMillis())) }
+    }
+
+    /** Shares [cardId] as a picture of its code with its name, through the system share sheet. */
+    fun shareCard(cardId: String) {
+        val card = store.get(cardId) ?: return
+        viewModelScope.launch {
+            val app = getApplication<Application>()
+            val chooser = withContext(Dispatchers.IO) { CardShare.chooser(app, card) }
+            if (chooser == null) {
+                events.send(UiEvent.Message(R.string.message_share_failed))
+                return@launch
+            }
+            app.startActivity(chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
     }
 
     /** Asks the launcher to pin [cardId] to the home screen. */
@@ -755,6 +777,7 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
         const val SURFACE_DEBOUNCE_MS = 1_000L
         const val CLOCK_TICK_MS = 60_000L
         const val MAX_FILE_BYTES = 20 * 1024 * 1024
+        const val MAX_NAME_HINT = 60
         val PDF_MAGIC = "%PDF".toByteArray(Charsets.US_ASCII)
     }
 }
