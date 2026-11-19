@@ -6,8 +6,10 @@ import android.graphics.Color
 import android.graphics.ImageDecoder
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
+import android.os.Build
 import androidx.camera.core.ImageProxy
 import androidx.core.graphics.createBitmap
+import io.github.jsnjack.wallet.core.CodeChoice
 import io.github.jsnjack.wallet.core.CodeFormat
 import zxingcpp.BarcodeReader
 import java.io.IOException
@@ -18,8 +20,12 @@ data class ReadCode(val text: String, val format: CodeFormat)
 
 /** Outcome of reading an image or a PDF. */
 sealed interface FileReadResult {
-    /** Every drawable code found, in page order, without duplicates. */
-    data class Found(val codes: List<ReadCode>) : FileReadResult
+    /**
+     * Every drawable code found, in page order, one per text (a ticket's QR
+     * code and barcode often hold the same text). [text] is the printed text
+     * of a PDF, on Android 15 and newer, for filling in the form.
+     */
+    data class Found(val codes: List<ReadCode>, val text: String? = null) : FileReadResult
 
     /** Codes were found, but only in formats the app cannot draw. */
     data object Unsupported : FileReadResult
@@ -64,7 +70,10 @@ class CodeReader(liveCamera: Boolean) {
     /** Reads every code in the image at [uri]. Throws [IOException] when it cannot be opened. */
     fun readImage(context: Context, uri: Uri): FileReadResult = summarize(listOf(decode(context, uri)))
 
-    /** Reads every code on the first pages of the PDF at [uri]. Throws [IOException] when it cannot be opened. */
+    /**
+     * Reads every code on the first pages of the PDF at [uri], and on Android
+     * 15 and newer their text. Throws [IOException] when it cannot be opened.
+     */
     fun readPdf(context: Context, uri: Uri): FileReadResult {
         val descriptor = context.contentResolver.openFileDescriptor(uri, "r") ?: throw IOException("PDF could not be opened")
         val pages = try {
@@ -75,21 +84,25 @@ class CodeReader(liveCamera: Boolean) {
                         val bitmap = createBitmap((page.width * scale).toInt(), (page.height * scale).toInt())
                         bitmap.eraseColor(Color.WHITE)
                         page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                        bitmap
+                        bitmap to pageText(page)
                     }
                 }
             }
         } catch (e: SecurityException) {
             throw IOException("PDF is password protected", e)
         }
-        return summarize(pages)
+        return summarize(pages.map { it.first }, pages.mapNotNull { it.second }.joinToString("\n").ifBlank { null })
     }
 
-    private fun summarize(bitmaps: List<Bitmap>): FileReadResult {
+    // The page's printed text; PdfRenderer offers it from Android 15 (API 35).
+    private fun pageText(page: PdfRenderer.Page): String? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) page.textContents.joinToString("\n") { it.text } else null
+
+    private fun summarize(bitmaps: List<Bitmap>, text: String? = null): FileReadResult {
         val results = bitmaps.flatMap { bitmap -> reader.read(bitmap).filter { it.error == null && !it.text.isNullOrEmpty() } }
         if (results.isEmpty()) return FileReadResult.Nothing
         val codes = results.mapNotNull { r -> r.format.toCodeFormat()?.let { ReadCode(r.text!!, it) } }.distinct()
-        return if (codes.isEmpty()) FileReadResult.Unsupported else FileReadResult.Found(codes)
+        return if (codes.isEmpty()) FileReadResult.Unsupported else FileReadResult.Found(CodeChoice.onePerText(codes, { it.text }, { it.format }), text)
     }
 
     private fun decode(context: Context, uri: Uri): Bitmap {

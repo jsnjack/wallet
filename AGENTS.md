@@ -36,6 +36,8 @@ app/src/main/java/io/github/jsnjack/wallet/
     CardLooks.kt            Text contrast, palette, colour for a name, monograms, hex
     Brands.kt               Bundled shop list for name suggestions and colours
     CardList.kt             CardOrder (A–Z or most used), search, favourites, quick access (favourites then most used)
+    CodeChoice.kt           One code per text when a file repeats it (a ticket's QR and barcode), square codes first
+    TicketText.kt           E-ticket text (English, Dutch) → event name, date and time, door details, venue
     LiveFlight.kt           FlightRef (one flight on one day), LiveFlight, FlightCheck, LookupProblem
     AeroDataBox.kt          AeroDataBox flight status JSON → LiveFlight
     FlightLookups.kt        When to look a flight up, monthly allowance, changes worth an alert
@@ -114,7 +116,10 @@ External services:
 4. **Import a file.** Shared or picked files go to `WalletViewModel.importFile`,
    which sniffs the bytes: a zip is read by `Pkpass`, `%PDF` pages are
    rendered and read by `CodeReader.readPdf`, anything else is read as an
-   image. Several codes open a chooser. `importScreenshots` reads many
+   image. Codes with the same text count once (`CodeChoice`). On Android 15+
+   `readPdf` also returns the pages' text, which `TicketText` turns into the
+   form's name, date and details (`CardDraft.withTicket`). Several codes
+   open a chooser that keeps the text for the code picked. `importScreenshots` reads many
    images (the Google Wallet route) and queues one form per card found.
 5. **Archive and agenda.** `Agenda` decides from `usedAt`, `expires` and,
    for tickets and boarding passes, `event` whether a card is archived; the
@@ -244,6 +249,10 @@ because their messages quote the response.
   Up next, shortcuts and the widget. A–Z reads like a page from the
   top-left (the user chose it over A–Z from the thumb); favourites keep
   their alphabetical place. Settings → "Card order" switches to most used.
+- **Ticket details from PDF text, not image recognition** (decided
+  2026-11-19). Android 15's `PdfRenderer.Page.getTextContents` reads
+  e-ticket PDFs with no new library; text recognition for screenshots would
+  need ML Kit (closed source, several MB). Screenshots still need typing.
 - **Groups instead of swiping through everything** (decided 2026-11-19).
   Boarding passes with the same airline, flight number, departure airport
   and date form one tile ("2 passengers"), whatever their booking

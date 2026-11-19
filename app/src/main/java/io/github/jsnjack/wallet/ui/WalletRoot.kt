@@ -125,7 +125,7 @@ fun WalletRoot(vm: WalletViewModel) {
             }
         }
 
-        choices?.let { codes -> CodeChooser(codes, onPick = vm::onScanned, onDismiss = vm::dismissChoices) }
+        choices?.let { codes -> CodeChooser(codes, onPick = vm::onChosen, onDismiss = vm::dismissChoices) }
     }
 }
 

@@ -51,6 +51,21 @@ data class CardDraft(
     fun withCode(typed: String): CardDraft =
         copy(code = typed, format = if (formatChosen) format else CodeNumbers.guessFormat(typed))
 
+    /**
+     * The draft with what a ticket's text says, where the code said nothing:
+     * its name, its date and time (which makes it a ticket) and extra details.
+     * A boarding pass keeps what its barcode says.
+     */
+    fun withTicket(facts: TicketFacts): CardDraft {
+        if (kind == CardKind.BOARDING_PASS) return this
+        return copy(
+            name = name.ifBlank { facts.name.orEmpty() },
+            kind = if (facts.event != null) CardKind.TICKET else kind,
+            event = event ?: facts.event,
+            details = details + facts.details.filter { new -> details.none { it.label.equals(new.label, ignoreCase = true) } },
+        )
+    }
+
     /** The card to store; [id] and [now] are used for a new card. */
     fun toCard(id: String, now: Long): Card = Card(
         id = editingId ?: id,

@@ -1,6 +1,7 @@
 package io.github.jsnjack.wallet.core
 
 import java.time.LocalDate
+import java.time.LocalTime
 import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -11,6 +12,19 @@ class CardDraftTest {
     @Test
     fun typingANumberGuessesItsFormat() {
         assertEquals(CodeFormat.EAN_13, CardDraft().withCode("4006381333931").format)
+    }
+
+    @Test
+    fun ticketTextFillsWhatTheCodeLeftOpen() {
+        val facts = TicketFacts("Concert", DayTime(LocalDate.of(2026, 12, 3), LocalTime.of(20, 30)), listOf(Detail("Zaal", "Grote Zaal")))
+        val draft = CardDraft.scanned("%TST/1234", CodeFormat.QR, LocalDate.of(2026, 11, 19)).withTicket(facts)
+        assertEquals("Concert", draft.name)
+        assertEquals(CardKind.TICKET, draft.kind)
+        assertEquals(facts.event, draft.event)
+        assertEquals(listOf(Detail("Zaal", "Grote Zaal")), draft.details)
+        val named = CardDraft(name = "Mine").withTicket(facts.copy(event = null))
+        assertEquals("Mine", named.name)
+        assertEquals(CardKind.LOYALTY, named.kind)
     }
 
     @Test

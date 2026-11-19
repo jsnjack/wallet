@@ -39,7 +39,11 @@ flight, such as yours and a travel companion's, share one tile ("2
 passengers"); on the code, swipe sideways from one passenger to the next.
 Tickets with the same name and time share a tile the same way. Apple Wallet
 `.pkpass` files and e-ticket PDFs can be shared to the app or picked with
-"PDF or pass" in the scanner.
+"PDF or pass" in the scanner. On Android 15 and newer the text of a PDF
+ticket fills in the form: the event name, date and time, and doors, hall,
+row, seat and venue; the buyer's name, numbers and price are left out. When
+a ticket holds the same number in a QR code and a barcode, Wallet keeps the
+QR code.
 
 With a key for AeroDataBox (see "Live flight info setup" below), a boarding
 pass also shows its gate, terminal, departure time and status, updated
