@@ -42,6 +42,11 @@ class CodeMatrixTest {
     }
 
     @Test
+    fun onlyQrAztecAndDataMatrixAreSquare() {
+        assertEquals(setOf(CodeFormat.QR, CodeFormat.AZTEC, CodeFormat.DATA_MATRIX), CodeFormat.entries.filter { it.square }.toSet())
+    }
+
+    @Test
     fun rejectsLettersInNumericFormatsAndEmptyCodes() {
         assertFalse(CodeMatrix.canEncode("ABC", CodeFormat.EAN_13))
         assertFalse(CodeMatrix.canEncode("", CodeFormat.QR))

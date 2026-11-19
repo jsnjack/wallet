@@ -39,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,6 +52,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
@@ -128,6 +131,8 @@ fun CodeScreen(vm: WalletViewModel, startId: String) {
         return
     }
     val pager = rememberPagerState(initialPage = startPage) { order.size }
+    // Square codes start small, like Google Wallet's; "Larger code" makes every page full width until the screen closes.
+    var large by remember(startId) { mutableStateOf(false) }
     var unlocked by remember { mutableStateOf(emptySet<String>()) }
     val activity = LocalActivity.current
     val context = LocalContext.current
@@ -160,6 +165,8 @@ fun CodeScreen(vm: WalletViewModel, startId: String) {
             airports = airports,
             live = FlightRef.of(card)?.let { flightChecks[it.id] },
             showCode = !card.locked || card.id in unlocked,
+            large = large,
+            onToggleLarge = { large = !large },
             onClose = { vm.back() },
             onEdit = { vm.edit(card.id) },
             onShare = { vm.shareCard(card.id) },
@@ -193,6 +200,8 @@ private fun CodePage(
     airports: Airports?,
     live: FlightCheck?,
     showCode: Boolean,
+    large: Boolean,
+    onToggleLarge: () -> Unit,
     onClose: () -> Unit,
     onEdit: () -> Unit,
     onShare: () -> Unit,
@@ -206,6 +215,10 @@ private fun CodePage(
     // The QR code unless the user switched to the other format it was printed in; back to QR on the next visit.
     var alternate by remember(card.id) { mutableStateOf(false) }
     val other = if (alternate) card.format else card.altFormat
+    val format = card.altFormat?.takeIf { alternate } ?: card.format
+    val resizable = showCode && format.square
+    val resizeLabel = stringResource(if (large) R.string.code_smaller else R.string.code_larger)
+    val toggleLarge by rememberUpdatedState(onToggleLarge)
     val density = LocalDensity.current
     val closeAfter = with(density) { SWIPE_TO_CLOSE.toPx() }
     var pulled by remember { mutableFloatStateOf(0f) }
@@ -266,7 +279,17 @@ private fun CodePage(
             ) {
                 Box {
                     Column(Modifier.padding(horizontal = 8.dp, vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        CodeImage(card.code, card.altFormat?.takeIf { alternate } ?: card.format, if (showCode) Modifier else Modifier.blur(18.dp))
+                        CodeImage(
+                            card.code,
+                            format,
+                            when {
+                                !showCode -> Modifier.blur(18.dp)
+                                // A tap anywhere on the code; screen readers use the "Larger code" button instead.
+                                resizable -> Modifier.pointerInput(Unit) { detectTapGestures { toggleLarge() } }
+                                else -> Modifier
+                            },
+                            large = large,
+                        )
                         Spacer(Modifier.height(12.dp))
                         Text(
                             when {
@@ -287,9 +310,16 @@ private fun CodePage(
                             Spacer(Modifier.height(6.dp))
                             Text(card.note, fontSize = 13.sp, color = colorResource(R.color.muted), textAlign = TextAlign.Center)
                         }
-                        if (showCode && other != null) {
-                            TextButton(onClick = { alternate = !alternate }) {
-                                Text(if (other.linear) stringResource(R.string.code_show_barcode) else stringResource(R.string.code_show_format, other.label))
+                        if (showCode && (other != null || resizable)) {
+                            Row(horizontalArrangement = Arrangement.Center) {
+                                if (resizable) {
+                                    TextButton(onClick = onToggleLarge) { Text(resizeLabel) }
+                                }
+                                if (other != null) {
+                                    TextButton(onClick = { alternate = !alternate }) {
+                                        Text(if (other.linear) stringResource(R.string.code_show_barcode) else stringResource(R.string.code_show_format, other.label))
+                                    }
+                                }
                             }
                         }
                     }

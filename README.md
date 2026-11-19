@@ -14,7 +14,10 @@ bottom-right by your thumb. Cards with a date sit above the rest under
 "Coming up", soonest first: tickets and flights, and cards that start or end
 within 30 days. Each carries a chip saying when, such as "Today 20:30",
 "Fri 07:05", "Ends Sun" or "From 1 Dec". Tap a card to show its code; swipe
-down to close it. Search and the add button sit at the bottom of the screen.
+down to close it. QR codes show at about the size Google Wallet uses, so a
+till scanner held close sees all of the code; tap the code or "Larger code"
+to make it fill the width. Search and the add button sit at the bottom of
+the screen.
 
 The add button opens the camera, which reads the code as soon as it is in
 view. You can also pick a screenshot or photo, share an image to the app

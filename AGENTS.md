@@ -235,6 +235,14 @@ because their messages quote the response.
   `CodeImage` scales by whole pixels with no filtering, on a white panel in
   both themes. QR codes get a UTF-8 charset hint only for non-Latin-1 text,
   because the ECI marker it adds confuses some shop scanners.
+- **Small square codes, full width on a tap** (decided 2026-11-19 after
+  a Bringmeboxes.com scanner struggled with a full-width QR code). QR,
+  Aztec and Data Matrix codes fit a 168 dp square, the size Google Wallet
+  draws them (a 29-module QR code at 14 px per module on the A56, 2.7 cm),
+  because a scanner held close to the phone must see the whole code; the
+  full-width code was 5.7 cm. A tap on the code or "Larger code" fills the
+  width on every page until the code screen closes. Barcodes and PDF417
+  keep the full width, which is already close to Google Wallet's.
 - **Raw scan text.** `CodeReader` uses zxing-cpp's `PLAIN` text mode so GS1
   and similar codes can be drawn again exactly as read.
 - **Text colour by WCAG contrast.** White when it reaches 3:1 (large or bold
@@ -244,8 +252,7 @@ because their messages quote the response.
   glossy tiles with a soft shadow, a dark "Now Bar" capsule for Up next,
   One UI switches, chips and toasts, and Material Symbols Rounded weight
   300 line icons (Apache 2.0, converted to vector drawables). One UI's tall
-  title area is replaced by a 60 dp title bar so content uses the screen;
-  square codes fill the panel width.
+  title area is replaced by a 60 dp title bar so content uses the screen.
 - **One-handed by default, no mode to switch on** (decided 2026-11-19 from
   `docs/one-hand.html`, options A + D + C's swipe-down). Short grids sit at
   the bottom; in "Most used" order the grid is right-to-left and bottom-up

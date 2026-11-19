@@ -235,25 +235,33 @@ private fun Badge(icon: Int, tint: Color) {
 /**
  * The code drawn pixel-exact: each module is a whole number of screen
  * pixels, so bars keep equal widths and scanners read them on the first try.
- * Square codes use the full width; the scale leaves room for the white
- * margin each format needs around it.
+ * Barcodes use the full width. Square codes are about as big as Google
+ * Wallet draws them, unless [large] makes them full width: a scanner held
+ * close to the phone must see the whole code. The scale leaves room for the
+ * white margin each format needs around it.
  */
 @Composable
-fun CodeImage(code: String, format: CodeFormat, modifier: Modifier = Modifier) {
+fun CodeImage(code: String, format: CodeFormat, modifier: Modifier = Modifier, large: Boolean = false) {
     val bitmap by produceState<ImageBitmap?>(null, code, format) {
         value = withContext(Dispatchers.Default) { CodeBitmaps.get(code, format)?.asImageBitmap() }
     }
     val box = when {
         format.linear -> Modifier.fillMaxWidth().height(LINEAR_HEIGHT)
         format == CodeFormat.PDF_417 -> Modifier.fillMaxWidth().height(PDF417_HEIGHT)
-        else -> Modifier.fillMaxWidth().aspectRatio(1f)
+        large -> Modifier.fillMaxWidth().aspectRatio(1f)
+        else -> Modifier.fillMaxWidth().height(SQUARE_HEIGHT)
     }
     BoxWithConstraints(modifier.then(box), contentAlignment = Alignment.Center) {
         val image = bitmap ?: return@BoxWithConstraints
         val density = LocalDensity.current
         val quiet = if (format.linear) LINEAR_QUIET_MODULES else MATRIX_QUIET_MODULES
         val widthScale = constraints.maxWidth / (image.width + 2 * quiet)
-        val scale = if (format.linear) widthScale else minOf(widthScale, constraints.maxHeight / (image.height + 2 * quiet))
+        val scale = when {
+            format.linear -> widthScale
+            // A Data Matrix code can be a rectangle; its longer side gets the square's size.
+            format.square -> minOf(widthScale, constraints.maxHeight / (maxOf(image.width, image.height) + 2 * quiet))
+            else -> minOf(widthScale, constraints.maxHeight / (image.height + 2 * quiet))
+        }
         if (scale < 1) return@BoxWithConstraints
         with(density) {
             val width = (image.width * scale).toDp()
@@ -271,6 +279,9 @@ fun CodeImage(code: String, format: CodeFormat, modifier: Modifier = Modifier) {
 
 private val LINEAR_HEIGHT = 120.dp
 private val PDF417_HEIGHT = 150.dp
+
+// Google Wallet draws a 29-module QR code 145 dp wide; with its margin that fits in 168 dp.
+private val SQUARE_HEIGHT = 168.dp
 
 // EAN asks for 11 modules on the left; QR for 4, though phones and shop scanners read 2.
 private const val LINEAR_QUIET_MODULES = 11

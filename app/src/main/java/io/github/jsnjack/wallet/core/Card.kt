@@ -21,6 +21,10 @@ enum class CodeFormat(val label: String, val linear: Boolean) {
     CODE_93("Code 93", true),
     ITF("ITF", true),
     CODABAR("Codabar", true),
+    ;
+
+    /** QR, Aztec and Data Matrix: drawn as a square, unlike barcodes and the wide PDF417. */
+    val square: Boolean get() = !linear && this != PDF_417
 }
 
 /** A labelled line shown on the code screen, such as "Gate · D7" or "Row · 8". */
