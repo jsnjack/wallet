@@ -22,6 +22,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -55,6 +57,9 @@ import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -415,8 +420,9 @@ private fun Swatches(draft: CardDraft, onPick: (Int) -> Unit) {
     val colors = (listOfNotNull(brand, draft.color, CardDraft.BOARDING_COLOR.takeIf { draft.kind == CardKind.BOARDING_PASS }) + CardLooks.PALETTE).distinct()
     val ring = MaterialTheme.colorScheme.onBackground
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        colors.forEach { color ->
+        colors.forEachIndexed { index, color ->
             val selected = color == draft.effectiveColor
+            val name = if (color == brand) stringResource(R.string.form_colour_brand) else stringResource(R.string.form_colour_number, index + 1)
             Box(
                 Modifier
                     .size(34.dp)
@@ -424,7 +430,8 @@ private fun Swatches(draft: CardDraft, onPick: (Int) -> Unit) {
                     .padding(4.dp)
                     .clip(CircleShape)
                     .background(Color(color))
-                    .clickable { onPick(color) },
+                    .selectable(selected = selected, role = Role.RadioButton) { onPick(color) }
+                    .semantics { contentDescription = name },
             )
         }
     }
@@ -433,10 +440,10 @@ private fun Swatches(draft: CardDraft, onPick: (Int) -> Unit) {
 @Composable
 private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(
-        Modifier.fillMaxWidth().clickable { onChange(!checked) }.padding(horizontal = 18.dp, vertical = 6.dp),
+        Modifier.fillMaxWidth().toggleable(value = checked, role = Role.Switch, onValueChange = onChange).padding(horizontal = 18.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, modifier = Modifier.weight(1f), fontSize = 16.sp)
-        WalletSwitch(checked = checked, onCheckedChange = onChange)
+        WalletSwitch(checked = checked, onCheckedChange = null)
     }
 }

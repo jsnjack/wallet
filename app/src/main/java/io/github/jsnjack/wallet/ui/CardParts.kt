@@ -39,6 +39,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -112,7 +113,8 @@ fun CardTile(
                 letterSpacing = (-3).sp,
                 maxLines = 1,
                 softWrap = false,
-                modifier = Modifier.align(Alignment.BottomEnd).offset(x = 8.dp, y = if (large) 26.dp else 20.dp),
+                // Decoration: the name above already says it.
+                modifier = Modifier.align(Alignment.BottomEnd).offset(x = 8.dp, y = if (large) 26.dp else 20.dp).clearAndSetSemantics {},
             )
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = if (large) 16.dp else 12.dp, vertical = if (large) 14.dp else 10.dp), verticalAlignment = Alignment.Top) {
@@ -131,8 +133,8 @@ fun CardTile(
                     Text(pluralStringResource(members, count, count), color = content.copy(alpha = 0.8f), fontSize = 12.sp, maxLines = 1)
                 }
             }
-            if (pinned) Badge(R.drawable.ic_star_filled, content)
-            if (locked) Badge(R.drawable.ic_lock_filled, content)
+            if (pinned) Badge(R.drawable.ic_star_filled, stringResource(R.string.badge_favourite), content)
+            if (locked) Badge(R.drawable.ic_lock_filled, stringResource(R.string.badge_locked), content)
         }
         date?.let { DateChip(it, Modifier.align(Alignment.BottomStart).padding(start = if (large) 14.dp else 10.dp, bottom = if (large) 12.dp else 9.dp)) }
     }
@@ -197,7 +199,7 @@ fun MiniTile(name: String, color: Int, flight: Boolean, modifier: Modifier = Mod
                 letterSpacing = (-2).sp,
                 maxLines = 1,
                 softWrap = false,
-                modifier = Modifier.align(Alignment.BottomEnd).offset(x = 6.dp, y = 12.dp),
+                modifier = Modifier.align(Alignment.BottomEnd).offset(x = 6.dp, y = 12.dp).clearAndSetSemantics {},
             )
         }
         Text(
@@ -228,8 +230,8 @@ fun usageText(usage: Usage?): String? {
 }
 
 @Composable
-private fun Badge(icon: Int, tint: Color) {
-    Icon(painterResource(icon), contentDescription = null, tint = tint.copy(alpha = 0.85f), modifier = Modifier.padding(start = 3.dp, top = 2.dp).size(14.dp))
+private fun Badge(icon: Int, description: String, tint: Color) {
+    Icon(painterResource(icon), contentDescription = description, tint = tint.copy(alpha = 0.85f), modifier = Modifier.padding(start = 3.dp, top = 2.dp).size(14.dp))
 }
 
 /**

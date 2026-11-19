@@ -60,6 +60,10 @@
     <string name="action_unlock">Unlock</string>
     <string name="action_allow_camera">Allow camera</string>
     <string name="action_open_settings">Open app settings</string>
+    <string name="badge_favourite">Favourite</string>
+    <string name="badge_locked">Locked</string>
+    <string name="form_colour_brand">Brand colour</string>
+    <string name="form_colour_number">Colour %d</string>
     <string name="action_torch">Torch</string>
     <string name="action_continue">Continue</string>
 

@@ -96,12 +96,13 @@ fun SettingsSheet(vm: WalletViewModel) {
                 )
             }
             Group {
-                GroupRow(
+                SwitchRow(
                     stringResource(R.string.settings_notifications),
                     stringResource(R.string.settings_notifications_detail),
                     icon = R.drawable.ic_brightness,
-                    onClick = { vm.setNotifications(!notifications) },
-                ) { WalletSwitch(checked = notifications, onCheckedChange = vm::setNotifications) }
+                    checked = notifications,
+                    onCheckedChange = vm::setNotifications,
+                )
                 GroupDivider()
                 Column(Modifier.padding(start = 54.dp, end = 18.dp, top = 12.dp, bottom = 14.dp)) {
                     Text(stringResource(R.string.settings_order), fontSize = 16.sp)
@@ -175,12 +176,13 @@ fun retentionLabel(value: Retention): Int = when (value) {
 private fun FlightGroup(vm: WalletViewModel) {
     val enabled by vm.liveFlights.collectAsStateWithLifecycle()
     Group {
-        GroupRow(
+        SwitchRow(
             stringResource(R.string.flights_title),
             stringResource(R.string.flights_body),
             icon = R.drawable.ic_flight,
-            onClick = { vm.setLiveFlights(!enabled) },
-        ) { WalletSwitch(checked = enabled, onCheckedChange = vm::setLiveFlights) }
+            checked = enabled,
+            onCheckedChange = vm::setLiveFlights,
+        )
     }
 }
 

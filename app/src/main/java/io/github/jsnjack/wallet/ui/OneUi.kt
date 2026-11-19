@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -42,6 +43,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -78,11 +80,13 @@ fun GroupRow(
     icon: Int? = null,
     titleColor: Color = Color.Unspecified,
     onClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     Row(
         Modifier
             .fillMaxWidth()
+            .then(modifier)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 18.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -102,15 +106,26 @@ fun GroupRow(
     }
 }
 
+/**
+ * A [GroupRow] with a switch. The whole row toggles, and a screen reader
+ * hears one switch named by the row instead of a row and an unnamed switch.
+ */
+@Composable
+fun SwitchRow(title: String, subtitle: String? = null, icon: Int? = null, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    GroupRow(title, subtitle, icon, modifier = Modifier.toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)) {
+        WalletSwitch(checked = checked, onCheckedChange = null)
+    }
+}
+
 /** The inset divider between rows of a [Group]. */
 @Composable
 fun GroupDivider() {
     HorizontalDivider(Modifier.padding(horizontal = 18.dp), thickness = 1.dp, color = MaterialTheme.colorScheme.outline)
 }
 
-/** One UI switch: teal track when on, grey when off, white thumb. */
+/** One UI switch: teal track when on, grey when off, white thumb; with a null [onCheckedChange] its row handles taps. */
 @Composable
-fun WalletSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+fun WalletSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?) {
     Switch(
         checked = checked,
         onCheckedChange = onCheckedChange,
