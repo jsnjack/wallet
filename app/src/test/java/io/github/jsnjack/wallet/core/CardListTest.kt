@@ -12,10 +12,17 @@ class CardListTest {
     )
 
     @Test
-    fun sortsPinnedThenUsageThenName() {
+    fun mostUsedSortsPinnedThenUsageThenName() {
         val cards = listOf(card("a", "Zeta"), card("b", "Alpha"), card("c", "Mid", pinned = true), card("d", "Beta"))
         val usage = mapOf("a" to Usage(5, 10), "d" to Usage(5, 20))
-        assertEquals(listOf("c", "d", "a", "b"), CardList.sorted(cards, usage).map { it.id })
+        assertEquals(listOf("c", "d", "a", "b"), CardList.sorted(cards, usage, CardOrder.MOST_USED).map { it.id })
+    }
+
+    @Test
+    fun nameOrderIgnoresCaseUsageAndFavourites() {
+        val cards = listOf(card("a", "zeta"), card("b", "Alpha"), card("c", "Mid", pinned = true), card("d", "beta"))
+        val usage = mapOf("a" to Usage(9, 10))
+        assertEquals(listOf("b", "d", "c", "a"), CardList.sorted(cards, usage, CardOrder.NAME).map { it.id })
     }
 
     @Test

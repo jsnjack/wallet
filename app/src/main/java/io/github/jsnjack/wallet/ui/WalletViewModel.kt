@@ -17,6 +17,7 @@ import io.github.jsnjack.wallet.core.CardDraft
 import io.github.jsnjack.wallet.core.CardGroups
 import io.github.jsnjack.wallet.core.CardJson
 import io.github.jsnjack.wallet.core.CardList
+import io.github.jsnjack.wallet.core.CardOrder
 import io.github.jsnjack.wallet.core.ExportCrypto
 import io.github.jsnjack.wallet.core.FlightCheck
 import io.github.jsnjack.wallet.core.NotAnExportException
@@ -129,8 +130,13 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     private val current: StateFlow<List<Card>> = combine(store.cards, now) { all, time -> all.filterNot { agenda.isArchived(it, time) } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+    /** How the grid orders cards. */
+    val order: StateFlow<CardOrder> = settings.order
+
     /** Current cards in grid order, one tile per group (passengers on one flight, tickets for one show). */
-    val cards: StateFlow<List<Card>> = combine(current, store.usage) { list, usage -> CardList.sorted(CardGroups.collapse(list), usage) }
+    val cards: StateFlow<List<Card>> = combine(current, store.usage, settings.order) { list, usage, order ->
+        CardList.sorted(CardGroups.collapse(list), usage, order)
+    }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** How many cards each grouped tile stands for, by the id of the card it shows. */
@@ -552,6 +558,9 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Changes how long archived cards are kept. */
     fun setRetention(value: Retention) = settings.setRetention(value)
+
+    /** Changes how the grid orders cards. */
+    fun setOrder(value: CardOrder) = settings.setOrder(value)
 
     /**
      * Brings notifications, widgets and the tile up to date, for example after

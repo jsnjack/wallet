@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.jsnjack.wallet.R
+import io.github.jsnjack.wallet.core.CardOrder
 import io.github.jsnjack.wallet.core.FlightLookups
 import io.github.jsnjack.wallet.core.LookupProblem
 import io.github.jsnjack.wallet.core.Retention
@@ -81,6 +82,7 @@ fun SettingsSheet(vm: WalletViewModel) {
         if (uri != null) vm.importFile(uri, fromShare = false)
     }
     val retention by vm.retention.collectAsStateWithLifecycle()
+    val order by vm.order.collectAsStateWithLifecycle()
     val notifications by vm.notifications.collectAsStateWithLifecycle()
 
     WalletSheet(onDismiss = { vm.back() }) {
@@ -113,6 +115,12 @@ fun SettingsSheet(vm: WalletViewModel) {
                 ) { WalletSwitch(checked = notifications, onCheckedChange = vm::setNotifications) }
                 GroupDivider()
                 Column(Modifier.padding(start = 54.dp, end = 18.dp, top = 12.dp, bottom = 14.dp)) {
+                    Text(stringResource(R.string.settings_order), fontSize = 16.sp)
+                    Row(Modifier.padding(top = 8.dp, bottom = 14.dp), horizontalArrangement = CHIP_GAP) {
+                        CardOrder.entries.forEach { option ->
+                            WalletChip(stringResource(orderLabel(option)), selected = option == order, onClick = { vm.setOrder(option) })
+                        }
+                    }
                     Text(stringResource(R.string.settings_retention), fontSize = 16.sp)
                     Row(Modifier.padding(top = 8.dp), horizontalArrangement = CHIP_GAP) {
                         Retention.entries.forEach { option ->
@@ -158,6 +166,12 @@ fun SettingsSheet(vm: WalletViewModel) {
             },
         )
     }
+}
+
+/** The label for a card order choice. */
+fun orderLabel(value: CardOrder): Int = when (value) {
+    CardOrder.NAME -> R.string.order_name
+    CardOrder.MOST_USED -> R.string.order_most_used
 }
 
 /** The label for an archive retention choice. */

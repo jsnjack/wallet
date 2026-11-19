@@ -2,14 +2,15 @@ package io.github.jsnjack.wallet.store
 
 import android.content.Context
 import androidx.core.content.edit
+import io.github.jsnjack.wallet.core.CardOrder
 import io.github.jsnjack.wallet.core.Retention
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Archive and notification preferences and the flight-status key, kept on
- * this device; Android backup and phone transfer carry them.
+ * Card order, archive and notification preferences and the flight-status
+ * key, kept on this device; Android backup and phone transfer carry them.
  */
 class AppSettings(context: Context) {
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -33,6 +34,19 @@ class AppSettings(context: Context) {
     var postedReminders: Set<String>
         get() = prefs.getStringSet(KEY_POSTED_REMINDERS, emptySet()).orEmpty()
         set(value) = prefs.edit { putStringSet(KEY_POSTED_REMINDERS, value) }
+
+    private val _order = MutableStateFlow(
+        prefs.getString(KEY_ORDER, null)?.let { name -> CardOrder.entries.firstOrNull { it.name == name } } ?: CardOrder.NAME,
+    )
+
+    /** How the grid orders cards; A–Z unless the user chose most used. */
+    val order: StateFlow<CardOrder> = _order.asStateFlow()
+
+    /** Changes how the grid orders cards. */
+    fun setOrder(value: CardOrder) {
+        prefs.edit { putString(KEY_ORDER, value.name) }
+        _order.value = value
+    }
 
     /** Changes how long archived cards are kept. */
     fun setRetention(value: Retention) {
@@ -59,6 +73,7 @@ class AppSettings(context: Context) {
     private companion object {
         const val PREFS = "settings"
         const val KEY_RETENTION = "archive_retention"
+        const val KEY_ORDER = "card_order"
         const val KEY_NOTIFICATIONS = "notifications"
         const val KEY_POSTED_REMINDERS = "posted_reminders"
         const val KEY_FLIGHT_KEY = "flight_api_key"

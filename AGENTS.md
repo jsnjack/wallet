@@ -35,7 +35,7 @@ app/src/main/java/io/github/jsnjack/wallet/
     CodeMatrix.kt           ZXing: code → BitMatrix with no quiet zone
     CardLooks.kt            Text contrast, palette, colour for a name, monograms, hex
     Brands.kt               Bundled shop list for name suggestions and colours
-    CardList.kt             Grid order, search, favourites, quick access (favourites then most used)
+    CardList.kt             CardOrder (A–Z or most used), search, favourites, quick access (favourites then most used)
     LiveFlight.kt           FlightRef (one flight on one day), LiveFlight, FlightCheck, LookupProblem
     AeroDataBox.kt          AeroDataBox flight status JSON → LiveFlight
     FlightLookups.kt        When to look a flight up, monthly allowance, changes worth an alert
@@ -229,15 +229,21 @@ because their messages quote the response.
   title area is replaced by a 60 dp title bar so content uses the screen;
   square codes fill the panel width.
 - **One-handed by default, no mode to switch on** (decided 2026-11-19 from
-  `docs/one-hand.html`, options A + D + C's swipe-down). The grid is laid
-  out right-to-left and bottom-up (`reverseLayout`, RTL with LTR content),
-  so the most-used card sits bottom-right; Up next is the grid's first item,
-  just above the bottom bar. Nothing interactive sits at the top: the ⋯
+  `docs/one-hand.html`, options A + D + C's swipe-down). Short grids sit at
+  the bottom; in "Most used" order the grid is right-to-left and bottom-up
+  (`reverseLayout`, RTL with LTR content), so the most-used card sits
+  bottom-right. Up next is fixed just above the favourites rail, in reach
+  and visible however far the grid scrolls. Nothing interactive sits at the top: the ⋯
   button opens a sheet with Archive, Settings and imports; long-press menus,
   confirmations, the code chooser, Settings and Archive are bottom sheets;
   the code screen closes with a swipe down (nested-scroll overscroll) or
   Done; the form has Cancel/Skip and Save at the bottom; the scanner's close
   and torch are at the bottom.
+- **A–Z by default** (decided 2026-11-19). Cards keep their place, so the
+  grid can be learned; frequent cards are already one tap away in the rail,
+  Up next, shortcuts and the widget. A–Z reads like a page from the
+  top-left (the user chose it over A–Z from the thumb); favourites keep
+  their alphabetical place. Settings → "Card order" switches to most used.
 - **Groups instead of swiping through everything** (decided 2026-11-19).
   Boarding passes with the same airline, flight number, departure airport
   and date form one tile ("2 passengers"), whatever their booking

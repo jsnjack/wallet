@@ -73,6 +73,7 @@ import io.github.jsnjack.wallet.R
 import io.github.jsnjack.wallet.core.Card
 import io.github.jsnjack.wallet.core.CardKind
 import io.github.jsnjack.wallet.core.CardLooks
+import io.github.jsnjack.wallet.core.CardOrder
 import io.github.jsnjack.wallet.core.FlightCheck
 import io.github.jsnjack.wallet.core.FlightRef
 import io.github.jsnjack.wallet.core.LiveFlight
@@ -100,14 +101,19 @@ fun GridScreen(vm: WalletViewModel) {
     val groupSizes by vm.groupSizes.collectAsStateWithLifecycle()
     val flightChecks by vm.flightChecks.collectAsStateWithLifecycle()
     val query by vm.query.collectAsStateWithLifecycle()
+    val order by vm.order.collectAsStateWithLifecycle()
     var menuFor by remember { mutableStateOf<Card?>(null) }
     var confirmDelete by remember { mutableStateOf<Card?>(null) }
     var more by remember { mutableStateOf(false) }
     val ltr = LocalLayoutDirection.current
     val showRail = favourites.isNotEmpty() && query.isBlank()
+    val showNowBar = upNext.isNotEmpty() && query.isBlank()
+    // Most used fills from the bottom-right, under a right thumb; A–Z reads like a page, from the top-left.
+    val fromThumb = order == CardOrder.MOST_USED
+    val bottomSpace = 76.dp + (if (showRail) RAIL_HEIGHT + 10.dp else 0.dp) + (if (showNowBar) NOW_BAR_HEIGHT else 0.dp)
 
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        // The grid fills from the bottom, so it must end above the keyboard or search results hide behind it.
+        // Short lists sit at the bottom, so the grid must end above the keyboard or search results hide behind it.
         Column(Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
             TitleBar(
                 title = stringResource(R.string.app_name),
@@ -117,21 +123,16 @@ fun GridScreen(vm: WalletViewModel) {
                 all.isEmpty() && archivedMatches.isEmpty() ->
                     Hint(stringResource(R.string.grid_empty_title), stringResource(R.string.grid_empty_body))
                 query.isNotBlank() && visible.isEmpty() && archivedMatches.isEmpty() -> Hint(stringResource(R.string.grid_no_match), null)
-                // Right-to-left and bottom-up: the first card lands bottom-right, under a right thumb.
-                else -> CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                // Most used is right-to-left and bottom-up: the first card lands bottom-right, under a right thumb.
+                else -> CompositionLocalProvider(LocalLayoutDirection provides if (fromThumb) LayoutDirection.Rtl else ltr) {
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(2),
-                        reverseLayout = true,
-                        contentPadding = PaddingValues(start = SCREEN_PADDING, end = SCREEN_PADDING, top = 8.dp, bottom = if (showRail) 86.dp + RAIL_HEIGHT else 76.dp),
+                        reverseLayout = fromThumb,
+                        contentPadding = PaddingValues(start = SCREEN_PADDING, end = SCREEN_PADDING, top = 8.dp, bottom = bottomSpace),
                         horizontalArrangement = Arrangement.spacedBy(TILE_GAP),
                         verticalArrangement = Arrangement.spacedBy(TILE_GAP, Alignment.Bottom),
                         modifier = Modifier.fillMaxSize(),
                     ) {
-                        if (query.isBlank() && upNext.isNotEmpty()) {
-                            item(span = { GridItemSpan(maxLineSpan) }, key = "up-next") {
-                                CompositionLocalProvider(LocalLayoutDirection provides ltr) { NowBar(upNext, flightChecks, onOpen = vm::openCard) }
-                            }
-                        }
                         items(visible, key = { it.id }) { card ->
                             CompositionLocalProvider(LocalLayoutDirection provides ltr) {
                                 GridTile(card, groupSizes[card.id] ?: 1, vm, onMenu = { menuFor = card })
@@ -147,6 +148,12 @@ fun GridScreen(vm: WalletViewModel) {
             }
         }
         Column(Modifier.align(Alignment.BottomCenter)) {
+            // Up next stays put above the rail, in reach and visible however far the grid scrolls.
+            if (showNowBar) {
+                Box(Modifier.padding(start = SCREEN_PADDING, end = SCREEN_PADDING, bottom = NOW_BAR_GAP)) {
+                    NowBar(upNext, flightChecks, onOpen = vm::openCard)
+                }
+            }
             if (showRail) FavouritesRail(favourites, onOpen = vm::openCard, onMenu = { menuFor = it })
             BottomBar(
                 query = query,
@@ -174,6 +181,10 @@ fun GridScreen(vm: WalletViewModel) {
 }
 
 private val RAIL_HEIGHT = 82.dp
+private val NOW_BAR_GAP = 8.dp
+
+// The capsule (a 40 dp badge with 6 dp around it) plus the gap below it.
+private val NOW_BAR_HEIGHT = 52.dp + NOW_BAR_GAP
 
 /**
  * Favourites in a fixed strip just above the bottom bar: always one tap

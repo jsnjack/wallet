@@ -8,9 +8,10 @@ set up. The design and the plan for later versions are in
 
 ## Using it
 
-The grid shows every card in its brand colour, sorted by how often you use
-it. Tap a card to show its code; swipe down to close it. Search and the add
-button sit at the bottom of the screen.
+The grid shows every card in its brand colour, A to Z from the top-left;
+Settings → "Card order" can put the most used cards first instead, starting
+bottom-right by your thumb. Tap a card to show its code; swipe down to close
+it. Search and the add button sit at the bottom of the screen.
 
 The add button opens the camera, which reads the code as soon as it is in
 view. You can also pick a screenshot or photo, share an image to the app

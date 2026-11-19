@@ -278,6 +278,9 @@
     <string name="settings_pass_files_detail">Apple Wallet .pkpass files and e-ticket or boarding pass PDFs.</string>
     <string name="settings_notifications">Today and reminders</string>
     <string name="settings_notifications_detail">Shows the card for today on the lock screen, and reminds you the day before a card expires.</string>
+    <string name="settings_order">Card order</string>
+    <string name="order_name">A–Z</string>
+    <string name="order_most_used">Most used</string>
     <string name="settings_retention">Keep archived cards</string>
     <string name="retention_three_months">3 months</string>
     <string name="retention_one_year">1 year</string>
