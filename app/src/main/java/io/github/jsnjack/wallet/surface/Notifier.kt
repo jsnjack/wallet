@@ -6,11 +6,14 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.drawable.Icon
 import android.os.Build
+import androidx.annotation.RequiresApi
 import io.github.jsnjack.wallet.MainActivity
 import io.github.jsnjack.wallet.R
 import io.github.jsnjack.wallet.core.Card
 import io.github.jsnjack.wallet.core.FlightChange
+import io.github.jsnjack.wallet.core.FlightProgress
 import io.github.jsnjack.wallet.core.FlightRef
 import io.github.jsnjack.wallet.core.FlightState
 import io.github.jsnjack.wallet.core.LiveFlight
@@ -40,16 +43,17 @@ object Notifier {
 
     /**
      * Shows [today] (or removes the notification), with [live] information
-     * when it is a flight, and posts reminders not posted before.
+     * and a [progress] bar ([FlightProgress]) when it is a flight, and posts
+     * reminders not posted before.
      */
-    fun update(context: Context, today: UpNext?, live: LiveFlight?, reminders: List<Card>, settings: AppSettings) {
+    fun update(context: Context, today: UpNext?, live: LiveFlight?, progress: Int?, reminders: List<Card>, settings: AppSettings) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         if (!settings.notifications.value || !manager.areNotificationsEnabled()) {
             manager.cancel(TODAY_ID)
             return
         }
         createChannels(context, manager)
-        if (today == null) manager.cancel(TODAY_ID) else manager.notify(TODAY_ID, todayNotification(context, today, live))
+        if (today == null) manager.cancel(TODAY_ID) else manager.notify(TODAY_ID, todayNotification(context, today, live, progress))
 
         val due = reminders.associateBy { "${it.id}@${it.expires?.date}" }
         val posted = settings.postedReminders
@@ -95,17 +99,18 @@ object Notifier {
         manager.notify(FLIGHT_ID_BASE + Math.floorMod(key.hashCode(), REMINDER_ID_RANGE), notification)
     }
 
-    private fun todayNotification(context: Context, item: UpNext, live: LiveFlight?): Notification {
+    private fun todayNotification(context: Context, item: UpNext, live: LiveFlight?, progress: Int?): Notification {
         val card = item.card
+        val airborne = live != null && FlightText.airborne(live.state)
         val time = when (item.reason) {
-            UpNextReason.FLIGHT -> live?.departure?.toLocalTime() ?: card.event?.time
+            UpNextReason.FLIGHT -> (if (airborne) live?.arrival else live?.departure)?.toLocalTime() ?: card.event?.time
             UpNextReason.EVENT_TODAY -> card.event?.time
             UpNextReason.EXPIRES_SOON -> card.expires?.time
         }
         val timeText = time?.let(::shortTime)
         val title = flightTitle(card)
         val text = when (item.reason) {
-            UpNextReason.FLIGHT -> live?.let { liveText(context, it, timeText) }
+            UpNextReason.FLIGHT -> live?.let { liveText(context, it, timeText, airborne) }
                 ?: timeText?.let { context.getString(R.string.notify_departs, it) }
                 ?: context.getString(R.string.notify_flight_today)
             UpNextReason.EVENT_TODAY -> timeText?.let { context.getString(R.string.notify_event_at, it) }
@@ -122,6 +127,7 @@ object Notifier {
             .setOnlyAlertOnce(true)
             .setCategory(if (item.reason == UpNextReason.FLIGHT) Notification.CATEGORY_TRANSPORT else Notification.CATEGORY_EVENT)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
+        if (progress != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) builder.setStyle(flightProgress(context, progress))
         // Live Updates arrived in Android 16 QPR2 (36.1).
         if (Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) {
             builder.setRequestPromotedOngoing(true)
@@ -130,16 +136,41 @@ object Notifier {
         return builder.build()
     }
 
-    // "Boarding · Gate D7 · Departs 14:35"; a cancelled flight says only that.
-    private fun liveText(context: Context, live: LiveFlight, timeText: String?): String? {
+    // "Boarding · Gate D7 · Departs 14:35", in the air "In the air · Arrives 16:40 · Belt 12"; a cancelled flight says only that.
+    private fun liveText(context: Context, live: LiveFlight, timeText: String?, airborne: Boolean): String? {
         val state = FlightText.state(live.state)?.let(context::getString)
         if (live.state == FlightState.CANCELED || live.state == FlightState.DIVERTED) return state
-        return listOfNotNull(
-            state,
-            live.departureGate?.let { context.getString(R.string.flight_gate_value, it) },
-            timeText?.let { context.getString(R.string.up_next_departs, it) },
-        ).joinToString(" · ").ifEmpty { null }
+        val parts = if (airborne) {
+            listOfNotNull(
+                state,
+                timeText?.let { context.getString(R.string.notify_arrives, it) },
+                live.baggageBelt?.let { context.getString(R.string.flight_belt_value, it) },
+            )
+        } else {
+            listOfNotNull(
+                state,
+                live.departureGate?.let { context.getString(R.string.flight_gate_value, it) },
+                timeText?.let { context.getString(R.string.up_next_departs, it) },
+            )
+        }
+        return parts.joinToString(" · ").ifEmpty { null }
     }
+
+    // Before boarding, boarding, in the air: three segments with a plane as the marker.
+    @RequiresApi(Build.VERSION_CODES.BAKLAVA)
+    private fun flightProgress(context: Context, progress: Int): Notification.ProgressStyle =
+        Notification.ProgressStyle()
+            .setStyledByProgress(true)
+            .setProgressSegments(
+                listOf(
+                    Notification.ProgressStyle.Segment(FlightProgress.BOARDING),
+                    Notification.ProgressStyle.Segment(FlightProgress.DEPARTURE - FlightProgress.BOARDING),
+                    Notification.ProgressStyle.Segment(FlightProgress.MAX - FlightProgress.DEPARTURE),
+                ),
+            )
+            .setProgressPoints(listOf(Notification.ProgressStyle.Point(FlightProgress.BOARDING), Notification.ProgressStyle.Point(FlightProgress.DEPARTURE)))
+            .setProgressTrackerIcon(Icon.createWithResource(context, R.drawable.ic_flight_east))
+            .setProgress(progress)
 
     private fun flightTitle(card: Card): String = card.flight?.let { "${it.code} · ${it.from} → ${it.to}" } ?: card.name
 

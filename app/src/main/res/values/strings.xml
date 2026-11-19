@@ -217,6 +217,8 @@
     <string name="channel_flights">Flight changes</string>
     <string name="channel_flights_description">Gate changes, new departure times and cancellations for your boarding passes.</string>
     <string name="notify_departs_now">Now departs %s</string>
+    <string name="notify_arrives">Arrives %s</string>
+    <string name="flight_belt_value">Belt %s</string>
 
     <string name="choose_code_title">Several codes found</string>
     <string name="code_archived">In the archive</string>

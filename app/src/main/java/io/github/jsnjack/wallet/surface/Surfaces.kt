@@ -13,7 +13,9 @@ import io.github.jsnjack.wallet.core.Agenda
 import io.github.jsnjack.wallet.core.Card
 import io.github.jsnjack.wallet.core.CardGroups
 import io.github.jsnjack.wallet.core.CardList
+import io.github.jsnjack.wallet.core.FlightProgress
 import io.github.jsnjack.wallet.core.FlightRef
+import io.github.jsnjack.wallet.core.UpNextReason
 import io.github.jsnjack.wallet.store.AppSettings
 import io.github.jsnjack.wallet.store.CardStore
 import io.github.jsnjack.wallet.store.FlightStore
@@ -54,12 +56,16 @@ class Surfaces(
         val shown = tiles(cards, agenda, now)
         val today = agenda.today(shown, now).firstOrNull()
         val live = today?.card?.let(FlightRef::of)?.let { flights.checks.value[it.id]?.flight }
-        Notifier.update(context, today, live, agenda.remindersDue(cards, now), settings)
+        val departure = today?.takeIf { it.reason == UpNextReason.FLIGHT }?.card?.event
+            ?.let { event -> live?.departure ?: event.time?.let { event.date.atTime(it) } }
+        val progress = FlightProgress.of(departure, live?.arrival, live?.state, now)
+        Notifier.update(context, today, live, progress, agenda.remindersDue(cards, now), settings)
         Widgets.update(context, agenda.upNext(shown, now).firstOrNull(), CardList.quickAccess(shown, store.usage.value, FAVOURITES))
         WalletTileService.requestUpdate(context)
         afterRefresh()
         // Last: when AgendaWorker runs this, replacing its own work cancels it.
-        schedule(Duration.between(now, agenda.nextChange(cards, now)))
+        val next = listOfNotNull(agenda.nextChange(cards, now), FlightProgress.nextUpdate(departure, progress, now)).min()
+        schedule(Duration.between(now, next))
     }
 
     /** The card the Quick Settings tile opens: the first "Up next" card, else the first favourite or most used card. */

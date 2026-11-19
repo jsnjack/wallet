@@ -41,7 +41,9 @@ With a key for AeroDataBox (see "Live flight info setup" below), a boarding
 pass also shows its gate, terminal, departure time and status, updated
 through the day of the flight, and after landing the baggage belt. The "Up
 next" row and the notification show them too, and a gate change, a new
-departure time or a cancellation sends an alert.
+departure time or a cancellation sends an alert. On Android 16 and newer the
+notification also shows the flight as a progress bar, from four hours before
+departure through boarding to landing, in One UI's Now Bar.
 
 An "Up next" row on top of the grid shows a boarding pass from the day
 before the flight, a ticket on the day of the event, or a voucher that

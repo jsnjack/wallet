@@ -42,6 +42,7 @@ app/src/main/java/io/github/jsnjack/wallet/
     LiveFlight.kt           FlightRef (one flight on one day), LiveFlight, FlightCheck, LookupProblem
     AeroDataBox.kt          AeroDataBox flight status JSON → LiveFlight
     FlightLookups.kt        When to look a flight up, monthly allowance, changes worth an alert
+    FlightProgress.kt       A flight's day as a 0–100 progress bar, and when to redraw it
     CardJson.kt             Card file format v2 (sync files, export bundle, database JSON columns)
     ExportCrypto.kt         Export file encryption: PBKDF2-HMAC-SHA256 + AES-256-GCM
   store/
@@ -66,7 +67,8 @@ app/src/main/java/io/github/jsnjack/wallet/
     Biometrics.kt           Framework BiometricPrompt (strong biometric or screen lock)
   surface/
     Surfaces.kt             Refresh of everything outside the app; AgendaWorker runs it at the next change
-    Notifier.kt             "Today" ongoing notification (Live Update on 36.1+), expiry reminders, flight change alerts
+    Notifier.kt             "Today" ongoing notification (Live Update on 36.1+, flight progress bar on 36+),
+                            expiry reminders, flight change alerts
     Widgets.kt              RemoteViews widgets: Up next (4×1) and Favourite cards (4×2)
     WalletTileService.kt    Quick Settings tile
   ui/
@@ -145,7 +147,10 @@ External services:
    result goes to `FlightStore`, fills in a pass's missing departure time,
    posts an alert for a gate, time or cancellation change, and refreshes
    the surfaces. A refused key or used-up quota stops lookups
-   (`LookupProblem`); other failures wait 10 minutes.
+   (`LookupProblem`); other failures wait 10 minutes. On Android 16 and
+   newer the "today" notification for a flight carries a
+   `Notification.ProgressStyle` bar from `FlightProgress`; `Surfaces`
+   schedules `AgendaWorker` every 10 minutes while the bar moves.
 
 ---
 
