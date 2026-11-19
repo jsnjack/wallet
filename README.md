@@ -107,6 +107,10 @@ a one-off step:
    "Testing" status Google drops the app's access seven days after you
    approve it, and sync stops.
 
+Until this is done, "Turn on sync" says the app is not registered (Google
+reports it as status 8). The SHA-1 must be the one of the key that signed the
+installed app; `apksigner verify --print-certs bin/wallet.apk` prints it.
+
 The `drive.appdata` scope is non-sensitive, so publishing should not need
 Google's app review.
 

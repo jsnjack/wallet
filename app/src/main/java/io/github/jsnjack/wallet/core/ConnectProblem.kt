@@ -18,15 +18,21 @@ enum class ConnectProblem {
     companion object {
         // Play services CommonStatusCodes, which the auth API reports.
         private const val NETWORK_ERROR = 7
+        private const val INTERNAL_ERROR = 8
         private const val DEVELOPER_ERROR = 10
         private const val CANCELED = 16
         private const val HTTP_UNAUTHORIZED = 401
         private const val HTTP_FORBIDDEN = 403
 
-        /** The problem for a Play services status code; null when the user cancelled, which is not a problem. */
+        /**
+         * The problem for a Play services status code; null when the user
+         * cancelled, which is not a problem. An unregistered app gets
+         * INTERNAL_ERROR (8) from the authorization API, with "not registered
+         * to use OAuth2.0" only in Google's own log, so 8 counts as not registered.
+         */
         fun fromAuthStatus(status: Int): ConnectProblem? = when (status) {
             CANCELED -> null
-            DEVELOPER_ERROR -> NOT_REGISTERED
+            DEVELOPER_ERROR, INTERNAL_ERROR -> NOT_REGISTERED
             NETWORK_ERROR -> NETWORK
             else -> OTHER
         }

@@ -11,14 +11,15 @@ class ConnectProblemTest {
     }
 
     @Test
-    fun developerErrorMeansTheAppIsNotRegistered() {
+    fun developerAndInternalErrorsMeanTheAppIsNotRegistered() {
         assertEquals(ConnectProblem.NOT_REGISTERED, ConnectProblem.fromAuthStatus(10))
+        assertEquals(ConnectProblem.NOT_REGISTERED, ConnectProblem.fromAuthStatus(8))
     }
 
     @Test
     fun networkAndUnknownAuthStatuses() {
         assertEquals(ConnectProblem.NETWORK, ConnectProblem.fromAuthStatus(7))
-        assertEquals(ConnectProblem.OTHER, ConnectProblem.fromAuthStatus(8))
+        assertEquals(ConnectProblem.OTHER, ConnectProblem.fromAuthStatus(13))
     }
 
     @Test

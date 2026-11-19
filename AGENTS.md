@@ -317,6 +317,10 @@ because their messages quote the response.
 - `Surfaces.refresh` schedules `AgendaWorker` with REPLACE last, after
   `FlightUpdater.schedule`: when AgendaWorker runs the refresh, the REPLACE
   cancels it, and any later suspending call would not run.
+- Google's authorization API reports an unregistered app (no OAuth client
+  for the package and signing SHA-1) as status 8, INTERNAL_ERROR; the real
+  reason is only in the Play services log (tag `Auth`, "not registered to
+  use OAuth2.0"). `ConnectProblem` treats 8 like 10 as not registered.
 - RapidAPI answers HTTP 429 both for the monthly quota and for more than
   one request a second; `AeroDataBoxClient` treats only a body that
   mentions "quota" as a used-up allowance.
