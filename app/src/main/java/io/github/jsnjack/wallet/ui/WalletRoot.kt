@@ -42,6 +42,23 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Button
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.pluralStringResource
+import io.github.jsnjack.wallet.platform.CodeBitmaps
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import io.github.jsnjack.wallet.R
 import io.github.jsnjack.wallet.core.Bcbp
 import io.github.jsnjack.wallet.platform.ReadCode
@@ -125,31 +142,83 @@ fun WalletRoot(vm: WalletViewModel) {
             }
         }
 
-        choices?.let { codes -> CodeChooser(codes, onPick = vm::onChosen, onDismiss = vm::dismissChoices) }
+        choices?.let { codes -> CodeChooser(codes, onPick = vm::onChosen, onAddAll = vm::addAllChoices, onDismiss = vm::dismissChoices) }
     }
 }
 
 private val SHEET_SCREENS = setOf(Screen.Settings, Screen.Archive)
 
-/** Several codes in one file: pick one from a sheet. */
+/**
+ * The codes found in one file, each with a small picture to match against
+ * it. When every code sits on its own page they are separate tickets, such
+ * as two people's tickets in one PDF: the sheet says so and adds them all,
+ * one form each, filled from its own page.
+ */
 @Composable
-private fun CodeChooser(codes: List<ReadCode>, onPick: (ReadCode) -> Unit, onDismiss: () -> Unit) {
+private fun CodeChooser(codes: List<ReadCode>, onPick: (ReadCode) -> Unit, onAddAll: () -> Unit, onDismiss: () -> Unit) {
     val today = LocalDate.now()
+    val tickets = codes.size > 1 && codes.map { it.page }.distinct().size == codes.size
     WalletSheet(onDismiss) {
-        Text(stringResource(R.string.choose_code_title), fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp, bottom = 6.dp))
+        Text(
+            if (tickets) pluralStringResource(R.plurals.choose_tickets_title, codes.size, codes.size) else stringResource(R.string.choose_code_title),
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 8.dp, bottom = 6.dp),
+        )
+        if (tickets) {
+            Button(onClick = onAddAll, modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
+                Text(if (codes.size == 2) stringResource(R.string.choose_add_both) else stringResource(R.string.choose_add_all, codes.size))
+            }
+        }
         Column(Modifier.verticalScroll(rememberScrollState())) {
-            codes.forEach { code ->
+            codes.forEachIndexed { index, code ->
                 val leg = Bcbp.parse(code.text, today)?.legs?.firstOrNull()
-                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable { onPick(code) }.padding(horizontal = 12.dp, vertical = 12.dp)) {
-                    Text(
-                        leg?.let { "${it.flight.code} · ${it.flight.from} → ${it.flight.to} · ${it.flight.passenger}" } ?: code.text,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        fontSize = 15.sp,
-                    )
-                    Text(code.format.label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).clickable { onPick(code) }.padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CodeThumbnail(code)
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            when {
+                                leg != null -> "${leg.flight.code} · ${leg.flight.from} → ${leg.flight.to} · ${leg.flight.passenger}"
+                                tickets -> stringResource(R.string.choose_ticket_row, index + 1, code.page + 1)
+                                else -> code.text
+                            },
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            fontSize = 15.sp,
+                        )
+                        Text(
+                            listOfNotNull(code.format.label, code.text.takeIf { tickets && leg == null }).joinToString(" · "),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
+        }
+    }
+}
+
+/** A small picture of [code] on white, drawn without smoothing like the printed one. */
+@Composable
+private fun CodeThumbnail(code: ReadCode) {
+    val bitmap by produceState<ImageBitmap?>(null, code) {
+        value = withContext(Dispatchers.Default) { CodeBitmaps.get(code.text, code.format)?.asImageBitmap() }
+    }
+    Box(Modifier.size(56.dp).clip(RoundedCornerShape(10.dp)).background(Color.White).padding(5.dp), contentAlignment = Alignment.Center) {
+        bitmap?.let {
+            Image(
+                it,
+                contentDescription = null,
+                contentScale = if (code.format.linear) ContentScale.FillBounds else ContentScale.Fit,
+                filterQuality = FilterQuality.None,
+                modifier = Modifier.fillMaxSize(),
+            )
         }
     }
 }

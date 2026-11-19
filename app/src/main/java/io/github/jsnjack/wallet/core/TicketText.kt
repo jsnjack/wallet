@@ -17,6 +17,7 @@ object TicketText {
     private const val MAX_LABEL = 30
     private const val MAX_NAME = 80
     private const val MIN_LETTERS = 3
+    private const val MAX_NAME_WORDS = 10
     private const val VENUE_LABEL = "Venue"
 
     private val LABEL = Regex("""^([^:]{2,$MAX_LABEL}):\s*(.*)$""")
@@ -28,7 +29,7 @@ object TicketText {
     private val POSTCODE_LINE = Regex("""^\d{4,5}\s?(?:[A-Z]{2}\s+)?(\p{Lu}[\p{L} '-]+)$""")
     private val HOUSE_NUMBER = Regex("""\s\d+\s?[A-Za-z]?$""")
     private val NOT_EVENT_DATE = Regex("""(?i)\b(order|besteld|bestel|gekocht|purchase|aankoop|printed|geprint|issued|uitgegeven|created|aangemaakt|geboren|born)""")
-    private val BOILERPLATE = Regex("""(?i)(www\.|https?:|@|\*|e-?ticket|toegangsbewijs|print (this|dit)|mobile ticket)""")
+    private val BOILERPLATE = Regex("""(?i)(www\.|https?:|@|\*|e-?ticket|toegangsbewijs|print (this|dit)|mobile ticket|\bterms\b|conditions|voorwaarden)""")
     private val ISSUERS = setOf("ticketmaster", "eventim", "see tickets", "ticketswap", "paylogic", "eventbrite", "ticketcounter", "ticketland")
 
     private val MONTHS = mapOf(
@@ -58,6 +59,18 @@ object TicketText {
     )
 
     private data class Line(val text: String, val label: String?, val value: String?)
+
+    /**
+     * The facts for a ticket printed on one [page] of a file: from that page,
+     * with the name and date taken from the whole [file] when the page lacks
+     * them. Null when there is no text at all.
+     */
+    fun readPage(page: String?, file: String?, today: LocalDate, code: String): TicketFacts? {
+        val own = page?.let { read(it, today, code) }
+        val all = file?.takeIf { it != page }?.let { read(it, today, code) }
+        if (own == null) return all
+        return own.copy(name = own.name ?: all?.name, event = own.event ?: all?.event)
+    }
 
     /** The facts in [text]; [code] is the ticket's code, whose printed copy is not a name. [today] picks the event date over others. */
     fun read(text: String, today: LocalDate, code: String = ""): TicketFacts {
@@ -160,6 +173,8 @@ object TicketText {
 
     private fun isName(text: String, code: String): Boolean {
         if (text.length > MAX_NAME || text.count(Char::isLetter) < MIN_LETTERS) return false
+        // Sentences and bullet points are terms and conditions, not an event's name.
+        if (text.endsWith('.') || text.startsWith('•') || text.split(' ').size > MAX_NAME_WORDS) return false
         if (text.count(Char::isDigit) * 2 >= text.length) return false
         if (text.lowercase() in ISSUERS || BOILERPLATE.containsMatchIn(text)) return false
         if (code.isNotEmpty() && text.contains(code)) return false

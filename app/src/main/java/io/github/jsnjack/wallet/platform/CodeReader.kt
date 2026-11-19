@@ -15,17 +15,21 @@ import zxingcpp.BarcodeReader
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
 
-/** A code read from the camera, an image or a PDF, in a format the app can draw again. */
-data class ReadCode(val text: String, val format: CodeFormat)
+/**
+ * A code read from the camera, an image or a PDF, in a format the app can
+ * draw again. [page] is where in the file it was found (0 for an image).
+ */
+data class ReadCode(val text: String, val format: CodeFormat, val page: Int = 0)
 
 /** Outcome of reading an image or a PDF. */
 sealed interface FileReadResult {
     /**
      * Every drawable code found, in page order, one per text (a ticket's QR
-     * code and barcode often hold the same text). [text] is the printed text
-     * of a PDF, on Android 15 and newer, for filling in the form.
+     * code and barcode often hold the same text). [pages] holds each PDF
+     * page's printed text, on Android 15 and newer, for filling in the form;
+     * it is empty for images.
      */
-    data class Found(val codes: List<ReadCode>, val text: String? = null) : FileReadResult
+    data class Found(val codes: List<ReadCode>, val pages: List<String?> = emptyList()) : FileReadResult
 
     /** Codes were found, but only in formats the app cannot draw. */
     data object Unsupported : FileReadResult
@@ -91,18 +95,21 @@ class CodeReader(liveCamera: Boolean) {
         } catch (e: SecurityException) {
             throw IOException("PDF is password protected", e)
         }
-        return summarize(pages.map { it.first }, pages.mapNotNull { it.second }.joinToString("\n").ifBlank { null })
+        return summarize(pages.map { it.first }, pages.map { it.second })
     }
 
     // The page's printed text; PdfRenderer offers it from Android 15 (API 35).
     private fun pageText(page: PdfRenderer.Page): String? =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) page.textContents.joinToString("\n") { it.text } else null
 
-    private fun summarize(bitmaps: List<Bitmap>, text: String? = null): FileReadResult {
-        val results = bitmaps.flatMap { bitmap -> reader.read(bitmap).filter { it.error == null && !it.text.isNullOrEmpty() } }
+    private fun summarize(bitmaps: List<Bitmap>, pages: List<String?> = emptyList()): FileReadResult {
+        val results = bitmaps.flatMapIndexed { page, bitmap ->
+            reader.read(bitmap).filter { it.error == null && !it.text.isNullOrEmpty() }.map { page to it }
+        }
         if (results.isEmpty()) return FileReadResult.Nothing
-        val codes = results.mapNotNull { r -> r.format.toCodeFormat()?.let { ReadCode(r.text!!, it) } }.distinct()
-        return if (codes.isEmpty()) FileReadResult.Unsupported else FileReadResult.Found(CodeChoice.onePerText(codes, { it.text }, { it.format }), text)
+        val codes = results.mapNotNull { (page, r) -> r.format.toCodeFormat()?.let { ReadCode(r.text!!, it, page) } }.distinct()
+        if (codes.isEmpty()) return FileReadResult.Unsupported
+        return FileReadResult.Found(CodeChoice.onePerText(codes, { it.text }, { it.format }), pages)
     }
 
     private fun decode(context: Context, uri: Uri): Bitmap {

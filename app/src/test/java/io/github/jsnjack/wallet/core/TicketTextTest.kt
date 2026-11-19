@@ -43,6 +43,22 @@ class TicketTextTest {
     }
 
     @Test
+    fun termsAreNoName() {
+        val terms = "The General Terms and Conditions of TICKETMASTER (please check: Ticketmaster.nl)\n" +
+            "• Only the first holder who can show an admission ticket at the entrance to the"
+        assertNull(TicketText.read(terms, today, code = "%TST/1234").name)
+    }
+
+    @Test
+    fun aPageWithoutTheEventBorrowsItFromTheFile() {
+        val facts = TicketText.readPage("Rij: 7\nStoel: 15", "Concert\nDatum: 3-12-2026 20:00\nRij: 7\nStoel: 14", today, "x")!!
+        assertEquals("Concert", facts.name)
+        assertEquals(DayTime(LocalDate.of(2026, 12, 3), LocalTime.of(20, 0)), facts.event)
+        assertEquals(listOf(Detail("Rij", "7"), Detail("Stoel", "15")), facts.details)
+        assertNull(TicketText.readPage(null, null, today, "x"))
+    }
+
+    @Test
     fun neverTakesTheBuyerOrderOrPrice() {
         val facts = TicketText.read(ticketmaster, today)
         val text = (listOfNotNull(facts.name) + facts.details.map { it.value }).joinToString()

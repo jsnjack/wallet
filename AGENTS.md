@@ -116,10 +116,13 @@ External services:
 4. **Import a file.** Shared or picked files go to `WalletViewModel.importFile`,
    which sniffs the bytes: a zip is read by `Pkpass`, `%PDF` pages are
    rendered and read by `CodeReader.readPdf`, anything else is read as an
-   image. Codes with the same text count once (`CodeChoice`). On Android 15+
-   `readPdf` also returns the pages' text, which `TicketText` turns into the
-   form's name, date and details (`CardDraft.withTicket`). Several codes
-   open a chooser that keeps the text for the code picked. `importScreenshots` reads many
+   image. Codes with the same text count once (`CodeChoice`). Each
+   `ReadCode` knows its page; on Android
+   15+ `readPdf` also returns each page's text, which `TicketText.readPage`
+   turns into the form's name, date and details (`CardDraft.withTicket`).
+   Several codes open a chooser with a picture of each; when every code is
+   on its own page it offers "Add both/all", which queues one form per code
+   (`addAllChoices`). `importScreenshots` reads many
    images (the Google Wallet route) and queues one form per card found.
 5. **Archive and agenda.** `Agenda` decides from `usedAt`, `expires` and,
    for tickets and boarding passes, `event` whether a card is archived; the
@@ -249,6 +252,11 @@ because their messages quote the response.
   Up next, shortcuts and the widget. A–Z reads like a page from the
   top-left (the user chose it over A–Z from the thumb); favourites keep
   their alphabetical place. Settings → "Card order" switches to most used.
+- **Several tickets in one file become one form each** (decided
+  2026-11-19 from a real Ticketmaster PDF: two pages, one ticket each, every
+  code printed four times). Each form is filled from its own page, so seats
+  stay right; a single shared form was rejected because edits would apply
+  to every ticket. The saved tickets group into one tile.
 - **Ticket details from PDF text, not image recognition** (decided
   2026-11-19). Android 15's `PdfRenderer.Page.getTextContents` reads
   e-ticket PDFs with no new library; text recognition for screenshots would

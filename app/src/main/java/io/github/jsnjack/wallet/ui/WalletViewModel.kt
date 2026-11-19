@@ -185,7 +185,7 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
 
     // What came with the file behind [choices], applied to whichever code is picked.
     private var choiceHint: String? = null
-    private var choiceText: String? = null
+    private var choicePages: List<String?> = emptyList()
 
     /** How long archived cards are kept. */
     val retention: StateFlow<Retention> = settings.retention
@@ -324,29 +324,47 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     // Adding cards
 
     /**
-     * A code was read by the camera or from a file. [ticketText] is the
-     * file's printed text, which can fill in a ticket's name, date and
+     * A code was read by the camera or from a file. [pages] is the file's
+     * printed text per page, which can fill in a ticket's name, date and
      * details; [nameHint] names the card when nothing else does, such as the
      * text that came with a card shared from another phone.
      */
-    fun onScanned(code: ReadCode, nameHint: String? = null, ticketText: String? = null) {
+    fun onScanned(code: ReadCode, nameHint: String? = null, pages: List<String?> = emptyList()) {
         dismissChoices()
-        val today = LocalDate.now(zone)
-        val scanned = CardDraft.scanned(code.text, code.format, today)
-            .let { draft -> ticketText?.let { draft.withTicket(TicketText.read(it, today, code.text)) } ?: draft }
-        val hint = nameHint?.lineSequence()?.firstOrNull()?.trim()?.take(MAX_NAME_HINT).orEmpty()
-        val draft = if (scanned.name.isBlank() && hint.isNotEmpty()) scanned.copy(name = hint) else scanned
+        val draft = draftFor(code, nameHint, pages, LocalDate.now(zone))
         if (_stack.value.lastOrNull() == Screen.Scan) showForm(draft, replaceTop = true) else openFormFromOutside(draft)
     }
 
     /** A code was picked from several in one file. */
-    fun onChosen(code: ReadCode) = onScanned(code, choiceHint, choiceText)
+    fun onChosen(code: ReadCode) = onScanned(code, choiceHint, choicePages)
+
+    /** Opens one form per code in the chooser, each filled from its own page, like several tickets in one PDF. */
+    fun addAllChoices() {
+        val codes = choices.value ?: return
+        val today = LocalDate.now(zone)
+        val drafts = codes.map { draftFor(it, choiceHint, choicePages, today) }
+        dismissChoices()
+        clearQueue()
+        queue.addAll(drafts.drop(1))
+        queued.value = queue.size
+        openFormFromOutside(drafts.first())
+    }
 
     /** Closes the chooser for files with several codes. */
     fun dismissChoices() {
         choices.value = null
         choiceHint = null
-        choiceText = null
+        choicePages = emptyList()
+    }
+
+    // The form for [code]: what its barcode says, then its page's text, then the hint for a name.
+    private fun draftFor(code: ReadCode, nameHint: String?, pages: List<String?>, today: LocalDate): CardDraft {
+        val file = pages.filterNotNull().joinToString("\n").ifBlank { null }
+        val facts = TicketText.readPage(pages.getOrNull(code.page), file, today, code.text)
+        val scanned = CardDraft.scanned(code.text, code.format, today)
+            .let { draft -> facts?.let(draft::withTicket) ?: draft }
+        val hint = nameHint?.lineSequence()?.firstOrNull()?.trim()?.take(MAX_NAME_HINT).orEmpty()
+        return if (scanned.name.isBlank() && hint.isNotEmpty()) scanned.copy(name = hint) else scanned
     }
 
     /**
@@ -426,10 +444,10 @@ class WalletViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun handleRead(result: FileReadResult, nameHint: String?) {
         when (result) {
             is FileReadResult.Found -> if (result.codes.size == 1) {
-                onScanned(result.codes.single(), nameHint, result.text)
+                onScanned(result.codes.single(), nameHint, result.pages)
             } else {
                 choiceHint = nameHint
-                choiceText = result.text
+                choicePages = result.pages
                 choices.value = result.codes
             }
             FileReadResult.Unsupported -> events.send(UiEvent.Message(R.string.message_unsupported_code))
