@@ -323,7 +323,7 @@ The places it learns stay on the phone and are not synced.</p>
   <li><strong>One layout for every card.</strong> Name, code and number always sit in the same place. Type-specific details (expiry, PIN, balance, seat, gate) go next to or below the code, never in front of it.</li>
   <li><strong>Works offline.</strong> Everything lives on the phone; Drive holds a synced copy.</li>
   <li><strong>Thumb zone.</strong> Search, scan and actions at the bottom, as in One UI; the top holds only titles.</li>
-  <li><strong>Scanner-friendly.</strong> White quiet zone around the code, brightness to maximum, screen kept awake while the code is shown.</li>
+  <li><strong>Scanner-friendly.</strong> White quiet zone around the code, full brightness one tap away, screen kept awake while the code is shown.</li>
 </ol>
 
 <h2 id="code-screen">The code screen</h2>
@@ -337,7 +337,7 @@ Swipe left or right to move to the next card without going back.</p>
   <div class="fig"><div class="phone"><div class="screen" data-static="concert"></div></div><div class="caption">Event ticket (QR): date, entrance, seat</div></div>
 </div>
 <ul>
-  <li><strong>Brightness:</strong> the screen goes to full brightness while the code is shown and returns to normal when you leave.</li>
+  <li><strong>Brightness:</strong> the code opens at the phone’s brightness, so looking through tickets does not glare. The “Full brightness” switch at the top turns it to maximum until the code screen closes; leaving the app returns to normal too. (Until 2026-11-20 every code opened at full brightness.)</li>
   <li><strong>Vouchers:</strong> a reminder the day before expiry; “Mark as used” moves the voucher to an archive.</li>
   <li><strong>Locked cards:</strong> any card can require a fingerprint. Gift cards default to locked because the number and PIN are spendable money.
   The balance stays visible; you update it by hand after shopping.</li>
@@ -620,7 +620,7 @@ so publishing should not need Google’s app review. The 7-day limit is describe
     <tr><td>Cold start to card grid</td><td>&lt; 400 ms</td><td>Baseline Profile (pre-compiled startup code), no splash animation, no heavy dependency injection at startup, cards read from the local database; sync starts after the first frame</td></tr>
     <tr><td>Warm start</td><td>&lt; 150 ms</td><td>Keep the activity light; no work in <code>onResume</code></td></tr>
     <tr><td>Tap card to code</td><td>1–2 frames</td><td>Code images are generated when a card is saved and cached; nothing on this path touches the network</td></tr>
-    <tr><td>Scanner reads code</td><td>First try</td><td>Full brightness, white quiet zone, screen kept awake, code drawn pixel-exact (no blurry scaling)</td></tr>
+    <tr><td>Scanner reads code</td><td>First try</td><td>White quiet zone, screen kept awake, code drawn pixel-exact (no blurry scaling), full brightness on a tap</td></tr>
   </tbody>
 </table>
 
@@ -630,7 +630,7 @@ flowchart LR
   I[App icon] --> G[Card grid]
   K[Side button double-press] --> G
   LS[Lock screen shortcut] --> G
-  G -->|1 tap| C[Code screen at full brightness]
+  G -->|1 tap| C[Code screen]
   S[Long-press icon: top 4 cards] --> C
   P[Card pinned to home screen] --> C
   T[Quick Settings tile] --> C

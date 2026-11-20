@@ -1,9 +1,8 @@
 # Wallet
 
 An Android app for loyalty cards, vouchers, tickets and boarding passes.
-Cards are stored on the phone and open in one tap, with the code at full
-screen brightness. Your phone's Google backup keeps a copy, with nothing to
-set up. The design and the plan for later versions are in
+Cards are stored on the phone and open in one tap. Your phone's Google
+backup keeps a copy, with nothing to set up. The design and the plan for later versions are in
 `docs/design-options.html`.
 
 ## Using it
@@ -14,7 +13,9 @@ bottom-right by your thumb. Cards with a date sit above the rest under
 "Coming up", soonest first: tickets and flights, and cards that start or end
 within 30 days. Each carries a chip saying when, such as "Today 20:30",
 "Fri 07:05", "Ends Sun" or "From 1 Dec". Tap a card to show its code; swipe
-down to close it. QR codes show at about the size Google Wallet uses, so a
+down to close it. The code opens at your normal screen brightness; tap
+"Full brightness" at the top when a scanner struggles, and it stays on until
+you close the code. QR codes show at about the size Google Wallet uses, so a
 till scanner held close sees all of the code; tap the code or "Larger code"
 to make it fill the width. Search and the add button sit at the bottom of
 the screen.

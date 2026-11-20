@@ -9,8 +9,8 @@
 
 `wallet` is an Android app (Kotlin, Jetpack Compose, personal sideload) for
 loyalty cards, vouchers, gift cards, tickets and boarding passes. Cards live
-in a local SQLite database and open in one tap at full brightness; the
-phone's Google backup keeps a copy. Time-based rules
+in a local SQLite database and open in one tap, with full brightness one
+more tap away; the phone's Google backup keeps a copy. Time-based rules
 archive used and past cards and surface the card needed next in the grid,
 a notification, two widgets and a Quick Settings tile. It is built for a
 Galaxy A56 on One UI 9 (Android 17). The design, decisions and plan are in
@@ -107,8 +107,9 @@ External services:
 1. **Open a card.** `WalletViewModel` loads `CardStore` on start; the first
    frame waits for it. A tap pushes `Screen.Code`; `CodeScreen` fixes its
    pages when it opens (the card's group from `CardGroups`, or the card
-   alone), sets full brightness and keeps the screen on, and counts a use
-   after one second on a page.
+   alone), keeps the screen on, and counts a use after one second on a
+   page. The "Full brightness" pill at the top switches full brightness on
+   for every page until the screen closes.
 2. **Add a card.** ＋ opens `ScanScreen` (CameraX + zxing-cpp). The first
    drawable code replaces the scanner with the form (`CardDraft.scanned`).
    Picked or shared images go through `CodeReader.readImage`; "Type number"
@@ -253,6 +254,15 @@ because their messages quote the response.
   full-width code was 5.7 cm. A tap on the code or "Larger code" fills the
   width on every page until the code screen closes. Barcodes and PDF417
   keep the full width, which is already close to Google Wallet's.
+- **Normal brightness, full brightness on a tap** (decided 2026-11-20).
+  Every card used to open at full brightness, which glared while the user
+  looked through tickets days ahead. The code screen now opens at the
+  phone's brightness; the "Full brightness" pill (a switch: outlined off,
+  filled on) turns it on for every page until the screen closes, like
+  "Larger code". A rule that brightened only cards due now (tills always,
+  tickets on the day, passes from the Up next window) was offered and
+  declined. The screen still stays awake on every code. The override is
+  a window attribute, so it ends when the app leaves the screen.
 - **Raw scan text.** `CodeReader` uses zxing-cpp's `PLAIN` text mode so GS1
   and similar codes can be drawn again exactly as read.
 - **Text colour by WCAG contrast.** White when it reaches 3:1 (large or bold
@@ -268,7 +278,9 @@ because their messages quote the response.
   the bottom; in "Most used" order the grid is right-to-left and bottom-up
   (`reverseLayout`, RTL with LTR content), so the most-used card sits
   bottom-right. Up next is fixed just above the favourites rail, in reach
-  and visible however far the grid scrolls. Nothing interactive sits at the top: the ⋯
+  and visible however far the grid scrolls. Nothing interactive sits at the
+  top except the code screen's "Full brightness" switch, which the user
+  chose to keep there (2026-11-20): the ⋯
   button opens a sheet with Archive, Settings and imports; long-press menus,
   confirmations, the code chooser, Settings and Archive are bottom sheets;
   the code screen closes with a swipe down (nested-scroll overscroll) or

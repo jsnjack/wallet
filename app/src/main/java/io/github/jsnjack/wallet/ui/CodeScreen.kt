@@ -51,8 +51,11 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
@@ -132,6 +135,8 @@ fun CodeScreen(vm: WalletViewModel, startId: String) {
     val pager = rememberPagerState(initialPage = startPage) { order.size }
     // Square codes start small, like Google Wallet's; "Larger code" makes every page full width until the screen closes.
     var large by remember(startId) { mutableStateOf(false) }
+    // Normal brightness, so looking through tickets does not glare; the pill at the top turns full brightness on until the screen closes.
+    var bright by remember(startId) { mutableStateOf(false) }
     var unlocked by remember { mutableStateOf(emptySet<String>()) }
     val activity = LocalActivity.current
     val context = LocalContext.current
@@ -139,7 +144,7 @@ fun CodeScreen(vm: WalletViewModel, startId: String) {
     val airports by produceState<Airports?>(null) { value = withContext(Dispatchers.IO) { AirportTable.get(context) } }
     val archivedIds = archived.map { it.first.id }.toSet()
 
-    MaxBrightness()
+    CodeWindow(bright)
     val current = vm.card(order[pager.settledPage])
     StatusBarIcons(dark = current != null && CardLooks.contentColor(current.color) == CardLooks.DARK_TEXT)
     LaunchedEffect(pager.settledPage) {
@@ -166,6 +171,8 @@ fun CodeScreen(vm: WalletViewModel, startId: String) {
             showCode = !card.locked || card.id in unlocked,
             large = large,
             onToggleLarge = { large = !large },
+            bright = bright,
+            onBrightChange = { bright = it },
             onClose = { vm.back() },
             onEdit = { vm.edit(card.id) },
             onShare = { vm.shareCard(card.id) },
@@ -201,6 +208,8 @@ private fun CodePage(
     showCode: Boolean,
     large: Boolean,
     onToggleLarge: () -> Unit,
+    bright: Boolean,
+    onBrightChange: (Boolean) -> Unit,
     onClose: () -> Unit,
     onEdit: () -> Unit,
     onShare: () -> Unit,
@@ -249,16 +258,26 @@ private fun CodePage(
                 Box(Modifier.size(width = 36.dp, height = 4.dp).clip(RoundedCornerShape(2.dp)).background(content.copy(alpha = 0.45f)))
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.code_swipe_hint), color = content.copy(alpha = 0.7f), fontSize = 12.sp, modifier = Modifier.weight(1f))
+                Text(
+                    stringResource(if (archived) R.string.code_archived else R.string.code_swipe_hint),
+                    color = content.copy(alpha = 0.7f),
+                    fontSize = 12.sp,
+                    modifier = Modifier.weight(1f),
+                )
+                // A switch: outlined while off, filled in the text colour while on. Compose widens its touch area to 48 dp.
+                val ink = if (bright) Color(card.color) else content
+                val pill = RoundedCornerShape(50)
                 Row(
-                    Modifier.clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.16f)).padding(horizontal = 10.dp, vertical = 5.dp),
+                    Modifier
+                        .clip(pill)
+                        .then(if (bright) Modifier.background(content) else Modifier.border(1.dp, content.copy(alpha = 0.5f), pill))
+                        .toggleable(value = bright, role = Role.Switch, onValueChange = onBrightChange)
+                        .padding(horizontal = 10.dp, vertical = 5.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (!archived) {
-                        Icon(painterResource(R.drawable.ic_brightness), contentDescription = null, tint = content, modifier = Modifier.size(15.dp))
-                        Spacer(Modifier.width(5.dp))
-                    }
-                    Text(stringResource(if (archived) R.string.code_archived else R.string.code_brightness), color = content, fontSize = 12.sp)
+                    Icon(painterResource(R.drawable.ic_brightness), contentDescription = null, tint = ink, modifier = Modifier.size(15.dp))
+                    Spacer(Modifier.width(5.dp))
+                    Text(stringResource(R.string.code_brightness), color = ink, fontSize = 12.sp)
                 }
             }
 
@@ -583,18 +602,25 @@ private fun copy(context: Context, card: Card) {
     context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(clip)
 }
 
-/** Full screen brightness and no screen timeout while a code is shown. */
+/**
+ * No screen timeout while a code is shown, and full brightness while [bright] is on.
+ * The brightness belongs to the app's window, so leaving the app or locking the phone
+ * brings the system brightness back.
+ */
 @Composable
-private fun MaxBrightness() {
+private fun CodeWindow(bright: Boolean) {
     val activity = LocalActivity.current ?: return
     DisposableEffect(activity) {
         val window = activity.window
-        val previous = window.attributes.screenBrightness
-        window.attributes = window.attributes.apply { screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        onDispose { window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+    }
+    DisposableEffect(activity, bright) {
+        val window = activity.window
+        val previous = window.attributes.screenBrightness
+        if (bright) window.attributes = window.attributes.apply { screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL }
         onDispose {
-            window.attributes = window.attributes.apply { screenBrightness = previous }
-            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            if (bright) window.attributes = window.attributes.apply { screenBrightness = previous }
         }
     }
 }
