@@ -150,8 +150,9 @@ https://github.com/jsnjack/wallet/releases. Commit and push `master`, then
 run `make release`; it runs the checks, builds a release APK (minified, not
 debuggable), signs it with the personal key (`~/.android/debug.keystore`,
 alias `androiddebugkey`, certificate SHA-256 `53d59ccc…13ebf`) and uploads
-it as `wallet.apk` to the app's GitHub release. To install an update,
-download `wallet.apk` from the latest release. Local builds are signed with
+it as `wallet.apk` to the app's GitHub release and to the install page
+https://jsnjack.github.io/android-apps/. To install an update, open that page on the phone and tap
+Install under Wallet. Local builds are signed with
 the same key, so a release installs over a local build and keeps the cards.
 Earlier published builds got a version code of at least 15001; a local build
 installed over a released one needs a version code at least as high.

@@ -172,7 +172,8 @@ make test         # JVM unit tests (core/)
 make logs         # adb logcat -s Wallet
 make airports     # refresh assets/airports.tsv from OurAirports
 make release-apk  # minified, non-debuggable APK signed with the personal key → bin/release/wallet.apk
-make release      # check, build the signed release APK, upload it to the GitHub release
+make release      # check, build the signed release APK, upload it to the GitHub release and the install page
+make publish-apk  # put the signed APK on the install page again (retry)
 ```
 
 The Makefile uses `JAVA_HOME`, else a JDK 21 in `~/.jdks` (README.md). The
@@ -208,7 +209,9 @@ Releases: the only published build is the APK on the GitHub release.
 builds the APK with `make release-apk` (`assembleRelease` with R8 minify and
 resource shrinking, signed with `apksigner` and the debug keystore, then
 verified) and uploads `bin/release/wallet.apk` with `grm` to the release
-`v<monova version>`. Installing an update means downloading that APK. The
+`v<monova version>`, then `make publish-apk` replaces `wallet.apk` on the
+install page https://jsnjack.github.io/android-apps/ (needs an authenticated `gh`). Installing an
+update means tapping Install there. The
 first release build (0.15.0) was signed locally the same way, installed over
 the phone's debug build and started with no crash. Earlier published builds
 got a version code of at least 15001 (a floor of 15000 plus one); a local
