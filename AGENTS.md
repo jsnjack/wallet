@@ -209,8 +209,8 @@ Releases: the only published build is the APK on the GitHub release.
 builds the APK with `make release-apk` (`assembleRelease` with R8 minify and
 resource shrinking, signed with `apksigner` and the debug keystore, then
 verified) and uploads `bin/release/wallet.apk` with `grm` to the release
-`v<monova version>`, then `make publish-apk` puts it on the install page
-https://jsnjack.github.io/android-apps/ (needs `gh`), where updates install. The
+`v<monova version>`; `make publish-apk` puts it on the install page
+(jsnjack/android-apps). The
 first release build (0.15.0) was signed locally the same way, installed over
 the phone's debug build and started with no crash. Earlier published builds
 got a version code of at least 15001 (a floor of 15000 plus one); a local
