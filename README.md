@@ -145,15 +145,13 @@ the times. Settings → Live flight info turns it off.
 
 ## Releases
 
-Wallet is published in the personal F-Droid repository at
-https://jsnjack.github.io/android-apps/ (configured in
-`jsnjack/android-apps`). Commit and push `master`, then run `make release`;
-it runs the checks, uploads a release APK (minified, not debuggable, signed
-with the personal key) to the app's GitHub release and starts
-F-Droid publication for that exact commit. The publisher builds an optimised
-release APK and signs it with the same personal key as local builds, so a
-repository update installs over a local build and keeps the cards.
-Repository builds get a version code of at least 15001; a local build
-installed over one must not be lower. If the GitHub release succeeds but the F-Droid trigger
-fails, retry with `make fdroid-publish` and follow the deployment in
-https://github.com/jsnjack/android-apps/actions/workflows/publish.yml.
+Wallet is published only as a signed APK on its GitHub releases:
+https://github.com/jsnjack/wallet/releases. Commit and push `master`, then
+run `make release`; it runs the checks, builds a release APK (minified, not
+debuggable), signs it with the personal key (`~/.android/debug.keystore`,
+alias `androiddebugkey`, certificate SHA-256 `53d59ccc…13ebf`) and uploads
+it as `wallet.apk` to the app's GitHub release. To install an update,
+download `wallet.apk` from the latest release. Local builds are signed with
+the same key, so a release installs over a local build and keeps the cards.
+Earlier published builds got a version code of at least 15001; a local build
+installed over a released one needs a version code at least as high.

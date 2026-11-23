@@ -6,7 +6,6 @@ RELEASE_APK := app/build/outputs/apk/release/app-release-unsigned.apk
 # The personal app key: the debug keystore that local builds and every
 # published build are signed with (AGENTS.md, "Signing").
 KEYSTORE ?= $(HOME)/.android/debug.keystore
-FDROID_REPO := jsnjack/android-apps
 
 version:
 ifdef MONOVA
@@ -65,15 +64,13 @@ standards:
 	    -o AGENTS.android.md
 
 release-preflight:
-	@command -v gh >/dev/null 2>&1 || { echo "Install GitHub CLI with: sudo dnf install gh"; exit 1; }
-	@gh auth status --hostname github.com >/dev/null
 	@test -z "$$(git status --porcelain)" || { echo "Commit your changes and push master before make release."; exit 1; }
 	@test "$$(git rev-parse HEAD)" = "$$(git ls-remote origin refs/heads/master | cut -f1)" || { echo "Push this commit to origin/master before make release."; exit 1; }
 
-# The APK for the GitHub release: minified and not debuggable, like the
-# F-Droid build, and signed with the personal key so it installs over the
-# published app. The debug APK from `make build` stays local: installed over
-# the real app it would let adb read the card database.
+# The APK for the GitHub release: minified and not debuggable, and signed
+# with the personal key so it installs over the published app. The debug APK
+# from `make build` stays local: installed over the real app it would let adb
+# read the card database.
 release-apk: version
 	$(GRADLE) :app:assembleRelease
 	@mkdir -p bin/release
@@ -86,13 +83,8 @@ release-apk: version
 
 release: release-preflight check release-apk
 	grm release jsnjack/$(BINARY) -f bin/release/$(BINARY).apk -t "v`monova`"
-	$(MAKE) fdroid-publish
-
-fdroid-publish: version
-	gh workflow run publish.yml --repo $(FDROID_REPO) -f app=$(BINARY) -f revision="$$(git rev-parse HEAD)" -f release_version=$(VERSION)
-	@echo "F-Droid publication queued: https://github.com/$(FDROID_REPO)/actions/workflows/publish.yml"
 
 clean:
 	rm -rf app/build build bin/
 
-.PHONY: version test lint build check install logs airports standards release-preflight release-apk release fdroid-publish clean
+.PHONY: version test lint build check install logs airports standards release-preflight release-apk release clean

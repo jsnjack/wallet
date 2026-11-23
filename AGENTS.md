@@ -172,8 +172,7 @@ make test         # JVM unit tests (core/)
 make logs         # adb logcat -s Wallet
 make airports     # refresh assets/airports.tsv from OurAirports
 make release-apk  # minified, non-debuggable APK signed with the personal key → bin/release/wallet.apk
-make release      # check, upload the release APK to GitHub, then queue F-Droid publication (jsnjack/android-apps)
-make fdroid-publish  # retry F-Droid publication for the current commit
+make release      # check, build the signed release APK, upload it to the GitHub release
 ```
 
 The Makefile uses `JAVA_HOME`, else a JDK 21 in `~/.jdks` (README.md). The
@@ -197,23 +196,25 @@ card, biometric unlock, the widgets, sharing, the flight progress bar and
 live flight info. The Quick Settings tile was tested with
 `cmd statusbar add-tile` / `click-tile` and removed again.
 
-Signing: local builds use the debug keystore, which is also the personal app
-key that `jsnjack/android-apps` signs every published app with (alias
-`androiddebugkey`, certificate SHA-256 `53d59ccc…13ebf`). So repository
-builds update a locally installed build in place and keep its cards, and
+Signing: local builds and every release use the debug keystore
+(`~/.android/debug.keystore`), the personal app key (alias
+`androiddebugkey`, certificate SHA-256 `53d59ccc…13ebf`). So a release
+updates a locally installed build in place and keeps its cards, and
 Google backup restores into either. Android refuses an update signed with
 another key; moving to a new key means export, uninstall, install, import.
 
-Releases: the publisher builds `assembleRelease` (R8 minify and resource
-shrinking) at the released commit and verifies package, version, certificate
-and that it is not debuggable. The first release build (0.15.0) was signed
-locally the same way, installed over the phone's debug build and started
-with no crash. The published version code is the higher of `version_floor`
-(15000 in `apps.json`) plus one and the `make release` mapping; local
-builds installed afterwards must not be lower. The GitHub release carries
-the same kind of APK (`make release-apk`: `assembleRelease`, signed with
-`apksigner` and the debug keystore); the debug APK stays local, because
-installed over the real app it would let `run-as` read the card database.
+Releases: the only published build is the APK on the GitHub release.
+`make release` checks that the tree is clean and pushed, runs `make check`,
+builds the APK with `make release-apk` (`assembleRelease` with R8 minify and
+resource shrinking, signed with `apksigner` and the debug keystore, then
+verified) and uploads `bin/release/wallet.apk` with `grm` to the release
+`v<monova version>`. Installing an update means downloading that APK. The
+first release build (0.15.0) was signed locally the same way, installed over
+the phone's debug build and started with no crash. Earlier published builds
+got a version code of at least 15001 (a floor of 15000 plus one); a local
+build installed over a released one needs a version code at least as high.
+The debug APK stays local, because installed over the real app it would let
+`run-as` read the card database.
 
 Logging: tag `Wallet`. Log counts, HTTP status codes and error
 messages only; card names, numbers, notes and account addresses are
