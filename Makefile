@@ -6,6 +6,10 @@ RELEASE_APK := app/build/outputs/apk/release/app-release-unsigned.apk
 # The personal app key: the debug keystore that local builds and every
 # published build are signed with (AGENTS.md, "Signing").
 KEYSTORE ?= $(HOME)/.android/debug.keystore
+# SHA-256 of the app key's certificate. Every machine that releases needs the
+# keystore holding it: an APK signed with another key cannot update the
+# installed app ("App not installed"), so release-apk refuses it.
+APP_CERT_SHA256 := 53d59cccec238bea3efb034a95734a69134d15b220330c2bab7ebedbb6613ebf
 
 version:
 ifdef MONOVA
@@ -79,7 +83,14 @@ release-apk: version
 	SIGNER=$${ANDROID_HOME:-$$(sed -n 's/^sdk.dir=//p' local.properties 2>/dev/null)}/build-tools/37.0.0/apksigner; \
 	"$$SIGNER" sign --ks $(KEYSTORE) --ks-pass pass:android --ks-key-alias androiddebugkey \
 	  --out bin/release/$(BINARY).apk $(RELEASE_APK); \
-	"$$SIGNER" verify bin/release/$(BINARY).apk
+	"$$SIGNER" verify bin/release/$(BINARY).apk; \
+	CERT=$$("$$SIGNER" verify --print-certs bin/release/$(BINARY).apk 2>/dev/null | sed -n 's/.*certificate SHA-256 digest: //p' | head -1); \
+	if [ "$$CERT" != "$(APP_CERT_SHA256)" ]; then \
+	  rm -f bin/release/$(BINARY).apk bin/release/$(BINARY).apk.idsig; \
+	  echo "$(KEYSTORE) signs with certificate $$CERT, not the app key $(APP_CERT_SHA256)."; \
+	  echo "Copy the keystore holding the app key from the machine that signed earlier releases to $(KEYSTORE)."; \
+	  exit 1; \
+	fi
 
 release: release-preflight check release-apk
 	grm release jsnjack/$(BINARY) -f bin/release/$(BINARY).apk -t "v`monova`"

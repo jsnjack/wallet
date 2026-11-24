@@ -203,6 +203,8 @@ Signing: local builds and every release use the debug keystore
 updates a locally installed build in place and keeps its cards, and
 Google backup restores into either. Android refuses an update signed with
 another key; moving to a new key means export, uninstall, install, import.
+Every machine that releases needs that same keystore: `release-apk` refuses
+an APK whose certificate differs from `APP_CERT_SHA256` in the Makefile.
 
 Releases: the only published build is the APK on the GitHub release.
 `make release` checks that the tree is clean and pushed, runs `make check`,
